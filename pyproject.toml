@@ -1,0 +1,77 @@
+[project]
+name = "vinastudio"
+version = "0.1.0"
+description = "Modern desktop workbench for AutoDock Vina docking, built with PySide6 + Vue 3"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "MIT" }
+authors = [{ name = "VinaStudio Contributors" }]
+
+dependencies = [
+    # Desktop shell
+    "pyside6>=6.7",
+    # Local API server
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "python-multipart>=0.0.12",
+    # Docking engine + molecular toolkit
+    "vina>=1.2.7",
+    "meeko>=0.7.1",
+    "rdkit>=2024.3.1",
+    "numpy>=1.26",
+    "scipy>=1.13",
+    "gemmi>=0.7.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
+    "ruff>=0.7",
+]
+
+[project.scripts]
+vinastudio = "vinastudio.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["vinastudio"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"vinastudio/server/static" = "vinastudio/server/static"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = ["slow: exercises the real scientific stack and takes seconds"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    # Starlette 1.x nudges callers towards httpx2; the httpx-based TestClient
+    # still works and is what FastAPI documents.
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = ["web", "vinastudio/server/static", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "BLE"]
+ignore = [
+    "E501",
+    # The interface ships Chinese text, where full-width punctuation is correct.
+    "RUF001",
+    "RUF002",
+    "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# FastAPI's dependency markers are argument defaults by design, not
+# mutable-default bugs.
+"vinastudio/server/**" = ["B008"]

@@ -1,0 +1,4 @@
+allowBuilds:
+  # Native file watcher only; Vite uses chokidar for HMR, so the postinstall
+  # build script is unnecessary and its absence keeps `pnpm install` quiet.
+  '@parcel/watcher': false

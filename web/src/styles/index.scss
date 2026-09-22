@@ -1,0 +1,253 @@
+/* Design tokens + global reset + Element Plus alignment.
+   Dark is the default theme for the workbench: molecular rendering reads better
+   on a dark stage, and it matches the desktop chrome. */
+
+:root {
+  --vs-bg-app: #f4f6fb;
+  --vs-bg-surface: #ffffff;
+  --vs-bg-sunken: #eaeff7;
+  --vs-border: #d9e2ef;
+  --vs-border-strong: #c2cee0;
+  --vs-text: #14202f;
+  --vs-text-muted: #5a6b84;
+  --vs-text-faint: #8798ae;
+
+  --vs-accent: #12897f;
+  --vs-accent-hover: #0e7269;
+  --vs-accent-soft: rgba(18, 137, 127, 0.12);
+  --vs-info: #3b74c4;
+  --vs-success: #3f9b4c;
+  --vs-warning: #c58a1a;
+  --vs-danger: #c8453f;
+
+  --vs-radius-sm: 6px;
+  --vs-radius: 10px;
+  --vs-radius-lg: 14px;
+  --vs-shadow-sm: 0 1px 2px rgba(16, 30, 54, 0.06);
+  --vs-shadow: 0 6px 20px rgba(16, 30, 54, 0.08);
+  --vs-shadow-lg: 0 18px 44px rgba(9, 18, 35, 0.16);
+
+  --vs-font-ui:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', 'PingFang SC',
+    'Microsoft YaHei', Roboto, 'Helvetica Neue', sans-serif;
+  --vs-font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, Consolas, monospace;
+
+  --vs-header-height: 56px;
+  --vs-statusbar-height: 30px;
+  --vs-sidebar-width: 216px;
+  --vs-sidebar-width-collapsed: 60px;
+}
+
+html.dark {
+  --vs-bg-app: #0d1526;
+  --vs-bg-surface: #151f36;
+  --vs-bg-sunken: #0a1120;
+  --vs-border: #24314f;
+  --vs-border-strong: #33436a;
+  --vs-text: #e6edf7;
+  --vs-text-muted: #93a4c0;
+  --vs-text-faint: #6b7d9b;
+
+  --vs-accent: #4fd1c5;
+  --vs-accent-hover: #6fdcd2;
+  --vs-accent-soft: rgba(79, 209, 197, 0.14);
+  --vs-info: #5a8fd6;
+  --vs-success: #63c76a;
+  --vs-warning: #f2b544;
+  --vs-danger: #e0675f;
+
+  --vs-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --vs-shadow: 0 8px 24px rgba(0, 0, 0, 0.36);
+  --vs-shadow-lg: 0 22px 52px rgba(0, 0, 0, 0.5);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--vs-font-ui);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--vs-text);
+  background: var(--vs-bg-app);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+code,
+pre,
+.vs-mono {
+  font-family: var(--vs-font-mono);
+  font-size: 12.5px;
+}
+
+a {
+  color: var(--vs-accent);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--vs-accent-hover);
+  text-decoration: underline;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--vs-border-strong);
+  border: 2px solid transparent;
+  border-radius: 6px;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--vs-text-faint);
+  background-clip: content-box;
+}
+
+/* Element Plus is themed through its own variables so its components blend in. */
+:root,
+html.dark {
+  --el-color-primary: var(--vs-accent);
+  --el-color-primary-light-3: var(--vs-accent);
+  --el-color-primary-light-5: var(--vs-accent);
+  --el-color-primary-light-7: var(--vs-accent-soft);
+  --el-color-primary-light-8: var(--vs-accent-soft);
+  --el-color-primary-light-9: var(--vs-accent-soft);
+  --el-color-primary-dark-2: var(--vs-accent-hover);
+  --el-color-success: var(--vs-success);
+  --el-color-warning: var(--vs-warning);
+  --el-color-danger: var(--vs-danger);
+  --el-color-error: var(--vs-danger);
+  --el-color-info: var(--vs-info);
+  --el-border-radius-base: var(--vs-radius-sm);
+  --el-font-family: var(--vs-font-ui);
+}
+
+html.dark {
+  --el-bg-color: var(--vs-bg-surface);
+  --el-bg-color-overlay: var(--vs-bg-surface);
+  --el-bg-color-page: var(--vs-bg-app);
+  --el-text-color-primary: var(--vs-text);
+  --el-text-color-regular: var(--vs-text-muted);
+  --el-text-color-secondary: var(--vs-text-faint);
+  --el-border-color: var(--vs-border);
+  --el-border-color-light: var(--vs-border);
+  --el-border-color-lighter: var(--vs-border);
+  --el-fill-color-blank: var(--vs-bg-surface);
+}
+
+.vs-card {
+  background: var(--vs-bg-surface);
+  border: 1px solid var(--vs-border);
+  border-radius: var(--vs-radius-lg);
+  box-shadow: var(--vs-shadow-sm);
+}
+
+.vs-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--vs-border);
+}
+
+.vs-card__title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.vs-card__subtitle {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--vs-text-faint);
+}
+
+.vs-card__body {
+  padding: 16px 18px;
+}
+
+.vs-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px 24px 32px;
+  height: 100%;
+  overflow: auto;
+}
+
+.vs-page__head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.vs-page__title {
+  font-size: 20px;
+}
+
+.vs-page__subtitle {
+  margin-top: 4px;
+  color: var(--vs-text-muted);
+  font-size: 13px;
+}
+
+.vs-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.vs-muted {
+  color: var(--vs-text-muted);
+}
+
+.vs-faint {
+  color: var(--vs-text-faint);
+}
+
+.vs-mono-block {
+  padding: 10px 12px;
+  background: var(--vs-bg-sunken);
+  border: 1px solid var(--vs-border);
+  border-radius: var(--vs-radius-sm);
+  word-break: break-all;
+}
+
+.vs-fade-enter-active,
+.vs-fade-leave-active {
+  transition: opacity 0.18s ease;
+}
+
+.vs-fade-enter-from,
+.vs-fade-leave-to {
+  opacity: 0;
+}

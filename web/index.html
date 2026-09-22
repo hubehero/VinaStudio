@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <title>VinaStudio</title>
+    <style>
+      [v-cloak] {
+        display: none !important;
+      }
+      #boot-splash {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: #0d1526;
+        color: #7f94b4;
+        font: 14px/1.6 -apple-system, "Segoe UI", "Noto Sans SC", sans-serif;
+      }
+      #boot-splash .ring {
+        width: 34px;
+        height: 34px;
+        margin: 0 auto 18px;
+        border-radius: 50%;
+        border: 3px solid #24314f;
+        border-top-color: #4fd1c5;
+        animation: boot-spin 0.9s linear infinite;
+      }
+      @keyframes boot-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="boot-splash">
+      <div>
+        <div class="ring"></div>
+        <!-- Language-neutral: this renders before i18n can have a preference. -->
+        <div>VinaStudio</div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
