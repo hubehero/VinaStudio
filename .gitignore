@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Frontend
+node_modules/
+web/dist/
+.vite/
+
+# Built web assets shipped inside the Python package (regenerate with
+# `python scripts/build_web.py`); the directory itself stays tracked.
+vinastudio/server/static/*
+!vinastudio/server/static/.gitkeep
+
+# Application runtime data
+.vinastudio/
+*.vinaproj
+jobs/
+vinastudio/resources/validation/
+
+# Extra validation sample set
+sample/receptors/
+sample/ligands/
+sample/pdbqt/
+sample/projects/
+
+# Packaging
+build/
+dist/
+*.spec
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+
+# Test artifacts
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Review/audit artifacts
+.oy/
+REVIEW.md
+ISSUES.md
+AGENTS.md
+
+# Session exports
+command-code-session-*.html
