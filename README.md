@@ -1,65 +1,63 @@
 # VinaStudio
 
-A modern desktop workbench for **AutoDock Vina** docking: a Vue 3 + 3Dmol.js
-interface running inside a **PySide6** embedded browser, backed by the official
-`vina` Python API and **Meeko** for molecular parameterisation and format
-conversion.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
+[![AutoDock Vina](https://img.shields.io/badge/AutoDock-Vina-1.2.7-green.svg)](https://vina.scripps.edu/)
 
-Chinese documentation: [README.zh-CN.md](README.zh-CN.md)
-**User Guide (step-by-step for beginners)**: [docs/USER_GUIDE.md](docs/USER_GUIDE.md)
+A modern desktop workbench for **AutoDock Vina** molecular docking, providing a graphical interface for receptor/ligand preparation, binding-site definition, docking execution, and result analysis.
+
+**基于 AutoDock Vina 开发的现代分子对接桌面工作台。**
+
+[中文文档](README.zh-CN.md) | [用户指南](docs/USER_GUIDE.md) | [架构文档](docs/ARCHITECTURE.md)
 
 ---
 
-## What it is
+## Features
 
-AUTO Dock Vina is excellent but command-line only, and its Python API is a set
-of blocking calls. VinaStudio wraps both in a desktop application that is
-pleasant to use and stays scientifically honest:
-
-- **Receptor and ligand preparation** — PDB/CIF → PDBQT for receptors,
-  MOL/SDF/MOL2 → PDBQT for ligands via Meeko. Inputs that are 2D or lack
-  hydrogens are embedded and protonated before parameterisation.
-- **Binding-site definition** — automatic bounding box from a ligand or a
-  residue selection, or explicit centre and size, rendered and editable in 3D.
-- **Docking** — Vina, Vinardo and AutoDock4 scoring functions with the full
-  parameter surface exposed, live progress and streamed logs, and real
-  cancellation.
-- **Analysis** — pose ranking, per-pose energy decomposition, geometric
-  interaction detection (hydrogen bonds, salt bridges, π-stacking, hydrophobic
-  contacts) drawn as 3D annotations.
-- **Bilingual** — Chinese and English, Chinese by default.
+- **Receptor & Ligand Preparation** — PDB/CIF/mmCIF → PDBQT for receptors, MOL/SDF/MOL2/PDB → PDBQT for ligands via Meeko
+- **Binding-Site Definition** — automatic or manual docking box with 3D visualization
+- **Molecular Docking** — Vina, Vinardo, and AutoDock4 scoring functions with full parameter control
+- **Batch Docking** — process multiple ligands with CSV export
+- **Result Analysis** — pose ranking, energy decomposition, interaction detection (H-bonds, hydrophobic, ionic)
+- **3D Visualization** — interactive molecular viewer with multiple representation styles
+- **RCSB PDB Integration** — download receptors and ligands directly from the PDB database
+- **Project Management** — save and restore docking projects
+- **Bilingual UI** — Chinese and English support
 
 ## Requirements
 
-- Linux, macOS or Windows
+- Linux, macOS, or Windows
 - Python 3.12
-- [uv](https://docs.astral.sh/uv/)
-- Node.js 20+ and [pnpm](https://pnpm.io/) (only to build the interface)
+- [uv](https://docs.astral.sh/uv/) (package manager)
+- Node.js 20+ and [pnpm](https://pnpm.io/) (for building the frontend)
 
-## Install and run
+## Quick Start
 
 ```bash
-uv sync --extra dev          # create .venv and install the scientific stack
-pnpm -C web install          # interface dependencies
-pnpm -C web build            # build the interface into vinastudio/server/static
-uv run python -m vinastudio  # launch the desktop application
-```
+# Clone the repository
+git clone https://github.com/hubehero/VinaStudio.git
+cd VinaStudio
 
-`scripts/build_web.py` wraps the two pnpm steps.
+# Install dependencies
+uv sync --extra dev
+
+# Build the frontend
+pnpm -C web install
+pnpm -C web build
+
+# Launch the application
+uv run python -m vinastudio
+```
 
 ## Development
 
-Run the interface with hot reload against a live API:
+Run with hot reload:
 
 ```bash
 uv run python scripts/dev.py
 ```
 
-This starts the API on a fixed loopback port, the Vite dev server, and the Qt
-window pointed at Vite. Edit anything under `web/src` and the window updates
-without a restart.
-
-Run the checks:
+Run tests and linters:
 
 ```bash
 uv run pytest -q
@@ -69,47 +67,98 @@ pnpm -C web typecheck
 
 ## Architecture
 
-Three layers with strict boundaries:
+| Layer | Location | Description |
+|-------|----------|-------------|
+| Desktop Shell | `vinastudio/desktop/` | PySide6 window, native menus, QWebChannel bridge |
+| API Server | `vinastudio/server/` | FastAPI on loopback, WebSocket job streaming |
+| Domain Core | `vinastudio/core/` | Docking, preparation, and analysis logic |
+| Frontend | `web/` | Vue 3 + 3Dmol.js SPA |
 
-| Layer | Location | Responsibility |
-|---|---|---|
-| Desktop shell | `vinastudio/desktop/` | Qt window, native menus, QWebChannel bridge |
-| API server | `vinastudio/server/` | FastAPI on loopback, serves the SPA, streams job events over WebSocket |
-| Domain core | `vinastudio/core/` | Docking, preparation and analysis logic — no Qt, no FastAPI, fully unit-testable |
-| Interface | `web/` | Vue 3 SPA rendered by the embedded Chromium |
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed design decisions.
 
-Three constraints shape everything else, and are documented in
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md):
+## Supported Formats
 
-1. The interface is served over **local HTTP**, never `file://`, because ES
-   modules are blocked by CORS on the file scheme.
-2. Docking runs in **spawned child processes** — Vina has no cancellation API,
-   so killing the process is the only way to stop a job, and `fork` is unsafe
-   next to a live Qt event loop.
-3. **PDBQT is never rendered directly.** 3Dmol.js does not parse it, and PDBQT
-   carries no bond orders. Poses are converted to SDF by Meeko, which restores
-   bond orders and formal charges from the SMILES recorded in the PDBQT header.
+| Type | Input Formats |
+|------|---------------|
+| Ligands | `.sdf`, `.mol`, `.mol2`, `.pdb`, `.pdbqt` |
+| Receptors | `.pdb`, `.cif`, `.mmcif`, `.ent`, `.pdbqt` |
 
-## Status
+## Roadmap
 
-The project is being built in phases. What works today:
+- [x] Receptor and ligand preparation
+- [x] Docking box configuration
+- [x] Vina/Vinardo docking with progress tracking
+- [x] Batch docking with CSV export
+- [x] 3D visualization and interaction analysis
+- [x] RCSB PDB database integration
+- [x] Project management
+- [ ] SMILES input support
+- [ ] 2D molecular editor
+- [ ] 2D interaction diagrams
+- [ ] ADMET prediction
+- [ ] Flexible residue docking
+- [ ] Docker deployment
 
-- Desktop shell with the Vue interface, native menus and the QWebChannel bridge
-- Bilingual UI with theme switching
-- Environment self-check that imports `vina`, `meeko` and `rdkit` for real
-- **Ligand preparation** — MOL/SDF/MOL2/PDB → PDBQT through Meeko, reporting the
-  hydrogens added, the conformer generated and the rotatable bonds found. The
-  upstream 1iep reference PDBQT is reproduced byte for byte.
-- **Receptor preparation** — PDB → PDBQT with Meeko's template matching, waters
-  and non-polymer groups stripped on request, flexible sidechains split out, and
-  the residue regroup that the official 1iep file needs.
-- **Rendering** — the prepared receptor is drawn as a cartoon and the ligand as
-  sticks in the same viewport, over WebGL inside QtWebEngine.
-- Native file dialogs in the desktop shell, with an upload fallback in a browser.
+## Acknowledgments
 
-Docking and analysis land in the following phases; see the roadmap in
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+This project is built upon the following open-source software:
+
+- **[AutoDock Vina](https://vina.scripps.edu/)** — The molecular docking engine developed by The Scripps Research Institute. Licensed under [Apache License 2.0](https://github.com/ccsb-scripps/AutoDock-Vina/blob/develop/LICENSE).
+- **[Meeko](https://github.com/forlilab/Meeko)** — Molecular preparation tool for AutoDock Vina. Licensed under [Apache License 2.0](https://github.com/forlilab/Meeko/blob/master/LICENSE).
+- **[RDKit](https://www.rdkit.org/)** — Cheminformatics toolkit. Licensed under [BSD 3-Clause](https://github.com/rdkit/rdkit/blob/master/license.txt).
+- **[3Dmol.js](https://3dmol.org/)** — Molecular visualization library. Licensed under [MIT License](https://github.com/3dmol/3Dmol.js/blob/master/LICENSE).
+- **[Vue.js](https://vuejs.org/)** — Progressive JavaScript framework. Licensed under [MIT License](https://github.com/vuejs/vue/blob/dev/LICENSE).
+- **[PySide6](https://doc.qt.io/qtforpython-6/)** — Qt for Python. Licensed under [LGPL](https://doc.qt.io/qtforpython-6/license.html).
+- **[FastAPI](https://fastapi.tiangolo.com/)** — Modern Python web framework. Licensed under [MIT License](https://github.com/fastapi/fastapi/blob/master/LICENSE).
+
+### AI-Assisted Development
+
+This project was developed with the assistance of [Claude](https://claude.ai/), an AI assistant by Anthropic. Claude was used for:
+
+- Code generation and refactoring
+- Bug identification and debugging
+- Documentation writing
+- Architecture design discussions
+- Test case development
+
+All code has been reviewed, tested, and validated by human developers.
+
+## Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
-MIT
+This project is licensed under the MIT License — see [LICENSE](LICENSE) for details.
+
+**Note:** This project uses AutoDock Vina, which is licensed under the Apache License 2.0. The Apache License 2.0 is compatible with the MIT License. Users must comply with the terms of both licenses when using or distributing this software.
+
+## Citation
+
+If you use VinaStudio in your research, please cite:
+
+```bibtex
+@software{vinastudio2026,
+  title = {VinaStudio: A Modern Desktop Workbench for AutoDock Vina},
+  year = {2026},
+  url = {https://github.com/hubehero/VinaStudio}
+}
+```
+
+And cite the underlying tools:
+
+```bibtex
+@article{trott2010,
+  title = {AutoDock Vina: Improving the speed and accuracy of docking with a new scoring function, efficient optimization, and multithreading},
+  author = {Trott, Oleg and Olson, Arthur J.},
+  journal = {Journal of Computational Chemistry},
+  volume = {31},
+  number = {2},
+  pages = {455--461},
+  year = {2010}
+}
+```
+
+---
+
+**免责声明：** 本软件仅供科学研究和教育目的。用户需自行承担使用本软件进行分子对接研究的风险和责任。
