@@ -11,9 +11,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final, Literal
 
+from vinastudio import __version__
+
 APP_NAME: Final = "VinaStudio"
 APP_ID: Final = "vinastudio"
-APP_VERSION: Final = "0.1.0"
+APP_VERSION: Final = __version__
 
 PACKAGE_DIR: Final = Path(__file__).resolve().parent
 STATIC_DIR: Final = PACKAGE_DIR / "server" / "static"

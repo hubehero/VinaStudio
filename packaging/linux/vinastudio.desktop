@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=VinaStudio
+Comment=Desktop molecular docking workbench for AutoDock Vina
+Exec=/opt/vinastudio/vinastudio
+Icon=vinastudio
+Categories=Science;Education;
+Terminal=false
+StartupNotify=true
