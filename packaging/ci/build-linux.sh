@@ -20,16 +20,32 @@ REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO_ROOT"
 
 # ---------------------------------------------------------------------------
+# 0. Detect Python 3.12
+# ---------------------------------------------------------------------------
+PYTHON=""
+for candidate in python3.12 python3; do
+    if command -v "$candidate" &>/dev/null; then
+        version="$("$candidate" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")"
+        if [ "$version" = "3.12" ]; then
+            PYTHON="$candidate"
+            break
+        fi
+    fi
+done
+if [ -z "$PYTHON" ]; then
+    echo "ERROR: Python 3.12 is required but not found on PATH."
+    exit 1
+fi
+echo "==> Using Python: $PYTHON ($($PYTHON --version))"
+
+# ---------------------------------------------------------------------------
 # 1. Read version from pyproject.toml
 # ---------------------------------------------------------------------------
-VERSION="$(python3 -c "
-import re, sys
+VERSION="$($PYTHON -c "
+import re
 with open('pyproject.toml') as f:
     m = re.search(r'^version\s*=\s*\"([^\"]+)\"', f.read(), re.M)
-    if m:
-        print(m.group(1))
-    else:
-        print('0.0.0')
+    print(m.group(1) if m else '0.0.0')
 ")"
 echo "==> Building VinaStudio ${VERSION}"
 
@@ -43,7 +59,7 @@ if [ -d "$VENV_DIR" ]; then
 fi
 
 echo "==> Creating virtual environment in ${VENV_DIR}"
-python3 -m venv "$VENV_DIR"
+"$PYTHON" -m venv "$VENV_DIR"
 # shellcheck disable=SC1091
 source "$VENV_DIR/bin/activate"
 
