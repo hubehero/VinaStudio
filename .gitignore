@@ -41,6 +41,9 @@ dist/
 .DS_Store
 *.swp
 
+# Tests
+tests/
+
 # Test artifacts
 .pytest_cache/
 htmlcov/
