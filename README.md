@@ -2,11 +2,15 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
-[![AutoDock Vina](https://img.shields.io/badge/AutoDock-Vina-1.2.7-green.svg)](https://vina.scripps.edu/)
+[![AutoDock Vina 1.2.7](https://img.shields.io/badge/AutoDock-Vina-1.2.7-green.svg)](https://vina.scripps.edu/)
 
-A modern desktop workbench for **AutoDock Vina** molecular docking, providing a graphical interface for receptor/ligand preparation, binding-site definition, docking execution, and result analysis.
+VinaStudio is a graphical desktop application built around [AutoDock Vina 1.2.7](https://vina.scripps.edu/), designed to help researchers and students get started with molecular docking without memorizing command-line flags or hand-editing configuration files.
 
-**基于 AutoDock Vina 开发的现代分子对接桌面工作台。**
+Instead of stitching together separate tools for receptor preparation, ligand parameterization, box setup, docking runs, and result inspection, VinaStudio brings the entire workflow into a single window: load your PDB or SDF files, visually define the binding site, launch the docking with a click, and browse ranked poses with energy breakdowns and interaction maps — all in one place.
+
+The application is built with PySide6 (Qt) on the desktop side and a Vue 3 single-page application for the interface, communicating over a local REST API. It runs on Linux, macOS, and Windows.
+
+> **Note:** VinaStudio is intended for learning and exploratory research. It has not been extensively validated against benchmark datasets and should not be cited as a primary tool in publications. For production docking campaigns, please use AutoDock Vina directly or validated workflows.
 
 [中文文档](README.zh-CN.md) | [用户指南](docs/USER_GUIDE.md) | [架构文档](docs/ARCHITECTURE.md)
 
@@ -14,15 +18,16 @@ A modern desktop workbench for **AutoDock Vina** molecular docking, providing a 
 
 ## Features
 
-- **Receptor & Ligand Preparation** — PDB/CIF/mmCIF → PDBQT for receptors, MOL/SDF/MOL2/PDB → PDBQT for ligands via Meeko
-- **Binding-Site Definition** — automatic or manual docking box with 3D visualization
-- **Molecular Docking** — Vina, Vinardo, and AutoDock4 scoring functions with full parameter control
-- **Batch Docking** — process multiple ligands with CSV export
-- **Result Analysis** — pose ranking, energy decomposition, interaction detection (H-bonds, hydrophobic, ionic)
-- **3D Visualization** — interactive molecular viewer with multiple representation styles
-- **RCSB PDB Integration** — download receptors and ligands directly from the PDB database
-- **Project Management** — save and restore docking projects
-- **Bilingual UI** — Chinese and English support
+- **Receptor & Ligand Preparation** — PDB/CIF/mmCIF → PDBQT for receptors, MOL/SDF/MOL2/PDB → PDBQT for ligands via Meeko, with options to remove waters, strip heteroatoms, and normalise atom ordering
+- **Binding-Site Definition** — automatic box around ligand or receptor heavy atoms, with manual center/size input and 3D visualisation
+- **Molecular Docking** — Vina, Vinardo, and AutoDock4 scoring functions with full parameter control (exhaustiveness, seeds, energy range, etc.)
+- **Batch Docking** — process multiple ligands sequentially with progress tracking and CSV export
+- **Result Analysis** — pose ranking by affinity, RMSD clustering, energy decomposition, and hydrogen-bond / hydrophobic / ionic interaction detection
+- **3D Visualisation** — interactive molecular viewer powered by 3Dmol.js, with cartoon, stick, sphere, and surface representations
+- **RCSB PDB Integration** — search and download receptors and ligands directly from the PDB database
+- **Project Management** — save and restore complete docking sessions as `.vinaproj` files
+- **Bilingual UI** — Chinese and English interface, switchable at any time
+- **API Documentation** — built-in Swagger UI accessible from the settings dialog
 
 ## Requirements
 
@@ -83,27 +88,11 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed design decisions.
 | Ligands | `.sdf`, `.mol`, `.mol2`, `.pdb`, `.pdbqt` |
 | Receptors | `.pdb`, `.cif`, `.mmcif`, `.ent`, `.pdbqt` |
 
-## Roadmap
-
-- [x] Receptor and ligand preparation
-- [x] Docking box configuration
-- [x] Vina/Vinardo docking with progress tracking
-- [x] Batch docking with CSV export
-- [x] 3D visualization and interaction analysis
-- [x] RCSB PDB database integration
-- [x] Project management
-- [ ] SMILES input support
-- [ ] 2D molecular editor
-- [ ] 2D interaction diagrams
-- [ ] ADMET prediction
-- [ ] Flexible residue docking
-- [ ] Docker deployment
-
 ## Acknowledgments
 
 This project is built upon the following open-source software:
 
-- **[AutoDock Vina](https://vina.scripps.edu/)** — The molecular docking engine developed by The Scripps Research Institute. Licensed under [Apache License 2.0](https://github.com/ccsb-scripps/AutoDock-Vina/blob/develop/LICENSE).
+- **[AutoDock Vina 1.2.7](https://vina.scripps.edu/)** — The molecular docking engine developed by The Scripps Research Institute. Licensed under [Apache License 2.0](https://github.com/ccsb-scripps/AutoDock-Vina/blob/develop/LICENSE).
 - **[Meeko](https://github.com/forlilab/Meeko)** — Molecular preparation tool for AutoDock Vina. Licensed under [Apache License 2.0](https://github.com/forlilab/Meeko/blob/master/LICENSE).
 - **[RDKit](https://www.rdkit.org/)** — Cheminformatics toolkit. Licensed under [BSD 3-Clause](https://github.com/rdkit/rdkit/blob/master/license.txt).
 - **[3Dmol.js](https://3dmol.org/)** — Molecular visualization library. Licensed under [MIT License](https://github.com/3dmol/3Dmol.js/blob/master/LICENSE).
@@ -121,8 +110,6 @@ This project was developed with the assistance of [Claude](https://claude.ai/), 
 - Architecture design discussions
 - Test case development
 
-All code has been reviewed, tested, and validated by human developers.
-
 ## Contributing
 
 Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
@@ -131,7 +118,7 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for gui
 
 This project is licensed under the MIT License — see [LICENSE](LICENSE) for details.
 
-**Note:** This project uses AutoDock Vina, which is licensed under the Apache License 2.0. The Apache License 2.0 is compatible with the MIT License. Users must comply with the terms of both licenses when using or distributing this software.
+**Note:** This project uses AutoDock Vina 1.2.7, which is licensed under the Apache License 2.0. The Apache License 2.0 is compatible with the MIT License. Users must comply with the terms of both licenses when using or distributing this software.
 
 ## Citation
 
@@ -161,4 +148,4 @@ And cite the underlying tools:
 
 ---
 
-**免责声明：** 本软件仅供科学研究和教育目的。用户需自行承担使用本软件进行分子对接研究的风险和责任。
+**Disclaimer:** This software is intended for scientific research and educational purposes only. Users assume all responsibility for molecular docking research conducted with this tool.
