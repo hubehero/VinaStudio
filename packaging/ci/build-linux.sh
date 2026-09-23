@@ -68,7 +68,10 @@ source "$VENV_DIR/bin/activate"
 # ---------------------------------------------------------------------------
 echo "==> Installing Python dependencies"
 pip install --upgrade pip setuptools wheel
-pip install -e ".[dev]"
+# Install deps without the project itself to avoid force-include requiring
+# vinastudio/server/static which doesn't exist yet.  The project gets installed
+# in editable mode AFTER the frontend is built.
+pip install ".[dev]"
 pip install pyinstaller
 
 # ---------------------------------------------------------------------------
@@ -76,6 +79,12 @@ pip install pyinstaller
 # ---------------------------------------------------------------------------
 echo "==> Building frontend"
 python scripts/build_web.py
+
+# ---------------------------------------------------------------------------
+# 4b. Install project in editable mode (now that static/ exists)
+# ---------------------------------------------------------------------------
+echo "==> Installing VinaStudio in editable mode"
+pip install -e ".[dev]"
 
 # ---------------------------------------------------------------------------
 # 5. Run PyInstaller
