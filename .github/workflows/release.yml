@@ -142,26 +142,34 @@ jobs:
 
       # vina has no pre-built Windows wheels on PyPI and requires Boost C++
       # to compile from source.  Use conda-forge which ships pre-built binaries.
-      - name: Set up miniforge (conda)
-        uses: conda-incubator/setup-miniforge@v3
-        with:
-          miniforge-version: latest
-          activate-environment: vinastudio
-          python-version: ${{ env.PYTHON_VERSION }}
-          auto-activate-base: false
+      - name: Install miniforge
+        shell: bash
+        run: |
+          curl -fsSL -o miniforge.exe "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Windows-x86_64.exe"
+          miniforge.exe /S /D=C:/miniforge
+          echo "C:/miniforge/Scripts" >> $GITHUB_PATH
+          echo "C:/miniforge/Library/bin" >> $GITHUB_PATH
+
+      - name: Initialize conda and create environment
+        shell: bash
+        run: |
+          C:/miniforge/Scripts/conda.exe init bash
+          C:/miniforge/Scripts/conda.exe create -n vinastudio python=${{ env.PYTHON_VERSION }} -y
 
       - name: Install scientific deps via conda
+        shell: bash -el {0}
         run: |
-          conda install -c conda-forge vina meeko rdkit numpy scipy gemmi -y
+          conda install -n vinastudio -c conda-forge vina meeko rdkit numpy scipy gemmi -y
 
       - name: Install remaining Python deps via pip
+        shell: bash -el {0}
         run: |
           conda run -n vinastudio pip install pyside6 fastapi "uvicorn[standard]" pydantic python-multipart pyinstaller cairosvg pillow
 
       - name: Prepare build environment
         run: |
           # hatchling's force-include requires this directory to exist
-          mkdir -p vinastudio/server/static
+          New-Item -ItemType Directory -Path vinastudio/server/static -Force
           New-Item -ItemType File -Path vinastudio/server/static/.gitkeep -Force
 
       - name: Install project
@@ -186,37 +194,6 @@ jobs:
       - name: Build installer
         run: |
           $VERSION = conda run -n vinastudio python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" `
-            /DAppVersion=$VERSION `
-            packaging/windows/vinastudio.iss
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-build
-          path: dist/vinastudio-*-setup.exe
-
-      - name: Build frontend
-        run: |
-          . .venv/Scripts/Activate.ps1
-          python scripts/build_web.py --skip-install
-
-      - name: Generate icons
-        run: |
-          . .venv/Scripts/Activate.ps1
-          python packaging/ci/generate_icons.py
-
-      - name: Build with PyInstaller
-        run: |
-          . .venv/Scripts/Activate.ps1
-          pyinstaller packaging/pyinstaller/vinastudio.spec --noconfirm
-
-      - name: Install Inno Setup
-        run: choco install innosetup -y
-
-      - name: Build installer
-        run: |
-          $VERSION = python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" `
             /DAppVersion=$VERSION `
             packaging/windows/vinastudio.iss
