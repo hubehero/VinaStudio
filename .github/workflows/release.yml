@@ -38,13 +38,13 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            libgl1-mesa-glx libxcb1 libxcb-cursor0 libxcb-icccm4 \
+            libgl1 libxcb1 libxcb-cursor0 libxcb-icccm4 \
             libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
             libxcb-shape0 libxcb-shm0 libxcb-sync1 libxcb-xfixes0 \
             libxcb-xinerama0 libxcb-xkb1 libxkbcommon0 libxkbcommon-x11-0 \
             libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
-            libgtk-3-0 libgbm1 libasound2 \
-            rsvg-convert librsvg2-dev  # for icon generation
+            libgtk-3-0 libgbm1 libasound2t64 \
+            librsvg2-bin  # for icon generation
 
       - name: Create virtualenv and install deps
         run: |
