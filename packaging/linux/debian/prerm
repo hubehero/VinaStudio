@@ -1,0 +1,10 @@
+#!/bin/bash
+set -e
+
+# Remove symlink from /usr/bin
+rm -f /usr/bin/vinastudio
+
+# Update desktop database
+if command -v update-desktop-database > /dev/null 2>&1; then
+    update-desktop-database /usr/share/applications || true
+fi

@@ -1,0 +1,9 @@
+Package: vinastudio
+Version: 0.1.0
+Architecture: amd64
+Depends: libgl1-mesa-glx | libgl1, libxcb1, libxcb-cursor0, libxcb-icccm4, libxcb-image0, libxcb-keysyms1, libxcb-randr0, libxcb-render-util0, libxcb-shape0, libxcb-shm0, libxcb-sync1, libxcb-xfixes0, libxcb-xinerama0, libxcb-xkb1, libxkbcommon0, libxkbcommon-x11-0, libnss3, libatk1.0-0, libatk-bridge2.0-0, libcups2, libdrm2, libgtk-3-0, libgbm1, libasound2
+Description: Desktop molecular docking workbench for AutoDock Vina
+ VinaStudio is a modern graphical interface for AutoDock Vina molecular docking, built with PySide6, FastAPI, and Vue 3.
+Section: science
+Priority: optional
+Maintainer: VinaStudio Contributors

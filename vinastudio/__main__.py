@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import multiprocessing
 import sys
 
 from vinastudio import __version__
@@ -33,6 +34,12 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Guard: when PyInstaller --onedir spawns child processes via
+    # multiprocessing.get_context("spawn"), they re-execute this entry point.
+    # Child processes must not initialise Qt or start the API server.
+    if multiprocessing.parent_process() is not None:
+        return 0
+
     args = _parse_args(argv)
     setup_logging(logging.DEBUG if args.verbose else logging.INFO)
 
