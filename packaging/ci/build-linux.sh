@@ -67,11 +67,12 @@ source "$VENV_DIR/bin/activate"
 # 3. Install Python dependencies + PyInstaller
 # ---------------------------------------------------------------------------
 echo "==> Installing Python dependencies"
+# hatchling's force-include requires vinastudio/server/static to exist before
+# building the wheel.  Create a placeholder; the frontend build fills it later.
+mkdir -p vinastudio/server/static
+touch vinastudio/server/static/.gitkeep
 pip install --upgrade pip setuptools wheel
-# Install deps without the project itself to avoid force-include requiring
-# vinastudio/server/static which doesn't exist yet.  The project gets installed
-# in editable mode AFTER the frontend is built.
-pip install ".[dev]"
+pip install -e ".[dev]"
 pip install pyinstaller
 
 # ---------------------------------------------------------------------------
@@ -79,12 +80,6 @@ pip install pyinstaller
 # ---------------------------------------------------------------------------
 echo "==> Building frontend"
 python scripts/build_web.py
-
-# ---------------------------------------------------------------------------
-# 4b. Install project in editable mode (now that static/ exists)
-# ---------------------------------------------------------------------------
-echo "==> Installing VinaStudio in editable mode"
-pip install -e ".[dev]"
 
 # ---------------------------------------------------------------------------
 # 5. Run PyInstaller
