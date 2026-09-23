@@ -140,69 +140,77 @@ jobs:
           corepack enable
           corepack prepare pnpm@latest --activate
 
-      # vina has no pre-built Windows wheels on PyPI and requires Boost C++
-      # to compile from source.  Use conda-forge which ships pre-built binaries.
-      - name: Install miniforge
-        shell: bash
+      # vina has no pre-built Windows wheels on PyPI and needs Boost C++ to compile.
+      # Install Miniforge and use conda-forge for vina + rdkit + scientific deps.
+      # Use PowerShell for reliable .exe execution.
+      - name: Download Miniforge
+        shell: pwsh
         run: |
-          curl -fsSL -o miniforge.exe "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Windows-x86_64.exe"
-          ./miniforge.exe /S /D=C:/miniforge
-          echo "C:/miniforge/Scripts" >> $GITHUB_PATH
-          echo "C:/miniforge/Library/bin" >> $GITHUB_PATH
+          Invoke-WebRequest -Uri "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Windows-x86_64.exe" -OutFile "$env:TEMP\miniforge.exe"
 
-      - name: Initialize conda and create environment
-        shell: bash
+      - name: Install Miniforge (silent)
+        shell: pwsh
         run: |
-          C:/miniforge/Scripts/conda.exe init bash
-          C:/miniforge/Scripts/conda.exe create -n vinastudio python=${{ env.PYTHON_VERSION }} -y
+          Start-Process -FilePath "$env:TEMP\miniforge.exe" -ArgumentList "/S","/D=C:\miniforge" -Wait -NoNewWindow
+          Write-Host "Miniforge installed successfully"
 
-      - name: Install scientific deps via conda
-        shell: bash -el {0}
+      - name: Initialize conda
+        shell: pwsh
         run: |
-          conda install -n vinastudio -c conda-forge vina meeko rdkit numpy scipy gemmi -y
+          & "C:\miniforge\Scripts\conda.exe" init powershell
 
-      - name: Install remaining Python deps via pip
-        shell: bash -el {0}
+      - name: Create conda environment and install scientific deps
+        shell: pwsh
         run: |
-          conda run -n vinastudio pip install pyside6 fastapi "uvicorn[standard]" pydantic python-multipart pyinstaller cairosvg pillow
+          & "C:\miniforge\Scripts\conda.exe" create -n vinastudio python=${{ env.PYTHON_VERSION }} -y
+          & "C:\miniforge\Scripts\conda.exe" install -n vinastudio -c conda-forge vina meeko rdkit numpy scipy gemmi -y
+
+      - name: Install remaining deps via pip
+        shell: pwsh
+        run: |
+          & "C:\miniforge\envs\vinastudio\Scripts\pip.exe" install pyside6 fastapi "uvicorn[standard]" pydantic python-multipart pyinstaller cairosvg pillow
 
       - name: Prepare build environment
+        shell: pwsh
         run: |
-          # hatchling's force-include requires this directory to exist
-          New-Item -ItemType Directory -Path vinastudio/server/static -Force
-          New-Item -ItemType File -Path vinastudio/server/static/.gitkeep -Force
+          New-Item -ItemType Directory -Path vinastudio\server\static -Force
+          New-Item -ItemType File -Path vinastudio\server\static\.gitkeep -Force
 
-      - name: Install project
+      - name: Install project in editable mode
+        shell: pwsh
         run: |
-          conda run -n vinastudio pip install -e ".[dev]"
+          & "C:\miniforge\envs\vinastudio\Scripts\pip.exe" install -e ".[dev]"
 
       - name: Build frontend
+        shell: pwsh
         run: |
-          conda run -n vinastudio python scripts/build_web.py --skip-install
+          & "C:\miniforge\envs\vinastudio\Scripts\python.exe" scripts\build_web.py --skip-install
 
       - name: Generate icons
+        shell: pwsh
         run: |
-          conda run -n vinastudio python packaging/ci/generate_icons.py
+          & "C:\miniforge\envs\vinastudio\Scripts\python.exe" packaging\ci\generate_icons.py
 
       - name: Build with PyInstaller
+        shell: pwsh
         run: |
-          conda run -n vinastudio pyinstaller packaging/pyinstaller/vinastudio.spec --noconfirm
+          & "C:\miniforge\envs\vinastudio\Scripts\pyinstaller.exe" packaging\pyinstaller\vinastudio.spec --noconfirm
 
       - name: Install Inno Setup
+        shell: pwsh
         run: choco install innosetup -y
 
       - name: Build installer
+        shell: pwsh
         run: |
-          $VERSION = conda run -n vinastudio python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" `
-            /DAppVersion=$VERSION `
-            packaging/windows/vinastudio.iss
+          $VERSION = & "C:\miniforge\envs\vinastudio\Scripts\python.exe" -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=$VERSION packaging\windows\vinastudio.iss
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
-          path: dist/vinastudio-*-setup.exe
+          path: dist\vinastudio-*-setup.exe
 
   # ---------------------------------------------------------------------------
   # Create GitHub Release
