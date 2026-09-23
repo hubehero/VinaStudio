@@ -16,13 +16,11 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-# ``SPECDIR`` is set by PyInstaller when running a .spec file via the CLI.
-# When invoked via ``pyinstaller path/to/spec``, ``sys.argv[1]`` is the spec
-# path and ``os.path`` resolves it reliably even if ``SPECDIR`` is absent.
-_spec_candidate = os.path.join(os.getcwd(), sys.argv[-1]) if len(sys.argv) > 1 else "."
-SPEC_ROOT = Path(_spec_candidate).resolve().parent
-# The repository root (two levels up from the spec file).
-REPO_ROOT = SPEC_ROOT.parent.parent
+# The build script always ``cd``s to the repository root before invoking
+# PyInstaller, so ``os.getcwd()`` is the repo root.  The spec file lives
+# at ``packaging/pyinstaller/vinastudio.spec`` relative to that root.
+REPO_ROOT = Path(os.getcwd())
+SPEC_ROOT = REPO_ROOT / "packaging" / "pyinstaller"
 # The vinastudio package directory.
 VINASTUDIO_PKG = REPO_ROOT / "vinastudio"
 
