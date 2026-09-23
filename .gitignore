@@ -33,7 +33,7 @@ sample/projects/
 # Packaging
 build/
 dist/
-*.spec
+.venv-build/
 
 # Editors / OS
 .idea/
