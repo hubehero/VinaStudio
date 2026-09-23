@@ -46,6 +46,16 @@ jobs:
             libgtk-3-0 libgbm1 libasound2t64 \
             librsvg2-bin  # for icon generation
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
+
       - name: Prepare build environment
         run: |
           # hatchling's force-include in pyproject.toml requires this directory
@@ -127,6 +137,16 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
 
       - name: Prepare build environment
         run: |
