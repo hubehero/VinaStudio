@@ -146,7 +146,7 @@ jobs:
         shell: bash
         run: |
           curl -fsSL -o miniforge.exe "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Windows-x86_64.exe"
-          miniforge.exe /S /D=C:/miniforge
+          ./miniforge.exe /S /D=C:/miniforge
           echo "C:/miniforge/Scripts" >> $GITHUB_PATH
           echo "C:/miniforge/Library/bin" >> $GITHUB_PATH
 
