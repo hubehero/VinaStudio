@@ -14,9 +14,12 @@ web/dist/
 .vite/
 
 # Built web assets shipped inside the Python package (regenerate with
-# `python scripts/build_web.py`); the directory itself stays tracked.
+# `python scripts/build_web.py`); never tracked here — hatchling's
+# force-include ships the directory in the wheel.  No .gitkeep negation:
+# a file eligible through BOTH the normal include and force-include makes
+# hatchling abort on the duplicate archive path (CI/packaging creates the
+# directory itself).
 vinastudio/server/static/*
-!vinastudio/server/static/.gitkeep
 
 # Application runtime data
 .vinastudio/

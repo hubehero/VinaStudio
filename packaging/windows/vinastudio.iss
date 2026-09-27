@@ -7,7 +7,7 @@
 ; The /DVERSION flag overrides the default below.
 
 #ifndef VERSION
-  #define VERSION "0.1.0"
+  #define VERSION "0.2.0"
 #endif
 
 #define MyAppName "VinaStudio"

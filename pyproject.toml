@@ -1,6 +1,6 @@
 [project]
 name = "vinastudio"
-version = "0.1.0"
+version = "0.2.0"
 description = "Modern desktop workbench for AutoDock Vina docking, built with PySide6 + Vue 3"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
@@ -59,6 +59,13 @@ build-backend = "hatchling.build"
 packages = ["vinastudio"]
 
 [tool.hatch.build.targets.wheel.force-include]
+"vinastudio/server/static" = "vinastudio/server/static"
+
+# The wheel can also be built from the sdist (uv's default `uv build`, and
+# any pip install from sdist).  gitignore keeps the built assets out of the
+# sdist, which would leave force-include pointing at a missing directory —
+# ship the assets in the sdist too so both paths stay buildable.
+[tool.hatch.build.targets.sdist.force-include]
 "vinastudio/server/static" = "vinastudio/server/static"
 
 [tool.pytest.ini_options]

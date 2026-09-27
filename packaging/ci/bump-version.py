@@ -59,15 +59,23 @@ def replace_in_file(path: Path, pattern: str, replacement: str, count: int = 1) 
     text = path.read_text()
     # Use a function to check if replacement actually differs from match
     changes_made = False
+    matched = False
 
     def _replacer(m: re.Match) -> str:
-        nonlocal changes_made
+        nonlocal changes_made, matched
+        matched = True
         result = m.expand(replacement)
         if result != m.group(0):
             changes_made = True
         return result
 
-    new_text = re.sub(pattern, _replacer, text, count=count)
+    # re.M is required: "^" anchors every line without it, so patterns like
+    # pyproject's `^version` never matched mid-file and the file was
+    # silently skipped under a false "already up to date".
+    new_text = re.sub(pattern, _replacer, text, count=count, flags=re.M)
+    if not matched:
+        print(f"  WARN  {path.relative_to(REPO_ROOT)} (pattern not found — NOT updated)")
+        return False
     if not changes_made:
         print(f"  OK    {path.relative_to(REPO_ROOT)} (already up to date)")
         return False
