@@ -61,6 +61,8 @@ class ReceptorPrepOptions:
     allow_bad_residues: bool = False
     normalise_atom_order: bool = True
     """Group each residue's atoms together; see the module docstring."""
+    default_altloc: str = ""
+    """Default alternate location indicator when multiple conformations exist."""
 
 
 @dataclass(slots=True)
@@ -154,6 +156,27 @@ def normalise_pdb_atom_order(text: str) -> tuple[str, bool]:
 def _extract_residues(message: str) -> tuple[str, ...]:
     """Pull residue identifiers out of a Meeko error message."""
     return tuple(dict.fromkeys(_RESIDUE_TOKEN_RE.findall(message)))
+
+
+def _strip_residues_from_pdb(text: str, residues: set[str]) -> str:
+    """Remove ATOM/HETATM lines belonging to *residues* from PDB text.
+
+    The residue key format matches meeko's ``chain:resnum`` convention
+    (e.g. ``A:42``).  Lines that do not start with ATOM or HETATM are
+    kept verbatim.
+    """
+    keep: list[str] = []
+    for line in text.splitlines(keepends=True):
+        if not (line.startswith("ATOM") or line.startswith("HETATM")):
+            keep.append(line)
+            continue
+        chain = line[21:22].strip()
+        resnum = line[22:26].strip()
+        icode = line[26:27].strip()
+        reskey = f"{chain}:{resnum}{icode}"
+        if reskey not in residues:
+            keep.append(line)
+    return "".join(keep)
 
 
 # --------------------------------------------------------------------------
@@ -258,6 +281,56 @@ def inspect_receptor(path: str | Path) -> ReceptorInspection:
 
 
 # --------------------------------------------------------------------------
+# Histidine protonation state resolution
+# --------------------------------------------------------------------------
+
+
+def _resolve_histidine_ambiguity(text: str) -> str:
+    """Rename plain ``HIS`` residues to HID/HIE/HIP from their imidazole H.
+
+    Meeko's automatic protonation-state selection raises a ``RuntimeError``
+    when multiple histidine templates (HIE, HID, HIP) match equally well and
+    it cannot break the tie.  Protonation must follow the hydrogens actually
+    present on the residue: renaming every HIS to HIE makes Meeko reject
+    doubly-protonated (HIP-like) residues such as 1iep A:246 as excess-H
+    template mismatches.  HID has HD1 only, HIE has HE2 only, HIP has both;
+    a residue with neither imidazole H defaults to HIE.
+    """
+    lines = text.splitlines()
+    has_hd1: dict[str, bool] = {}
+    has_he2: dict[str, bool] = {}
+    his_line_keys: list[tuple[int, str]] = []  # (line index, residue key)
+    for i, line in enumerate(lines):
+        if not (line.startswith("ATOM") or line.startswith("HETATM")) or len(line) <= 20:
+            continue
+        if line[17:20].strip() != "HIS":
+            continue
+        chain = line[21:22].strip()
+        resseq = line[22:26].strip()
+        icode = line[26:27].strip()
+        key = f"{chain}:{resseq}{icode}"
+        his_line_keys.append((i, key))
+        atom = line[12:16].strip()
+        if atom == "HD1":
+            has_hd1[key] = True
+        elif atom == "HE2":
+            has_he2[key] = True
+
+    for i, key in his_line_keys:
+        hd1 = has_hd1.get(key, False)
+        he2 = has_he2.get(key, False)
+        if hd1 and he2:
+            state = "HIP"
+        elif hd1:
+            state = "HID"
+        else:
+            state = "HIE"  # HE2 present, or neither (safe docking default)
+        line = lines[i]
+        lines[i] = line[:17] + state + line[20:]
+    return "\n".join(lines)
+
+
+# --------------------------------------------------------------------------
 # preparation
 # --------------------------------------------------------------------------
 
@@ -312,6 +385,11 @@ def prepare_receptor(
     if options.normalise_atom_order:
         text, normalised = normalise_pdb_atom_order(text)
 
+    # Resolve ambiguous histidine protonation (HIS → HID/HIE/HIP by HD1/HE2)
+    # so meeko does not raise a RuntimeError when templates tie, and so
+    # doubly-protonated residues are not forced onto the HIE template.
+    text = _resolve_histidine_ambiguity(text)
+
     to_delete: list[str] = []
     if options.delete_waters:
         to_delete.extend(waters)
@@ -323,19 +401,110 @@ def prepare_receptor(
             text,
             residues_to_delete=to_delete or None,
             allow_bad_res=options.allow_bad_residues,
+            default_altloc=options.default_altloc or None,
         )
     except ValueError as exc:
         message = str(exc)
         offenders = _extract_residues(message)
-        if "interrupted residues" in message:
+        if "interrupted residues" in message and options.allow_bad_residues and offenders:
+            # Meeko's ``_pdb_to_residue_mols`` detects interrupted residues
+            # *before* ``residues_to_delete`` is applied, so passing them
+            # through that parameter cannot help.  Instead, strip the ATOM/
+            # HETATM lines for the offending residues from the PDB text and
+            # retry meeko from scratch.
+            text_stripped = _strip_residues_from_pdb(text, offenders)
+            to_delete_remaining = [r for r in to_delete if r not in offenders]
+            try:
+                polymer = Polymer.from_pdb_string(
+                    text_stripped,
+                    residues_to_delete=to_delete_remaining or None,
+                    allow_bad_res=True,
+                    default_altloc=options.default_altloc or None,
+                )
+                warnings.append(
+                    f"Skipped {len(offenders)} interrupted residue(s) "
+                    f"meeko could not parse: {', '.join(sorted(offenders))}"
+                )
+            except (ValueError, RuntimeError) as retry_exc:
+                raise PreparationError(
+                    f"could not read {file_path.name}: {brief_error(retry_exc)}"
+                ) from retry_exc
+        elif "interrupted residues" in message:
             raise ReceptorTemplateError(
                 f"{file_path.name} has residues whose atoms are not contiguous, and "
                 f"reordering did not resolve it: {', '.join(offenders)}",
                 offenders,
             ) from exc
-        raise ReceptorTemplateError(
-            f"Meeko rejected {file_path.name}: {brief_error(message)}", offenders
-        ) from exc
+        else:
+            raise ReceptorTemplateError(
+                f"Meeko rejected {file_path.name}: {brief_error(message)}", offenders
+            ) from exc
+    except RuntimeError as exc:
+        from meeko.polymer import PolymerCreationError
+        if isinstance(exc, PolymerCreationError):
+            # PolymerCreationError is a RuntimeError subclass. Its ``error``
+            # attribute carries structured residue-parsing details that are
+            # more informative than str(exc).
+            detail = exc.error.strip()
+            offenders = _extract_residues(detail)
+            # Some residues may not have the requested default_altloc
+            # (e.g. altloc 'A' requested but only B/C/D exist).  Strip
+            # those residues and retry so the rest can proceed.
+            if "Requested altlocs not found" in detail and options.default_altloc:
+                text_stripped = _strip_residues_from_pdb(text, set(offenders))
+                to_delete_remaining = [r for r in to_delete if r not in offenders]
+                try:
+                    polymer = Polymer.from_pdb_string(
+                        text_stripped,
+                        residues_to_delete=to_delete_remaining or None,
+                        allow_bad_res=options.allow_bad_residues,
+                        default_altloc=options.default_altloc,
+                    )
+                    warnings.append(
+                        f"Removed {len(offenders)} residue(s) lacking altloc "
+                        f"'{options.default_altloc}': {', '.join(sorted(offenders))}"
+                    )
+                except (ValueError, RuntimeError) as retry_exc:
+                    raise PreparationError(
+                        f"could not read {file_path.name}: {brief_error(retry_exc)}"
+                    ) from retry_exc
+            # Residues with alternate conformations that meeko cannot resolve.
+            # Strip them and retry so the rest of the structure can proceed.
+            elif "alternate location" in detail.lower() and offenders:
+                text_stripped = _strip_residues_from_pdb(text, set(offenders))
+                to_delete_remaining = [r for r in to_delete if r not in offenders]
+                try:
+                    polymer = Polymer.from_pdb_string(
+                        text_stripped,
+                        residues_to_delete=to_delete_remaining or None,
+                        allow_bad_res=options.allow_bad_residues,
+                        default_altloc=options.default_altloc or None,
+                    )
+                    warnings.append(
+                        f"Removed {len(offenders)} residue(s) with alternate locations: "
+                        f"{', '.join(sorted(offenders))}"
+                    )
+                except (ValueError, RuntimeError) as retry_exc:
+                    raise PreparationError(
+                        f"could not read {file_path.name}: {brief_error(retry_exc)}"
+                    ) from retry_exc
+            else:
+                raise ReceptorTemplateError(
+                    f"Meeko rejected {file_path.name}: {brief_error(detail)}",
+                    tuple(offenders),
+                ) from exc
+        else:
+            message = str(exc)
+            offenders = _extract_residues(message)
+            if "tied for fewest" in message:
+                raise ReceptorTemplateError(
+                    f"Meeko rejected {file_path.name}: ambiguous histidine protonation state. "
+                    f"{brief_error(message)}",
+                    tuple(offenders),
+                ) from exc
+            raise PreparationError(
+                f"could not read {file_path.name}: {brief_error(exc)}"
+            ) from exc
     except Exception as exc:
         raise PreparationError(
             f"could not read {file_path.name}: {brief_error(exc)}"

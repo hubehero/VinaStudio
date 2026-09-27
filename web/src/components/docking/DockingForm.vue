@@ -5,6 +5,7 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import MoleculeSelect from '@/components/common/MoleculeSelect.vue'
+import JobHistory from '@/components/docking/JobHistory.vue'
 import { downloadTextFile } from '@/utils/download'
 import { useBoxStore } from '@/stores/box'
 import { useDockingStore } from '@/stores/docking'
@@ -252,6 +253,9 @@ function downloadSdf(): void {
       </div>
     </div>
   </div>
+
+  <!-- Second root: the workspace job history (TASK-07). -->
+  <JobHistory />
 </template>
 
 <style scoped>

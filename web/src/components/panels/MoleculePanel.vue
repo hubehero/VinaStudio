@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Delete, Document, Search, Upload } from '@element-plus/icons-vue'
-import { ElInput, ElMessage, ElMessageBox } from 'element-plus'
+import { ElInput, ElMessage, ElMessageBox, ElSelect, ElOption } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -135,7 +135,7 @@ const nothingVisible = computed(
 
     <MoleculeUploadButton />
 
-    <div v-if="store.molecules.length > 0" class="mol-panel__search">
+    <div v-if="store.molecules.length > 0" class="mol-panel__filters">
       <ElInput
         v-model="store.query"
         size="small"
@@ -143,6 +143,45 @@ const nothingVisible = computed(
         :prefix-icon="Search"
         :placeholder="t('molecules.search')"
       />
+      <div class="mol-panel__filter-row">
+        <ElSelect
+          v-model="store.filterType"
+          size="small"
+          :placeholder="t('molecules.filterType')"
+        >
+          <ElOption :label="t('molecules.filterAll')" value="all" />
+          <ElOption :label="t('molecules.typeReceptor')" value="receptor" />
+          <ElOption :label="t('molecules.typeLigand')" value="ligand" />
+          <ElOption :label="t('molecules.typeUnknown')" value="unknown" />
+        </ElSelect>
+        <ElSelect
+          v-model="store.filterStatus"
+          size="small"
+          :placeholder="t('molecules.filterStatus')"
+        >
+          <ElOption :label="t('molecules.filterAll')" value="all" />
+          <ElOption :label="t('molecules.status.uploaded')" value="uploaded" />
+          <ElOption :label="t('molecules.status.inspected')" value="inspected" />
+          <ElOption :label="t('molecules.status.prepared')" value="prepared" />
+          <ElOption :label="t('molecules.status.error')" value="error" />
+        </ElSelect>
+        <ElSelect
+          v-if="store.availableCategories.length > 0"
+          v-model="store.filterCategory"
+          size="small"
+          :placeholder="t('molecules.filterCategory')"
+        >
+          <ElOption :label="t('molecules.filterAll')" value="all" />
+          <ElOption :label="t('molecules.typeUnknown')" value="" />
+          <ElOption v-for="cat in store.availableCategories" :key="cat" :label="cat" :value="cat" />
+        </ElSelect>
+      </div>
+      <div v-if="store.activeFilterCount > 0" class="mol-panel__filter-status">
+        <span>{{ t('molecules.filterActive', { n: store.activeFilterCount }) }}</span>
+        <button type="button" class="mol-panel__filter-clear" @click="store.resetFilters">
+          {{ t('molecules.filterClear') }}
+        </button>
+      </div>
     </div>
 
     <div class="mol-panel__list">
@@ -264,7 +303,7 @@ const nothingVisible = computed(
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .mol-panel__heading {
@@ -310,8 +349,48 @@ const nothingVisible = computed(
   outline-offset: 1px;
 }
 
-.mol-panel__search {
+/* The rule splits the panel into an actions zone (header + load buttons)
+   and a filter/list zone, so the stacked sections read as one rhythm. */
+.mol-panel__filters {
   margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--vs-border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mol-panel__filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mol-panel__filter-row .el-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.mol-panel__filter-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--vs-text-muted);
+}
+
+.mol-panel__filter-clear {
+  border: none;
+  background: none;
+  color: var(--vs-accent);
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.mol-panel__filter-clear:hover {
+  color: var(--vs-accent-hover);
 }
 
 .mol-panel__list {

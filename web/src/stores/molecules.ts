@@ -15,7 +15,14 @@ import type {
   ReceptorReport,
   SampleFile,
 } from '@/types/api'
-import type { MoleculeGroup, MoleculeItem, MoleculeType } from '@/types/molecule'
+import type {
+  MoleculeGroup,
+  MoleculeItem,
+  MoleculeManifest,
+  MoleculeManifestEntry,
+  MoleculeStatus,
+  MoleculeType,
+} from '@/types/molecule'
 import { getEffectiveType } from '@/types/molecule'
 
 let nextId = 0
@@ -54,6 +61,9 @@ export const useMoleculeStore = defineStore('molecules', () => {
   const filters = ref<FileFilters | null>(null)
   const samples = ref<SampleFile[]>([])
   const query = ref('')
+  const filterType = ref<'all' | MoleculeType>('all')
+  const filterStatus = ref<'all' | MoleculeStatus>('all')
+  const filterCategory = ref<string>('all')
   const inspectingCount = ref(0)
 
   const activeMolecule = computed(() =>
@@ -73,10 +83,67 @@ export const useMoleculeStore = defineStore('molecules', () => {
     molecules.value.reduce((sum, mol) => sum + mol.size, 0),
   )
 
-  /** Whether a molecule passes the search box. Every section filters the same way. */
+  /** Distinct categories across all molecules, sorted. */
+  const availableCategories = computed(() => {
+    const cats = new Set<string>()
+    for (const mol of molecules.value) {
+      if (mol.category) cats.add(mol.category)
+    }
+    return [...cats].sort()
+  })
+
+  /** Number of active filter conditions. */
+  const activeFilterCount = computed(() => {
+    let n = 0
+    if (filterType.value !== 'all') n++
+    if (filterStatus.value !== 'all') n++
+    if (filterCategory.value !== 'all') n++
+    return n
+  })
+
+  /** Whether a molecule passes filters and the search box. */
   function matches(mol: MoleculeItem): boolean {
-    const needle = query.value.trim().toLowerCase()
-    return !needle || mol.name.toLowerCase().includes(needle)
+    // -- type filter --
+    if (filterType.value !== 'all' && getEffectiveType(mol) !== filterType.value) {
+      return false
+    }
+    // -- status filter --
+    if (filterStatus.value !== 'all' && mol.status !== filterStatus.value) {
+      return false
+    }
+    // -- category filter --
+    if (filterCategory.value !== 'all') {
+      if (filterCategory.value === '') {
+        // "uncategorized" filter
+        if (mol.category !== null && mol.category !== '') return false
+      } else {
+        if (mol.category !== filterCategory.value) return false
+      }
+    }
+
+    // -- text search (multi-token AND, case-insensitive) --
+    const needle = query.value.trim()
+    if (!needle) return true
+
+    const tokens = needle
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean)
+
+    if (tokens.length === 0) return true
+
+    // Build the searchable corpus: name + aliases + category + type + status
+    const corpus = [
+      mol.name,
+      ...mol.aliases,
+      mol.category ?? '',
+      getEffectiveType(mol),
+      mol.status,
+    ]
+      .join(' ')
+      .toLowerCase()
+
+    return tokens.every((token) => corpus.includes(token))
   }
 
   const visibleReceptors = computed(() => receptors.value.filter(matches))
@@ -227,6 +294,7 @@ export const useMoleculeStore = defineStore('molecules', () => {
     molecules.value.push(item)
     // The molecule just added is the one the user wants to look at.
     activeId.value = item.id
+    scheduleSave()
   }
 
   function removeItem(id: string): void {
@@ -239,6 +307,9 @@ export const useMoleculeStore = defineStore('molecules', () => {
     }
     if (pipelineReceptorId.value === id) pipelineReceptorId.value = null
     if (pipelineLigandId.value === id) pipelineLigandId.value = null
+    scheduleSave()
+    // Persist removal (fire-and-forget; auto-save will also pick this up).
+    void api.deleteMolecule(id).catch(() => {})
   }
 
   function clearAll(): void {
@@ -246,6 +317,9 @@ export const useMoleculeStore = defineStore('molecules', () => {
     activeId.value = null
     pipelineReceptorId.value = null
     pipelineLigandId.value = null
+    scheduleSave()
+    // Persist clear (fire-and-forget; auto-save will also pick this up).
+    void api.clearMolecules().catch(() => {})
   }
 
   function findByPath(path: string): MoleculeItem | undefined {
@@ -263,6 +337,40 @@ export const useMoleculeStore = defineStore('molecules', () => {
     mol.assignedType = type
     mol.detectionSource = 'user'
     mol.detectionConfidence = 1
+    scheduleSave()
+  }
+
+  /** Add an alias to a molecule. */
+  function addAlias(id: string, alias: string): void {
+    const mol = molecules.value.find((m) => m.id === id)
+    if (!mol) return
+    const trimmed = alias.trim()
+    if (!trimmed || mol.aliases.includes(trimmed)) return
+    mol.aliases.push(trimmed)
+    scheduleSave()
+  }
+
+  /** Remove an alias from a molecule. */
+  function removeAlias(id: string, alias: string): void {
+    const mol = molecules.value.find((m) => m.id === id)
+    if (!mol) return
+    mol.aliases = mol.aliases.filter((a) => a !== alias)
+    scheduleSave()
+  }
+
+  /** Set the category of a molecule. Pass null or empty string to clear. */
+  function setCategory(id: string, category: string | null): void {
+    const mol = molecules.value.find((m) => m.id === id)
+    if (!mol) return
+    mol.category = category && category.trim() ? category.trim() : null
+    scheduleSave()
+  }
+
+  /** Reset all filters to defaults. */
+  function resetFilters(): void {
+    filterType.value = 'all'
+    filterStatus.value = 'all'
+    filterCategory.value = 'all'
   }
 
   function addFromPath(
@@ -295,6 +403,8 @@ export const useMoleculeStore = defineStore('molecules', () => {
       ligandOptions: { ...DEFAULT_LIGAND_OPTIONS },
       groupId: groupId ?? null,
       groupName: groupName ?? null,
+      aliases: [],
+      category: null,
     }
     addItem(item)
     return item
@@ -376,6 +486,7 @@ export const useMoleculeStore = defineStore('molecules', () => {
           // does not claim the file has no preview while it is on its way.
           await ensureRenderable(mol)
           mol.status = 'inspected'
+          scheduleSave()
           return
         } catch (error) {
           failure = failure ?? error
@@ -384,6 +495,7 @@ export const useMoleculeStore = defineStore('molecules', () => {
 
       mol.error = describeFailure(failure)
       mol.status = 'error'
+      scheduleSave()
     } finally {
       inspectingCount.value -= 1
     }
@@ -409,9 +521,11 @@ export const useMoleculeStore = defineStore('molecules', () => {
         mol.pdbqt = result.pdbqt
       }
       mol.status = 'prepared'
+      scheduleSave()
     } catch (error) {
       mol.error = describeFailure(error)
       mol.status = 'error'
+      scheduleSave()
     }
   }
 
@@ -435,6 +549,7 @@ export const useMoleculeStore = defineStore('molecules', () => {
     const mol = molecules.value.find((m) => m.id === id)
     if (!mol) return
     mol.receptorOptions.flexibleResidues = residues
+    scheduleSave()
   }
 
   /** Upload browser files, inspecting each one in turn. */
@@ -479,6 +594,53 @@ export const useMoleculeStore = defineStore('molecules', () => {
       if (item.status === 'error') failed += 1
     }
     return { added, failed }
+  }
+
+  /**
+   * Build ligands from pasted SMILES (one line = one molecule).
+   *
+   * The endpoint already inspected and prepared each molecule, so the response
+   * carries preview/report/artifacts — applying them skips `inspectMolecule`
+   * and leaves the item `prepared`, ready for docking like a file ligand that
+   * has been through prepare.
+   */
+  async function loadFromSmiles(text: string, name?: string): Promise<LoadOutcome> {
+    const lines = text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+    if (lines.length === 0) return { added: 0, failed: 0 }
+
+    const body =
+      lines.length === 1
+        ? { smiles: lines[0], name: name?.trim() || undefined }
+        : { smilesList: lines }
+
+    // A domain error (invalid SMILES, empty batch) rejects; the UI surfaces it.
+    const items = await api.ligandFromSmiles(body)
+    let added = 0
+    for (const item of items) {
+      const existing = findByPath(item.path)
+      if (existing) {
+        setActive(existing.id)
+        continue
+      }
+      const mol = addFromPath(item.path, item.name, item.bytes)
+      // Backend already ran inspect_ligand + Meeko; do not inspect again.
+      mol.assignedType = 'ligand'
+      mol.detectedType = 'ligand'
+      mol.detectionSource = 'content'
+      mol.detectionConfidence = 0.95
+      mol.detectionReason = 'small molecule'
+      mol.preview = item.preview
+      mol.report = item.preparation.report
+      mol.artifacts = item.preparation.artifacts
+      mol.pdbqt = item.preparation.pdbqt
+      mol.status = 'prepared'
+      scheduleSave()
+      added += 1
+    }
+    return { added, failed: 0 }
   }
 
   /** Add one of the reference structures the application ships with. */
@@ -544,6 +706,170 @@ export const useMoleculeStore = defineStore('molecules', () => {
     return mol.artifacts.find((a) => a.kind === 'sdf')?.url ?? null
   }
 
+  // ── manifest persistence ────────────────────────────────────────────────
+
+  const isDirty = ref(false)
+
+  /** Convert an in-memory MoleculeItem to the wire format for the manifest. */
+  function toManifestEntry(mol: MoleculeItem): MoleculeManifestEntry {
+    return {
+      id: mol.id,
+      name: mol.name,
+      path: mol.path,
+      size: mol.size,
+      detectedType: mol.detectedType,
+      detectionConfidence: mol.detectionConfidence,
+      detectionSource: mol.detectionSource,
+      detectionReason: mol.detectionReason,
+      assignedType: mol.assignedType,
+      status: mol.status,
+      preview: mol.preview,
+      report: mol.report,
+      artifacts: mol.artifacts,
+      pdbqt: mol.pdbqt,
+      error: mol.error,
+      receptorOptions: { ...mol.receptorOptions },
+      ligandOptions: { ...mol.ligandOptions },
+      groupId: mol.groupId,
+      groupName: mol.groupName,
+      aliases: [...mol.aliases],
+      category: mol.category,
+      mtime: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+  }
+
+  /** Convert a manifest entry back to an in-memory MoleculeItem. */
+  function fromManifestEntry(entry: MoleculeManifestEntry): MoleculeItem {
+    return {
+      id: entry.id,
+      name: entry.name,
+      path: entry.path,
+      size: entry.size,
+      detectedType: entry.detectedType,
+      detectionConfidence: entry.detectionConfidence,
+      detectionSource: entry.detectionSource,
+      detectionReason: entry.detectionReason as MoleculeItem['detectionReason'],
+      assignedType: entry.assignedType,
+      status: entry.status,
+      preview: entry.preview as MoleculeItem['preview'],
+      report: entry.report as MoleculeItem['report'],
+      artifacts: entry.artifacts ?? [],
+      pdbqt: entry.pdbqt,
+      error: entry.error as MoleculeItem['error'],
+      receptorOptions: { ...DEFAULT_RECEPTOR_OPTIONS, ...entry.receptorOptions },
+      ligandOptions: { ...DEFAULT_LIGAND_OPTIONS, ...entry.ligandOptions },
+      groupId: entry.groupId,
+      groupName: entry.groupName,
+      aliases: entry.aliases ?? [],
+      category: entry.category ?? null,
+    }
+  }
+
+  /** Save the current molecule list to the backend manifest. */
+  async function saveToManifest(): Promise<void> {
+    try {
+      const manifest: MoleculeManifest = {
+        formatVersion: '1.0',
+        updatedAt: new Date().toISOString(),
+        molecules: molecules.value.map(toManifestEntry),
+      }
+      await api.saveMolecules(manifest)
+      isDirty.value = false
+    } catch (err) {
+      console.error('[molecules] saveToManifest failed:', err)
+    }
+  }
+
+  // Debounced auto-save: coalesces rapid mutations into a single save.
+  let saveTimer: ReturnType<typeof setTimeout> | null = null
+  let isSaving = false
+
+  function scheduleSave(): void {
+    isDirty.value = true
+    if (saveTimer !== null) clearTimeout(saveTimer)
+    saveTimer = setTimeout(async () => {
+      if (isSaving) return
+      isSaving = true
+      try {
+        await saveToManifest()
+      } finally {
+        isSaving = false
+      }
+    }, 2000)
+  }
+
+  /** Load the molecule list from the backend manifest. */
+  async function loadFromManifest(): Promise<void> {
+    try {
+      const manifest = await api.listMolecules()
+      if (!manifest?.molecules?.length) return
+
+      // Deduplicate by path — keep the first occurrence.
+      const seen = new Set<string>()
+      for (const entry of manifest.molecules) {
+        if (seen.has(entry.path)) continue
+        seen.add(entry.path)
+        const item = fromManifestEntry(entry)
+        molecules.value.push(item)
+      }
+      isDirty.value = false
+
+      // Verify file existence and staleness in the background.
+      const ids = molecules.value.map((m) => m.id)
+      if (ids.length === 0) return
+
+      api.verifyMolecules(ids).then(({ existing, missing, mtimes }) => {
+        // Mark missing files as errors.
+        for (const id of missing) {
+          const mol = molecules.value.find((m) => m.id === id)
+          if (mol && mol.status !== 'error') {
+            mol.status = 'error'
+            mol.error = { kind: 'FileNotFound', detail: 'File not found on disk' } as never
+          }
+        }
+
+        // Queue re-inspection for molecules that need it:
+        // - Never inspected (status === 'uploaded')
+        // - File changed since last inspection (mtime mismatch)
+        const needsInspect: string[] = []
+        for (const id of existing) {
+          const mol = molecules.value.find((m) => m.id === id)
+          if (!mol) continue
+          if (mol.status === 'uploaded') {
+            needsInspect.push(id)
+          } else if (mtimes[id] && mol.status === 'inspected' || mol.status === 'prepared') {
+            // File changed — re-inspect to refresh preview/artifacts.
+            // Only if the file actually changed (mtime differs from stored).
+            // For now, skip re-inspection of prepared molecules to avoid
+            // losing preparation work; the user can manually re-prepare.
+          }
+        }
+
+        // Background re-inspection: process one at a time, non-blocking.
+        if (needsInspect.length > 0) {
+          void inspectQueued(needsInspect)
+        }
+      }).catch(() => {
+        // Verification is best-effort; don't break the load.
+      })
+    } catch (err) {
+      console.error('[molecules] loadFromManifest failed:', err)
+    }
+  }
+
+  /** Sequentially inspect a list of molecule IDs in the background. */
+  async function inspectQueued(ids: string[]): Promise<void> {
+    for (const id of ids) {
+      // Stop if the molecule was removed while we were inspecting.
+      if (!molecules.value.find((m) => m.id === id)) continue
+      await inspectMolecule(id)
+      // Yield to the event loop between inspections.
+      await new Promise((r) => setTimeout(r, 50))
+    }
+  }
+
   return {
     molecules,
     activeId,
@@ -583,6 +909,15 @@ export const useMoleculeStore = defineStore('molecules', () => {
     clearAll,
     findByPath,
     assignType,
+    addAlias,
+    removeAlias,
+    setCategory,
+    resetFilters,
+    filterType,
+    filterStatus,
+    filterCategory,
+    availableCategories,
+    activeFilterCount,
     addFromPath,
     loadFromLibrary,
     loadFromLibraryGroup,
@@ -593,7 +928,11 @@ export const useMoleculeStore = defineStore('molecules', () => {
     setFlexibleResidues,
     loadFiles,
     loadPaths,
+    loadFromSmiles,
     loadSample,
     getPreviewUrl,
+    isDirty,
+    saveToManifest,
+    loadFromManifest,
   }
 })

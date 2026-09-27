@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { FolderOpened, Link, Setting } from '@element-plus/icons-vue'
+import { FolderOpened, Setting } from '@element-plus/icons-vue'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -71,10 +71,6 @@ const channelLabel = computed(() => {
     </div>
 
     <div class="header__actions">
-      <a class="header__docs" href="/api/docs" target="_blank" rel="noreferrer">
-        <el-icon><Link /></el-icon>
-        <span>{{ t('header.documentation') }}</span>
-      </a>
       <el-button text size="small" @click="openProjectDialog">
         <el-icon><FolderOpened /></el-icon>
         <span>{{ t('project.openProject') }}</span>
@@ -146,20 +142,6 @@ const channelLabel = computed(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-}
-
-.header__docs {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 0 8px;
-  font-size: 12.5px;
-  color: var(--vs-text-muted);
-}
-
-.header__docs:hover {
-  color: var(--vs-accent);
-  text-decoration: none;
 }
 
 @media (max-width: 1180px) {

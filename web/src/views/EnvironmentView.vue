@@ -26,6 +26,12 @@ const runtimeRows = computed(() => {
     },
     { label: t('environment.machine'), value: runtime?.machine ?? t('common.unknown') },
     { label: t('environment.home'), value: system.info?.home ?? t('common.unknown') },
+    {
+      label: t('environment.renderMode'),
+      value: system.info?.rendering?.softwareRenderRequested
+        ? t('environment.softwareRenderOn')
+        : t('environment.softwareRenderOff'),
+    },
   ]
 })
 

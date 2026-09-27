@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from 'vue'
 import DockingForm from '@/components/docking/DockingForm.vue'
 import DockingInteractions from '@/components/docking/DockingInteractions.vue'
 import DockingLog from '@/components/docking/DockingLog.vue'
+import DockingReport from '@/components/docking/DockingReport.vue'
 import DockingResults from '@/components/docking/DockingResults.vue'
 import DockingWorkbench from '@/components/docking/DockingWorkbench.vue'
 import ViewportCanvas from '@/components/viewer/ViewportCanvas.vue'
@@ -51,6 +52,7 @@ onMounted(() => {
       <DockingLog />
       <DockingResults />
       <DockingInteractions v-model="interactions" />
+      <DockingReport />
     </aside>
   </div>
 </template>

@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import importlib.metadata
 import logging
+import os
 import platform
 import sys
 import time
@@ -72,6 +73,12 @@ def info() -> dict[str, Any]:
         },
         "home": str(app_home()),
         "packages": {name: _distribution_version(name) for name in TRACKED_PACKAGES},
+        # The desktop shell translates this env var into --disable-gpu before
+        # Qt starts, so the frontend cannot read it itself — expose the ask
+        # here so the UI can explain why rendering is slow.
+        "rendering": {
+            "softwareRenderRequested": os.environ.get("VINASTUDIO_SOFTWARE_RENDER") == "1"
+        },
     }
 
 

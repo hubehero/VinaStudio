@@ -7,7 +7,7 @@ import logging
 from typing import Any
 
 from PySide6.QtCore import QFile, QIODevice, QSettings, QUrl, Slot
-from PySide6.QtGui import QAction, QActionGroup, QKeySequence
+from PySide6.QtGui import QAction, QActionGroup, QDesktopServices, QKeySequence
 from PySide6.QtWebChannel import QWebChannel
 from PySide6.QtWebEngineCore import (
     QWebEnginePage,
@@ -111,6 +111,23 @@ class MainWindow(QMainWindow):
         script.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
         script.setRunsOnSubFrames(False)
         self._view.page().scripts().insert(script)
+
+    def createWindow(self, _window_type: Any) -> QWebEngineView:
+        """Route window.open() requests to the system browser.
+
+        QWebEngine blocks popups by default.  Instead of opening a new
+        embedded view we hand every external URL to the OS default browser.
+        """
+        view = QWebEngineView(self._view.page().profile())
+        view.page().urlChanged.connect(self._on_external_url)
+        return view
+
+    def _on_external_url(self, url: QUrl) -> None:
+        """Open a URL that was opened via window.open() in the system browser."""
+        QDesktopServices.openUrl(url)
+        view = self.sender()
+        if view is not None:
+            view.deleteLater()
 
     @Slot(bool)
     def _on_load_finished(self, ok: bool) -> None:

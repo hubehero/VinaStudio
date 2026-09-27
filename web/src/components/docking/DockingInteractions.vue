@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { Connection } from '@element-plus/icons-vue'
 import { ElButton, ElMessage } from 'element-plus'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { api } from '@/api/http'
 import { useDockingStore } from '@/stores/docking'
 import { useMoleculeStore } from '@/stores/molecules'
-import type { InteractionData } from '@/types/api'
+import type { DepictData, InteractionData } from '@/types/api'
+
+import Interactions2D from './Interactions2D.vue'
 
 /**
  * The rows shown in the table and drawn as annotations on the viewport.
@@ -29,6 +31,17 @@ const INTERACTION_RADIUS = 4.0
 const analyzingInteractions = ref(false)
 const interactionError = ref<string | null>(null)
 
+/**
+ * The 2D map and the residue filter. `fullInteractions` keeps the complete
+ * analysis while the model above may show a filtered subset — the map itself
+ * always renders the full picture so selecting a residue cannot collapse it.
+ */
+const depict = ref<DepictData | null>(null)
+const fullInteractions = ref<InteractionData[]>([])
+const view = ref<'table' | '2d'>('table')
+const selectedResidue = ref<string | null>(null)
+const map2d = ref<{ exportSvg: () => void } | null>(null)
+
 async function analyzeInteractions(): Promise<void> {
   const jobId = docking.activeJobId
   // The export endpoint numbers poses from 1; the store indexes them from 0.
@@ -38,6 +51,10 @@ async function analyzeInteractions(): Promise<void> {
   analyzingInteractions.value = true
   interactionError.value = null
   interactions.value = []
+  fullInteractions.value = []
+  depict.value = null
+  selectedResidue.value = null
+  view.value = 'table'
 
   try {
     const receptorPath = molecules.receptorPdbqtPath
@@ -56,6 +73,12 @@ async function analyzeInteractions(): Promise<void> {
     })
 
     interactions.value = result.interactions
+    fullInteractions.value = result.interactions
+    depict.value = result.depict
+    // One click, the map: open the 2D view as soon as there is something to draw.
+    if (result.depict && result.interactions.length > 0) {
+      view.value = '2d'
+    }
     if (result.interactions.length === 0) {
       ElMessage.info(t('docking.interactions.noneFound'))
     }
@@ -78,8 +101,41 @@ function formatResidue(inter: InteractionData): string {
   return parts.join(' ')
 }
 
+function residueKey(inter: InteractionData): string {
+  return `${inter.receptorChain}|${inter.receptorResSeq}|${inter.receptorResidue}`
+}
+
+/**
+ * Residue click from the map: filter the table and the viewport annotations to
+ * that residue (the viewport redraws the model list it is given). Clicking the
+ * same residue again clears the filter.
+ */
+function selectResidue(key: string): void {
+  if (selectedResidue.value === key) {
+    clearResidueFilter()
+    return
+  }
+  selectedResidue.value = key
+  interactions.value = fullInteractions.value.filter((row) => residueKey(row) === key)
+}
+
+function clearResidueFilter(): void {
+  selectedResidue.value = null
+  interactions.value = fullInteractions.value
+}
+
+const selectedResidueLabel = computed(() => {
+  if (!selectedResidue.value) return ''
+  const row = fullInteractions.value.find((item) => residueKey(item) === selectedResidue.value)
+  return row ? formatResidue(row) : ''
+})
+
 function clearInteractions(): void {
   interactions.value = []
+  fullInteractions.value = []
+  depict.value = null
+  selectedResidue.value = null
+  view.value = 'table'
   interactionError.value = null
 }
 </script>
@@ -104,6 +160,20 @@ function clearInteractions(): void {
         >
           {{ t('docking.interactions.clear') }}
         </ElButton>
+        <ElButton
+          v-if="depict && interactions.length > 0"
+          size="small"
+          @click="view = view === '2d' ? 'table' : '2d'"
+        >
+          {{ view === '2d' ? t('docking.interactions2d.viewTable') : t('docking.interactions2d.view2d') }}
+        </ElButton>
+        <ElButton
+          v-if="view === '2d' && depict && interactions.length > 0"
+          size="small"
+          @click="map2d?.exportSvg()"
+        >
+          {{ t('docking.interactions2d.exportSvg') }}
+        </ElButton>
       </div>
     </div>
     <div class="vs-card__body">
@@ -117,7 +187,26 @@ function clearInteractions(): void {
         <div class="interactions__summary">
           {{ t('docking.interactions.found', { count: interactions.length }) }}
         </div>
-        <div class="interactions__table-wrap">
+        <div v-if="selectedResidue" class="interactions__chip">
+          <span>
+            {{ t('docking.interactions2d.filterNote', { residue: selectedResidueLabel }) }}
+          </span>
+          <ElButton size="small" link type="primary" @click="clearResidueFilter">
+            {{ t('docking.interactions2d.clearFilter') }}
+          </ElButton>
+        </div>
+        <div v-if="!depict" class="interactions__note">
+          {{ t('docking.interactions2d.noDepict') }}
+        </div>
+        <Interactions2D
+          v-if="view === '2d' && depict"
+          ref="map2d"
+          :interactions="fullInteractions"
+          :depict="depict"
+          :selected-key="selectedResidue"
+          @select-residue="selectResidue"
+        />
+        <div v-else class="interactions__table-wrap">
           <table class="interactions__table">
             <thead>
               <tr>
@@ -168,6 +257,25 @@ function clearInteractions(): void {
 .interactions__summary {
   margin-bottom: 8px;
   font-size: 12.5px;
+  color: var(--vs-text-muted);
+}
+
+.interactions__chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 4px 8px;
+  border-radius: var(--vs-radius);
+  background: rgba(22, 119, 255, 0.08);
+  font-size: 12.5px;
+  color: var(--vs-text);
+}
+
+.interactions__note {
+  margin-bottom: 8px;
+  font-size: 12px;
   color: var(--vs-text-muted);
 }
 

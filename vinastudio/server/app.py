@@ -4,26 +4,33 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import mimetypes
+import os
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from os import PathLike
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.types import Scope
 
 from vinastudio import __version__
 from vinastudio.config import APP_NAME, STATIC_DIR, dev_server_url
 from vinastudio.core.errors import ReceptorTemplateError, VinaStudioError
+from vinastudio.core.paths import resolve_artifact
 from vinastudio.server.job_manager import manager as job_manager
 from vinastudio.server.routers import (
     box,
+    chem,
     docking,
     files,
     interactions,
     library,
     ligand,
+    molecules,
     project,
     receptor,
     system,
@@ -43,6 +50,9 @@ DEV_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.events.bind_loop(asyncio.get_running_loop())
     job_manager.bind_hub(app.state.events)
+    # Rebuild the jobs list from job.json so a restarted session still shows
+    # past results; never in JobManager.__init__ — imports must not do IO.
+    job_manager.restore_history()
     log.info("%s API ready", APP_NAME)
     yield
     job_manager.shutdown()
@@ -54,7 +64,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=f"{APP_NAME} API",
         version=__version__,
-        docs_url="/api/docs",
+        docs_url=None,
         redoc_url=None,
         openapi_url="/api/openapi.json",
         lifespan=_lifespan,
@@ -77,13 +87,42 @@ def create_app() -> FastAPI:
     app.include_router(ws_router)
 
     # Domain routers; each new phase adds one here.
-    for router in (system.router, files.router, ligand.router, receptor.router, box.router, docking.router, project.router, interactions.router, workspace.router, library.router):
+    for router in (system.router, files.router, ligand.router, receptor.router, box.router, docking.router, project.router, interactions.router, workspace.router, library.router, molecules.router, chem.router):
         app.include_router(router, prefix="/api")
 
+    _add_docs_endpoint(app)
     _add_domain_error_handler(app)
     _mount_artifacts(app)
     _mount_interface(app)
     return app
+
+
+def _add_docs_endpoint(app: FastAPI) -> None:
+    """Serve Swagger UI from locally-bundled assets (no CDN dependency)."""
+
+    @app.get("/docs", include_in_schema=False)
+    async def swagger_ui_html() -> HTMLResponse:
+        return HTMLResponse(
+            f"""<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" href="/swagger/swagger-ui.css">
+<title>{APP_NAME} API Docs</title>
+</head>
+<body>
+<div id="swagger-ui"></div>
+<script src="/swagger/swagger-ui-bundle.js"></script>
+<script>
+SwaggerUIBundle({{
+  url: "/api/openapi.json",
+  dom_id: "#swagger-ui",
+  presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
+  layout: "BaseLayout"
+}});
+</script>
+</body>
+</html>"""
+        )
 
 
 def _add_domain_error_handler(app: FastAPI) -> None:
@@ -108,26 +147,49 @@ def _mount_artifacts(app: FastAPI) -> None:
     changes at runtime (init / set / migrate) are picked up immediately
     without restarting the server.
     """
-    import mimetypes
-
-    from fastapi.responses import FileResponse
-
-    from vinastudio.core.paths import resolve_artifact
 
     @app.get("/artifacts/{path:path}")
     async def serve_artifact(path: str) -> FileResponse:
         try:
             resolved = resolve_artifact(path)
         except ValueError:
-            from fastapi import HTTPException
-
             raise HTTPException(status_code=404, detail="artifact not found") from None
         if not resolved.is_file():
-            from fastapi import HTTPException
-
             raise HTTPException(status_code=404, detail="artifact not found")
         media_type, _ = mimetypes.guess_type(str(resolved))
         return FileResponse(str(resolved), media_type=media_type)
+
+
+class _InterfaceStaticFiles(StaticFiles):
+    """Static server with the cache policy the desktop shell depends on.
+
+    ``StaticFiles`` sends validators but no ``Cache-Control``, so Chromium
+    falls back to heuristic freshness. The shell's persistent QWebEngine
+    profile keeps a disk cache across restarts, which means a rebuilt
+    ``index.html`` could be skipped entirely and the window would silently
+    run the previous bundle — the stale hashed assets are still on disk, so
+    nothing fails loudly. HTML must revalidate on every load; content-hashed
+    ``assets/`` files are immutable by name and safe to pin.
+    """
+
+    def file_response(  # type: ignore[override]
+        self,
+        full_path: PathLike,
+        stat_result: os.stat_result,
+        scope: Scope,
+        status_code: int = 200,
+    ) -> Response:
+        response = super().file_response(
+            full_path, stat_result, scope, status_code=status_code
+        )
+        # The mount prefix may or may not be stripped from scope["path"]
+        # depending on Starlette's routing, so compare the relative form.
+        path = scope.get("path", "").lstrip("/")
+        if path.startswith("assets/"):
+            response.headers["cache-control"] = "public, max-age=31536000, immutable"
+        elif response.headers.get("content-type", "").startswith("text/html"):
+            response.headers["cache-control"] = "no-cache"
+        return response
 
 
 def _mount_interface(app: FastAPI) -> None:
@@ -135,7 +197,7 @@ def _mount_interface(app: FastAPI) -> None:
     index = STATIC_DIR / "index.html"
     if index.exists():
         # Mounted last so the API routes above win the match.
-        app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="ui")
+        app.mount("/", _InterfaceStaticFiles(directory=STATIC_DIR, html=True), name="ui")
         return
 
     log.warning("Interface bundle missing at %s", STATIC_DIR)
@@ -162,6 +224,6 @@ def _mount_interface(app: FastAPI) -> None:
 </style></head><body><div class="card">
  <h1>界面构建产物缺失 / Interface bundle missing</h1>
  {hint}
- <p>API 文档 / API docs: <code><a style="color:#9fd3ff" href="/api/docs">/api/docs</a></code></p>
+ <p>API 文档 / API docs: <code><a style="color:#9fd3ff" href="/docs">/docs</a></code></p>
 </div></body></html>"""
         )

@@ -17,10 +17,10 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Chemistry",
 ]
 project_urls = [
-    "Homepage = https://github.com/VinaStudio/vina_simple",
-    "Documentation = https://github.com/VinaStudio/vina_simple#readme",
-    "Repository = https://github.com/VinaStudio/vina_simple",
-    "Issues = https://github.com/VinaStudio/vina_simple/issues",
+    "Homepage = https://github.com/hubehero/VinaStudio",
+    "Documentation = https://github.com/hubehero/VinaStudio#readme",
+    "Repository = https://github.com/hubehero/VinaStudio",
+    "Issues = https://github.com/hubehero/VinaStudio/issues",
 ]
 
 dependencies = [

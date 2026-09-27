@@ -122,6 +122,34 @@ async def upload(file: UploadFile = File(...)) -> SavedUpload:
 
     if not payload:
         raise HTTPException(status_code=400, detail="the uploaded file is empty")
+
+    # Place the file in the appropriate workspace subdirectory based on type.
+    from vinastudio.server.routers.workspace import get_active_workspace
+
+    ws = get_active_workspace()
+    if ws is not None:
+        from vinastudio.core.workspace import ligands_dir, receptors_dir
+
+        dest_dir = receptors_dir(ws) if suffix in RECEPTOR_SUFFIXES else ligands_dir(ws)
+        # Handle filename collisions by appending a counter.
+        target_path = dest_dir / name
+        counter = 1
+        while target_path.exists():
+            stem = Path(name).stem
+            target_path = dest_dir / f"{stem}_{counter}{suffix}"
+            counter += 1
+        target_path.write_bytes(payload)
+        log.info("stored upload %s (%d bytes) in %s", name, len(payload), dest_dir)
+        return SavedUpload(
+            path=str(target_path),
+            name=target_path.name,
+            bytes=len(payload),
+            suffix=suffix,
+        )
+
+    # Fallback: no workspace configured, use ephemeral run dir.
+    workspace = create_workspace(f"upload-{name}")
+    target = workspace.file(name)
     target.write_bytes(payload)
 
     log.info("stored upload %s (%d bytes) in %s", name, len(payload), workspace.run_id)

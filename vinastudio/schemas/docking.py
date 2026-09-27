@@ -53,6 +53,10 @@ class DockingRequest(BaseModel):
         default=None,
         description="AutoGrid4 map prefix (required for ad4 scoring).",
     )
+    engine: Literal["vina"] = Field(
+        default="vina",
+        description="Docking engine. 'vina' is the only current option; 'unidock' reserved for GPU acceleration.",
+    )
 
 
 class PoseInfo(BaseModel):
@@ -99,7 +103,11 @@ class DockingJobResult(BaseModel):
 
 
 class DockingJobSummary(BaseModel):
-    """Compact representation for the jobs list."""
+    """Compact representation for the jobs list.
+
+    Field names are the response contract — the router must pass the same
+    camelCase keywords (``elapsed_ms=`` is silently dropped otherwise).
+    """
 
     jobId: str
     status: Literal["queued", "running", "completed", "failed", "cancelled"]
@@ -107,6 +115,11 @@ class DockingJobSummary(BaseModel):
     stage: str | None = None
     scoring: ScoringFunction
     elapsedMs: int | None = None
+    # History rows (TASK-07): when it ran, what to call it, how it scored.
+    createdAt: float = 0.0
+    label: str = ""
+    bestAffinity: float | None = None
+    isBatch: bool = False
 
 
 class DockingDefaultsResponse(BaseModel):
@@ -230,6 +243,176 @@ class ExportPoseResponse(BaseModel):
     sdf: str
 
 
+class ExportBundleRequest(BaseModel):
+    """Body of ``POST /api/docking/jobs/{job_id}/export-bundle``.
+
+    ``include`` drives both the zip contents and whether the HTML report
+    inlines the 2D diagram — the two must stay in step so an unchecked item
+    never leaves a dangling reference in the report.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    include: list[Literal["sdf", "csv", "config", "svg2d", "html"]] = Field(
+        min_length=1,
+        description="Bundle members to write; the zip contains exactly these.",
+    )
+    svg2d: str | None = Field(
+        default=None,
+        description="Serialized 2D interaction diagram (SVG source).",
+    )
+    lang: Literal["zh-CN", "en-US"] = Field(
+        default="zh-CN",
+        description="Report language; follows the interface language.",
+    )
+
+
+class PoseFindingModel(BaseModel):
+    """One geometric health-check finding for a pose.
+
+    Mirrors ``core.chem.pose_validation.Finding`` for the HTTP boundary
+    (camelCase keys; ``message_key`` becomes ``messageKey``).
+    """
+
+    code: str
+    severity: Literal["error", "warning"]
+    messageKey: str
+    detail: dict[str, object] = Field(default_factory=dict)
+
+
+class ValidatePosesRequest(BaseModel):
+    """Body of ``POST /api/docking/jobs/{id}/validate``.
+
+    Box and reference are optional: omitting them skips the corresponding
+    checks rather than failing the request (missing data is not an error).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    poseIndex: int | None = Field(
+        default=None,
+        ge=1,
+        description="1-based pose index; omit (or null) to validate every pose.",
+    )
+    center: tuple[float, float, float] | None = Field(
+        default=None,
+        description="Box centre; required with size for out_of_box.",
+    )
+    size: tuple[float, float, float] | None = Field(
+        default=None,
+        description="Box edge lengths; required with center for out_of_box.",
+    )
+    referenceSdfPath: str | None = Field(
+        default=None,
+        description="Prepared (not docked) ligand SDF path used as geometric reference.",
+    )
+    enabled: list[str] | None = Field(
+        default=None,
+        description="Subset of check codes to run; null runs all available checks.",
+    )
+
+
+class PoseValidationItem(BaseModel):
+    """Validation result for one pose."""
+
+    poseIndex: int
+    findings: list[PoseFindingModel] = Field(default_factory=list)
+    worstSeverity: Literal["error", "warning"] | None = None
+
+
+class ValidatePosesResponse(BaseModel):
+    """Response of ``POST /api/docking/jobs/{id}/validate``.
+
+    Report-only: never modifies coordinates or re-docks.
+    """
+
+    jobId: str
+    poses: list[PoseValidationItem] = Field(default_factory=list)
+    thresholds: dict[str, float] = Field(default_factory=dict)
+    checksRun: list[str] = Field(default_factory=list)
+
+
+class RmsdRequest(BaseModel):
+    """Body of ``POST /api/docking/jobs/{id}/rmsd``.
+
+    Exactly one reference field is required — the co-crystal ligand used as
+    the redocking reference.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    referencePath: str | None = Field(
+        default=None,
+        description="Co-crystal ligand path (SDF/MOL/MOL2/PDB).",
+    )
+    referencePdbqt: str | None = Field(
+        default=None,
+        description="Co-crystal ligand as PDBQT (converted via the shared export path).",
+    )
+    threshold: float = Field(
+        default=2.0,
+        gt=0,
+        description=(
+            "Success threshold in ångström; 2.0 is the community redocking "
+            "convention, not a physical constant."
+        ),
+    )
+
+
+class RmsdResponse(BaseModel):
+    """Response of ``POST /api/docking/jobs/{id}/rmsd``.
+
+    Report-only: never re-docks or edits coordinates. ``structureMatch=False``
+    is a warning (the reference is a different chemical structure, which
+    inflates RMSD) — never a rejection.
+    """
+
+    jobId: str
+    values: list[float]
+    threshold: float
+    successRate: float
+    structureMatch: bool | None = None
+
+
+class ClusterRequest(BaseModel):
+    """Body of ``POST /api/docking/jobs/{id}/cluster``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cutoff: float = Field(
+        default=2.0,
+        gt=0,
+        description=(
+            "Neighbour distance cutoff in ångström; 2.0 is the community "
+            "convention (the UI slider offers 1.0–3.0, the API accepts "
+            "any positive value so extreme values stay testable)."
+        ),
+    )
+
+
+class ClusterItem(BaseModel):
+    """One BUTINA cluster; ``centroid`` is a 0-based pose index."""
+
+    members: list[int]
+    centroid: int
+    size: int
+    meanRmsd: float
+
+
+class ClusterResponse(BaseModel):
+    """Response of ``POST /api/docking/jobs/{id}/cluster``.
+
+    Computed on demand and never written into the job result (TASK-07 will
+    decide what to persist). ``meanRmsd`` is members' mean distance to the
+    centroid — geometry only, no energies involved.
+    """
+
+    jobId: str
+    cutoff: float
+    clusters: list[ClusterItem]
+    nClusters: int
+
+
 class VinaInfoResponse(BaseModel):
     """Vina library metadata."""
 
@@ -278,6 +461,10 @@ class BatchDockingRequest(BaseModel):
     cpu: int = 0
     seed: int = 0
     noRefine: bool = False
+    engine: Literal["vina"] = Field(
+        default="vina",
+        description="Docking engine. 'vina' is the only current option; 'unidock' reserved for GPU acceleration.",
+    )
 
 
 class BatchLigandResult(BaseModel):

@@ -31,7 +31,7 @@ class Artifact(BaseModel):
     path: str
     url: str
     bytes: int
-    kind: Literal["pdbqt", "pdb", "sdf", "json", "log", "text"]
+    kind: Literal["pdbqt", "pdb", "sdf", "json", "log", "text", "zip"]
 
 
 class RunInfo(BaseModel):
@@ -153,6 +153,35 @@ class LigandPrepareRequest(BaseModel):
 
     path: str
     options: LigandOptions = Field(default_factory=LigandOptions)
+
+
+class LigandFromSmilesRequest(BaseModel):
+    """Body of ``POST /api/ligand/from-smiles``.
+
+    ``smiles`` for a single paste, or ``smilesList`` for one-SMILES-per-line
+    batch. At least one non-empty entry is required (checked at the endpoint).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    smiles: str | None = None
+    smilesList: list[str] | None = None
+    name: str | None = Field(default=None, description="Display name for a single SMILES.")
+    options: LigandOptions = Field(default_factory=LigandOptions)
+
+
+class LigandFromSmilesItem(BaseModel):
+    """One molecule produced from SMILES: where it landed and what inspection found.
+
+    ``preparation`` reuses :class:`LigandPreparationResponse` so the PDBQT and
+    report travel in the same shape as ``/ligand/prepare``.
+    """
+
+    path: str
+    name: str
+    bytes: int
+    preview: LigandPreview
+    preparation: LigandPreparationResponse
 
 
 # --------------------------------------------------------------------------

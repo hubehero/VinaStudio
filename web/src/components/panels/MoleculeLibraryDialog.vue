@@ -96,18 +96,20 @@ async function loadPreview(pdbId: string): Promise<void> {
 
     if (!previewContainer.value) return
 
-    // Dispose previous viewer
-    if (previewViewer) {
+    // Reuse a single viewer across selections: every createViewer call appends
+    // another canvas to the container and installs document.body mouseup
+    // listeners that are never removed — a fresh viewer per entry leaked both.
+    if (!previewViewer) {
+      previewViewer = $3Dmol.createViewer(previewContainer.value, {
+        backgroundColor: '#0d1526',
+        antialias: true,
+        cartoonQuality: 8,
+      })
+    } else {
       previewViewer.removeAllModels()
-      previewViewer = null
+      previewViewer.removeAllLabels()
     }
-
-    const viewer = $3Dmol.createViewer(previewContainer.value, {
-      backgroundColor: '#0d1526',
-      antialias: true,
-      cartoonQuality: 8,
-    })
-    previewViewer = viewer
+    const viewer = previewViewer
 
     // Fetch CIF from RCSB (inline URL, CORS-friendly)
     const cifUrl = `https://files.rcsb.org/view/${pdbId}.cif`
@@ -116,7 +118,7 @@ async function loadPreview(pdbId: string): Promise<void> {
     const cifData = await resp.text()
 
     viewer.addModel(cifData, 'cif')
-    viewer.setStyle({}, { cartoon: { colorscheme: 'spectrum' } })
+    viewer.setStyle({}, { cartoon: { color: 'spectrum' } })
 
     // Highlight ligands as sticks
     viewer.setStyle({ hetflag: true }, {
@@ -133,16 +135,18 @@ async function loadPreview(pdbId: string): Promise<void> {
   }
 }
 
-// Clean up viewer when dialog closes
+// Release the preview's geometry while the dialog is closed; the viewer itself
+// stays alive so reopening does not reinstall its body listeners again.
 watch(visible, (v) => {
   if (!v) {
     previewViewer?.removeAllModels()
-    previewViewer = null
+    previewViewer?.removeAllLabels()
   }
 })
 
 onBeforeUnmount(() => {
   previewViewer?.removeAllModels()
+  previewViewer?.removeAllLabels()
   previewViewer = null
 })
 

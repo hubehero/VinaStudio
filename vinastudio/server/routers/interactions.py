@@ -8,6 +8,7 @@ from typing import Any
 from fastapi import APIRouter
 
 from vinastudio.core.chem.autodock_types import element_for
+from vinastudio.core.chem.depict import depict_2d
 from vinastudio.core.errors import InvalidInputError, VinaStudioError, brief_error
 
 log = logging.getLogger(__name__)
@@ -76,9 +77,20 @@ def analyze_interactions(request: dict[str, Any]) -> dict[str, Any]:
             ligand_pdbqt=ligand_pdbqt,
             distance_cutoff=distance_cutoff,
         )
+        # The 2D depiction is an optional extra: contacts must not fail just
+        # because bond orders could not be restored (a bare PDBQT without its
+        # REMARK SMILES line has no chemistry to draw).
+        try:
+            depicted: dict[str, Any] | None = depict_2d(ligand_pdbqt or ligand_path)
+        # Depiction must never sink the analysis: an unparseable ligand still
+        # deserves its contact table.
+        except Exception as exc:
+            log.warning("ligand depiction unavailable: %s", exc, exc_info=True)
+            depicted = None
         return {
             "interactions": interactions,
             "count": len(interactions),
+            "depict": depicted,
         }
     except VinaStudioError:
         raise

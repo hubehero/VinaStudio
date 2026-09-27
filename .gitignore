@@ -34,6 +34,7 @@ sample/projects/
 build/
 dist/
 .venv-build/
+*.whl
 
 # Editors / OS
 .idea/

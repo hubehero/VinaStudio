@@ -1,7 +1,9 @@
+import { ElMessage } from 'element-plus'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 import { api } from '@/api/http'
+import { i18n } from '@/i18n'
 import { useBoxStore } from '@/stores/box'
 import { useMoleculeStore } from '@/stores/molecules'
 import type { ProjectFile, ProjectListEntry } from '@/types/api'
@@ -12,6 +14,8 @@ export const useProjectStore = defineStore('project', () => {
   const projectName = ref('untitled')
   const isDirty = ref(false)
   const savedProjects = ref<ProjectListEntry[]>([])
+  /** Result references whose artifacts no longer exist (load, TASK-07). */
+  const loadWarnings = ref<string[]>([])
 
   function newProject(): void {
     currentProject.value = null
@@ -58,10 +62,39 @@ export const useProjectStore = defineStore('project', () => {
       currentPath.value = result.path
       projectName.value = currentProject.value.name || 'untitled'
       isDirty.value = false
+      loadWarnings.value = result.warnings ?? []
+      if (loadWarnings.value.length > 0) {
+        // The project still loads — a stale reference is a notice, not an error.
+        ElMessage.warning(
+          i18n.global.t('project.resultsMissing', { count: loadWarnings.value.length }),
+        )
+      }
       restoreFromProject(currentProject.value)
       return true
     } catch {
       return false
+    }
+  }
+
+  /**
+   * Remember a finished job as a project result reference (format 1.1).
+   *
+   * Dedup by jobId: polling after completion re-runs this path. Without an
+   * open project there is nothing to write the reference into, so it is a
+   * silent no-op rather than an error.
+   */
+  function recordResult(jobId: string, label: string): void {
+    const project = currentProject.value
+    if (!project) return
+    const results = project.results ?? []
+    if (!results.some((r) => r.jobId === jobId)) {
+      results.push({ jobId, label })
+      project.results = results
+      isDirty.value = true
+    }
+    if (project.lastJobId !== jobId) {
+      project.lastJobId = jobId
+      isDirty.value = true
     }
   }
 
@@ -99,7 +132,7 @@ export const useProjectStore = defineStore('project', () => {
     const ligand = molecules.pipelineLigand
 
     return {
-      formatVersion: '1.0',
+      formatVersion: '1.1',
       createdAt: currentProject.value?.createdAt ?? new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       name: projectName.value,
@@ -180,11 +213,13 @@ export const useProjectStore = defineStore('project', () => {
     projectName,
     isDirty,
     savedProjects,
+    loadWarnings,
     newProject,
     markDirty,
     saveProject,
     saveProjectAs,
     loadProject,
+    recordResult,
     refreshProjectList,
     deleteProject,
   }

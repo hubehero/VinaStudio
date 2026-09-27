@@ -1,14 +1,17 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 
-import type { SurfaceKind } from '@/composables/use3Dmol'
+import type { RenderQuality, SurfaceKind } from '@/composables/use3Dmol'
 
 /**
- * Viewer preferences — camera behaviour, axes and surface rendering.
+ * Viewer preferences — camera behaviour, axes, surface rendering, and quality.
  *
  * Surface visibility and opacity live here as the single source of truth.
  * Both the settings dialog and the style panel bind the same fields, so the
  * two controls always agree and the surface responds immediately.
+ *
+ * Render quality controls the visual fidelity vs performance trade-off.
+ * This only affects rendering, not docking calculations.
  *
  * Theme and language deliberately do *not* live here: the interface store owns
  * them, and keeping a second copy meant a change made in one place was invisible
@@ -26,6 +29,8 @@ export interface ViewerSettings {
   /** ``null`` means hidden; a ``SurfaceKind`` means visible and sets the type. */
   surfaceKind: SurfaceKind | null
   surfaceOpacity: number
+  /** Rendering quality preset: 'low' | 'medium' | 'high'. */
+  renderQuality: RenderQuality
 }
 
 interface StoredSettings {
@@ -40,6 +45,7 @@ const DEFAULT_VIEWER: ViewerSettings = {
   autoRotateSpeed: 1.0,
   surfaceKind: null,
   surfaceOpacity: 0.75,
+  renderQuality: 'medium',
 }
 
 function loadFromStorage(): ViewerSettings {
@@ -64,6 +70,10 @@ function loadFromStorage(): ViewerSettings {
           typeof stored.surfaceOpacity === 'number'
             ? stored.surfaceOpacity
             : defaults.surfaceOpacity,
+        renderQuality:
+          stored.renderQuality === 'low' || stored.renderQuality === 'high'
+            ? stored.renderQuality
+            : defaults.renderQuality,
       }
       return migrated
     }

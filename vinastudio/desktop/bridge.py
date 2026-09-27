@@ -123,6 +123,21 @@ class Bridge(QObject):
             return ""
         return path
 
+    @Slot(str, str, result=bool)
+    def writeTextFile(self, path: str, content: str) -> bool:
+        """Write UTF-8 text to an already-chosen path; False on failure.
+
+        The dialog belongs to the caller (pickSaveFile); this slot only
+        writes, so a cancelled dialog never reaches it and an OSError is
+        reported instead of swallowed.
+        """
+        try:
+            Path(path).write_text(content, encoding="utf-8")
+        except OSError as exc:
+            self._error("Could not save file", str(exc))
+            return False
+        return True
+
     @Slot(str, result=bool)
     def revealInFileManager(self, path: str) -> bool:
         """Open the containing folder of ``path`` in the system file manager."""
@@ -137,6 +152,11 @@ class Bridge(QObject):
             except OSError:  # pragma: no cover - no xdg-open available
                 pass
         return QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder)))
+
+    @Slot(str, result=bool)
+    def openUrl(self, url: str) -> bool:
+        """Open a URL in the system default browser."""
+        return QDesktopServices.openUrl(QUrl(url))
 
     # -- misc --------------------------------------------------------------
     @Slot()

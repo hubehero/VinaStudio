@@ -37,6 +37,38 @@ def slugify(text: str, *, fallback: str = "run", limit: int = 40) -> str:
     return slug[:limit] or fallback
 
 
+#: Per-job persistence filenames inside ``<workspace>/jobs/<job_id>/``.
+#: ``job.json`` is the crash-safe index the job manager rewrites on stage
+#: changes and terminal states; the log lives beside it because large text
+#: must never travel inside the JSON (HANDBOOK §4.6).
+JOB_STATE_FILENAME = "job.json"
+JOB_LOG_FILENAME = "job.log"
+POSES_SDF_FILENAME = "poses.sdf"
+BATCH_RESULTS_CSV_FILENAME = "batch_results.csv"
+
+#: Analysis-cache convention (TASK-07 §4.7) — format agreed, implementation
+#: arrives with each analysis task: a JSON array of entries shaped
+#: ``{"kind": str, "paramsHash": str, "payload": any}``.  An entry whose
+#: ``paramsHash`` no longer matches the request is stale and is recomputed
+#: rather than trusted.
+ANALYSIS_CACHE_FILENAME = "analysis.json"
+
+
+def job_dir(job_id: str) -> Path:
+    """Directory holding one docking job's artifacts and index file."""
+    return workspace_root() / job_id
+
+
+def job_state_path(job_id: str) -> Path:
+    """The per-job index file the job manager persists and restores from."""
+    return job_dir(job_id) / JOB_STATE_FILENAME
+
+
+def job_log_path(job_id: str) -> Path:
+    """Append-only log file for a job, replayed after a restart."""
+    return job_dir(job_id) / JOB_LOG_FILENAME
+
+
 @dataclass(slots=True)
 class Workspace:
     """A directory that belongs to one preparation or docking run."""

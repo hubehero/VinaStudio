@@ -39,6 +39,10 @@ class DockingParams:
     force_even_voxels: bool = False
     weights: list[float] | None = None
     map_paths: list[str] | None = None
+    map_prefix: str | None = None
+    """Pre-computed map prefix (from ``precompute_vina_maps``). Overrides ``map_paths``."""
+    engine: str = "vina"
+    """Docking engine: ``"vina"`` (default CPU), or ``"unidock"`` (GPU, future)."""
 
 
 @dataclass(slots=True)
@@ -84,7 +88,10 @@ def run_docking(params: DockingParams, output_dir: str) -> DockingResult:
     else:
         raise ValueError("either ligand_path or ligand_pdbqt_string must be provided")
 
-    if params.map_paths:
+    if params.map_prefix:
+        # Pre-computed maps from ``precompute_vina_maps`` — a single prefix.
+        v.load_maps(params.map_prefix)
+    elif params.map_paths:
         # The caller supplies the prefix Vina's own map files are named after;
         # deriving it from a file name cannot work, because a prefix may itself
         # contain the separator this used to split on.
@@ -157,3 +164,42 @@ def run_docking(params: DockingParams, output_dir: str) -> DockingResult:
         log.warning("SDF export failed: %s", exc)
 
     return result
+
+
+def precompute_vina_maps(
+    receptor_path: str,
+    flex_pdbqt_path: str | None,
+    center: tuple[float, float, float],
+    size: tuple[float, float, float],
+    scoring: str = "vina",
+    spacing: float = 0.375,
+    force_even_voxels: bool = False,
+    output_dir: str = "",
+) -> str:
+    """Pre-compute Vina affinity maps once, returning the map prefix for reuse.
+
+    In batch mode the maps are identical for every ligand, so computing
+    them once and passing the prefix to subsequent ``run_docking`` calls
+    avoids redundant grid calculations.
+
+    Returns the prefix path that ``Vina.load_maps()`` expects.
+    """
+    from vina import Vina  # type: ignore[import-untyped]
+
+    v = Vina(sf_name=scoring, cpu=0, seed=0, verbosity=0)
+    v.set_receptor(
+        rigid_pdbqt_filename=receptor_path,
+        flex_pdbqt_filename=flex_pdbqt_path or None,
+    )
+    v.compute_vina_maps(
+        center=list(center),
+        box_size=list(size),
+        spacing=spacing,
+        force_even_voxels=force_even_voxels,
+    )
+
+    prefix = str(Path(output_dir) / "maps")
+    v.write_maps(prefix)
+    log.info("pre-computed Vina maps: %s", prefix)
+
+    return prefix

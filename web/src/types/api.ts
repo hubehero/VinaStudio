@@ -20,6 +20,10 @@ export interface SystemInfo {
   runtime: RuntimeInfo
   home: string
   packages: Record<string, string | null>
+  rendering?: {
+    /** VINASTUDIO_SOFTWARE_RENDER=1 was set when the server started. */
+    softwareRenderRequested: boolean
+  }
 }
 
 export interface PackageCheck {
@@ -79,7 +83,7 @@ export interface Health {
 // preparation
 // --------------------------------------------------------------------------
 
-export type ArtifactKind = 'pdbqt' | 'pdb' | 'sdf' | 'json' | 'log' | 'text'
+export type ArtifactKind = 'pdbqt' | 'pdb' | 'sdf' | 'json' | 'log' | 'text' | 'zip'
 
 export interface Artifact {
   name: string
@@ -171,6 +175,23 @@ export interface LigandPreparation {
   report: LigandReport
   artifacts: Artifact[]
   pdbqt: string
+}
+
+/** Body of POST /api/ligand/from-smiles — single paste or one-per-line batch. */
+export interface LigandFromSmilesRequest {
+  smiles?: string | null
+  smilesList?: string[] | null
+  name?: string | null
+  options?: Partial<LigandOptions>
+}
+
+/** One ligand built from SMILES: path + inspect preview + full preparation. */
+export interface LigandFromSmilesItem {
+  path: string
+  name: string
+  bytes: number
+  preview: LigandPreview
+  preparation: LigandPreparation
 }
 
 export interface ReceptorPreview {
@@ -347,6 +368,10 @@ export interface DockingJobSummary {
   stage: string | null
   scoring: ScoringFunction
   elapsedMs: number | null
+  createdAt: number
+  label: string
+  bestAffinity: number | null
+  isBatch: boolean
 }
 
 export interface PoseInfo {
@@ -446,6 +471,85 @@ export interface ExportPoseResponse {
   affinity: number
   pdbqt: string
   sdf: string
+}
+
+/** Bundle members the export-bundle endpoint can pack (TASK-08). */
+export type BundleMember = 'sdf' | 'csv' | 'config' | 'svg2d' | 'html'
+
+export interface ExportBundleRequest {
+  /** Exactly these files end up in the zip; also gates the report's inline SVG. */
+  include: BundleMember[]
+  /** Serialized 2D interaction diagram; omitted when the caller cannot supply one. */
+  svg2d?: string
+  /** Report language; follows the interface language. */
+  lang: 'zh-CN' | 'en-US'
+}
+
+// ── pose geometric validation (TASK-02, migrated from api/http.ts) ─────────
+
+export type PoseFindingSeverity = 'error' | 'warning'
+
+export interface PoseFinding {
+  code: string
+  severity: PoseFindingSeverity
+  messageKey: string
+  detail: Record<string, unknown>
+}
+
+export interface PoseValidationItem {
+  poseIndex: number
+  findings: PoseFinding[]
+  worstSeverity: PoseFindingSeverity | null
+}
+
+export interface ValidatePosesRequest {
+  poseIndex?: number | null
+  center?: [number, number, number] | null
+  size?: [number, number, number] | null
+  referenceSdfPath?: string | null
+  enabled?: string[] | null
+}
+
+export interface ValidatePosesResponse {
+  jobId: string
+  poses: PoseValidationItem[]
+  thresholds: Record<string, number>
+  checksRun: string[]
+}
+
+// ── redocking RMSD vs a co-crystal reference (TASK-03, migrated from http.ts) ──
+
+export interface RmsdRequestBody {
+  referencePath?: string
+  referencePdbqt?: string
+  threshold?: number
+}
+
+export interface RmsdResponse {
+  jobId: string
+  values: number[]
+  threshold: number
+  successRate: number
+  /** False = different chemical structure (warn, never reject); null = unknown. */
+  structureMatch: boolean | null
+}
+
+// ── pose clustering (TASK-04, migrated from api/http.ts) ────────────────────
+
+export interface ClusterItem {
+  /** 0-based pose indices, file order. */
+  members: number[]
+  /** 0-based index of the representative pose (smallest mean distance). */
+  centroid: number
+  size: number
+  meanRmsd: number
+}
+
+export interface ClusterResponse {
+  jobId: string
+  cutoff: number
+  clusters: ClusterItem[]
+  nClusters: number
 }
 
 export interface VinaInfoResponse {
@@ -563,6 +667,12 @@ export interface ProjectReceptor {
   flexPath: string | null
 }
 
+/** Format 1.1: a pointer to a job's artifacts, never the results themselves. */
+export interface ProjectResultRef {
+  jobId: string
+  label: string
+}
+
 export interface ProjectFile {
   formatVersion: string
   createdAt: string
@@ -574,7 +684,7 @@ export interface ProjectFile {
   box: ProjectBox | null
   docking: ProjectDockingConfig
   lastJobId: string | null
-  results: Record<string, unknown>[]
+  results: ProjectResultRef[]
 }
 
 export interface ProjectListEntry {
@@ -645,16 +755,133 @@ export interface InteractionData {
   distance: number
 }
 
-/** Native bridge capabilities exposed through QWebChannel. */
+/** One atom of the 2D interaction-map depiction (TASK-06).
+
+ * `x`/`y` are the unit-square layout (aspect preserved, y up); `x3`/`y3`/`z3`
+ * snapshot the original 3D site — contact rows map to depiction atoms by
+ * these coordinates because RDKit restores hydrogens the PDBQT file lacks
+ * (index alignment fails, coordinate alignment does not). Null when the
+ * source carried no conformer.
+ */
+export interface DepictAtom {
+  idx: number
+  x: number
+  y: number
+  x3: number | null
+  y3: number | null
+  z3: number | null
+  symbol: string
+  charge: number
+  aromatic: boolean
+}
+
+/** A bond as restored from SMILES/SDF chemistry — never guessed from geometry. */
+export interface DepictBond {
+  a1: number
+  a2: number
+  /** RDKit order: 1, 1.5 (aromatic), 2, … */
+  order: number
+  aromatic: boolean
+}
+
+export interface DepictData {
+  atoms: DepictAtom[]
+  bonds: DepictBond[]
+}
+
+export interface AnalyzeInteractionsRequest {
+  receptorPath: string
+  ligandPath?: string
+  ligandPdbqtString?: string
+  distanceCutoff?: number
+}
+
+export interface AnalyzeInteractionsResponse {
+  interactions: InteractionData[]
+  count: number
+  /** null when bond orders could not be restored (e.g. PDBQT without REMARK SMILES). */
+  depict: DepictData | null
+}
+
+// --------------------------------------------------------------------------
+// 2D sketch editor (contract with POST /api/chem/sketch/analyze)
+// --------------------------------------------------------------------------
+
+/** One atom as drawn: scene pixels (y grows downward), editor-assigned id. */
+export interface SketchAtomInput {
+  id: number
+  symbol: string
+  x: number
+  y: number
+  charge: number
+  radical: number
+}
+
+export interface SketchBondInput {
+  a1: number
+  a2: number
+  /** Kekule order: 1, 2, 3 (1.5 accepted by the backend, no tool emits it). */
+  order: number
+  /** 0 none, 1 wedge, 2 hash — drawn at the a1 end. */
+  stereo: number
+}
+
+export interface SketchAnalyzeRequest {
+  atoms: SketchAtomInput[]
+  bonds: SketchBondInput[]
+}
+
+export interface SketchRingInfo {
+  atomIds: number[]
+  /** Mean of input pixel positions — drawn in scene space, not Angstrom. */
+  center: [number, number]
+}
+
+export interface SketchAnalyzeResponse {
+  /** Canonical isomeric SMILES; null while the drawing is chemically invalid. */
+  smiles: string | null
+  /** Editor atom id → implicit hydrogen count (only ids with count > 0). */
+  implicitH: Record<number, number>
+  /** Editor atom ids that failed the chemistry check (red frames). */
+  problems: number[]
+  rings: SketchRingInfo[]
+  /** Human explanation when smiles is null. */
+  error: string | null
+}
+
+export interface SketchCleanupResponse {
+  /** Editor atom id → [x, y] in Angstrom, chemical frame (y grows up). */
+  positions: Record<number, [number, number]>
+}
+
+/** Whole-drawing answer for POST /api/chem/sketch/layout.
+
+    Structurally the analyze input shapes, but x/y are Angstrom on the
+    chemical frame (cleanup convention), **not** scene pixels — the importer
+    converts with the shared Å→px helper before committing.
+ */
+export interface SketchLayoutResponse {
+  atoms: SketchAtomInput[]
+  bonds: SketchBondInput[]
+}
+
+/** Native bridge capabilities exposed through QWebChannel.
+
+    QWebChannel wraps every slot that has a ``result`` return type in a
+    Promise, so all non-void methods return ``Promise<T>`` on the JS side.
+ */
 export interface DesktopBridge {
-  appInfo(): string
-  getLanguage(): string
-  setLanguage(language: string): boolean
-  openFiles(title: string, filters: string, multiple: boolean): string
-  saveFile(title: string, suggestedName: string, filters: string): string
-  openDirectory(title: string): string
-  saveImage(dataUrl: string, suggestedName: string): string
-  revealInFileManager(path: string): boolean
+  appInfo(): Promise<string>
+  getLanguage(): Promise<string>
+  setLanguage(language: string): Promise<boolean>
+  openFiles(title: string, filters: string, multiple: boolean): Promise<string>
+  saveFile(title: string, suggestedName: string, filters: string): Promise<string>
+  openDirectory(title: string): Promise<string>
+  saveImage(dataUrl: string, suggestedName: string): Promise<string>
+  /** Write UTF-8 text to a path the caller already chose; false on failure. */
+  writeTextFile(path: string, content: string): Promise<boolean>
+  revealInFileManager(path: string): Promise<boolean>
+  openUrl(url: string): Promise<boolean>
   notify(title: string, message: string): void
   quit(): void
 }

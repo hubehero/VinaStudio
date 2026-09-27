@@ -1,4 +1,6 @@
 import type {
+  AnalyzeInteractionsRequest,
+  AnalyzeInteractionsResponse,
   Artifact,
   Detection,
   AutoboxFromResiduesOptions,
@@ -12,15 +14,16 @@ import type {
   BoxSpec,
   Capabilities,
   CitationResponse,
+  ClusterResponse,
   ConfigText,
   DockingDefaults,
   DockingJobCreated,
-  InteractionData,
   VinaCiteResponse,
   DockingJobResult,
   DockingJobStatus,
   DockingJobSummary,
   DockingRequest,
+  ExportBundleRequest,
   ExportPoseResponse,
   FileFilters,
   Health,
@@ -33,20 +36,30 @@ import type {
   LibrarySearchResponse,
   LigandOptions,
   LigandPreparation,
+  LigandFromSmilesItem,
+  LigandFromSmilesRequest,
   LigandPreview,
   OptimizeRequest,
   OptimizeResponse,
   RandomizeRequest,
   RandomizeResponse,
+  RmsdRequestBody,
+  RmsdResponse,
   ReceptorOptions,
   ReceptorPreparation,
   ReceptorPreview,
   SampleFile,
   SavedUpload,
+  SketchAnalyzeRequest,
+  SketchAnalyzeResponse,
+  SketchCleanupResponse,
+  SketchLayoutResponse,
   ScoreRequest,
   ScoreResponse,
   SelfCheck,
   SystemInfo,
+  ValidatePosesRequest,
+  ValidatePosesResponse,
   VinaInfoResponse,
   WorkspaceInfo,
   WriteMapsRequest,
@@ -161,6 +174,29 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ path, options }),
     }),
+  // Paste SMILES → 3D SDF on disk → inspect + prepare in one round-trip.
+  ligandFromSmiles: (body: LigandFromSmilesRequest) =>
+    request<LigandFromSmilesItem[]>('/api/ligand/from-smiles', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  // Sketch chemical feedback: 200 with smiles=null while the drawing is
+  // invalid — that is a verdict, not a transport failure.
+  analyzeSketch: (body: SketchAnalyzeRequest) =>
+    request<SketchAnalyzeResponse>('/api/chem/sketch/analyze', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  cleanupSketch: (body: SketchAnalyzeRequest) =>
+    request<SketchCleanupResponse>('/api/chem/sketch/cleanup', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  layoutSketch: (smiles: string) =>
+    request<SketchLayoutResponse>('/api/chem/sketch/layout', {
+      method: 'POST',
+      body: JSON.stringify({ smiles }),
+    }),
   inspectReceptor: (path: string) =>
     request<ReceptorPreview>('/api/receptor/inspect', {
       method: 'POST',
@@ -249,10 +285,34 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ poseIndex }),
     }),
-  exportCsv: (jobId: string) =>
-    request<{ csv: string; filename: string }>(`/api/docking/jobs/${jobId}/export-csv`),
+  validatePoses: (jobId: string, body: ValidatePosesRequest = {}) =>
+    request<ValidatePosesResponse>(`/api/docking/jobs/${jobId}/validate`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  jobRmsd: (jobId: string, body: RmsdRequestBody) =>
+    request<RmsdResponse>(`/api/docking/jobs/${jobId}/rmsd`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  clusterPoses: (jobId: string, body: { cutoff?: number } = {}) =>
+    request<ClusterResponse>(`/api/docking/jobs/${jobId}/cluster`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  exportCsv: (jobId: string, referencePath?: string) => {
+    const query = referencePath ? `?referencePath=${encodeURIComponent(referencePath)}` : ''
+    return request<{ csv: string; filename: string }>(
+      `/api/docking/jobs/${jobId}/export-csv${query}`,
+    )
+  },
   exportBatchCsv: (jobId: string) =>
     request<{ csv: string; filename: string }>(`/api/docking/batch/${jobId}/export-csv`),
+  exportBundle: (jobId: string, body: ExportBundleRequest) =>
+    request<Artifact>(`/api/docking/jobs/${jobId}/export-bundle`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   vinaInfo: () => request<VinaInfoResponse>('/api/docking/info'),
   vinaCite: (scoring: string = 'vina') =>
     request<VinaCiteResponse>(`/api/docking/cite?scoring=${encodeURIComponent(scoring)}`),
@@ -269,10 +329,13 @@ export const api = {
       body: JSON.stringify({ path, project }),
     }),
   loadProject: (path: string) =>
-    request<{ path: string; project: Record<string, unknown> }>('/api/project/load', {
-      method: 'POST',
-      body: JSON.stringify({ path }),
-    }),
+    request<{ path: string; project: Record<string, unknown>; warnings: string[] }>(
+      '/api/project/load',
+      {
+        method: 'POST',
+        body: JSON.stringify({ path }),
+      },
+    ),
   listProjects: () =>
     request<{ path: string; filename: string; name: string; createdAt: string; updatedAt: string; description: string }[]>('/api/project/list'),
   deleteProject: (filename: string) =>
@@ -281,8 +344,8 @@ export const api = {
     }),
 
   // -- interactions ---------------------------------------------------------
-  analyzeInteractions: (body: { receptorPath: string; ligandPath?: string; ligandPdbqtString?: string; distanceCutoff?: number }) =>
-    request<{ interactions: InteractionData[]; count: number }>('/api/interactions/analyze', {
+  analyzeInteractions: (body: AnalyzeInteractionsRequest) =>
+    request<AnalyzeInteractionsResponse>('/api/interactions/analyze', {
       method: 'POST',
       body: JSON.stringify(body),
     }),
@@ -328,6 +391,28 @@ export const api = {
     request<WorkspaceInfo>(`/api/workspace/name?name=${encodeURIComponent(name)}`, {
       method: 'PUT',
     }),
+
+  // -- molecule manifest (persistent storage) ---------------------------------
+  listMolecules: () =>
+    request<import('@/types/molecule').MoleculeManifest>('/api/molecules'),
+  saveMolecules: (manifest: import('@/types/molecule').MoleculeManifest) =>
+    request<{ status: string; count: number }>('/api/molecules/save', {
+      method: 'POST',
+      body: JSON.stringify(manifest),
+    }),
+  deleteMolecule: (id: string) =>
+    request<{ status: string; count: number }>(`/api/molecules/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }),
+  clearMolecules: () =>
+    request<{ status: string; count: number }>('/api/molecules/clear', {
+      method: 'POST',
+    }),
+  verifyMolecules: (ids: string[]) =>
+    request<{ existing: string[]; missing: string[]; mtimes: Record<string, number> }>('/api/molecules/verify', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    }),
 }
 
 export type {
@@ -341,6 +426,7 @@ export type {
   FileFilters,
   Health,
   LigandPreparation,
+  LigandFromSmilesItem,
   LigandPreview,
   ReceptorPreparation,
   ReceptorPreview,

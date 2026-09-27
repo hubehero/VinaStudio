@@ -46,6 +46,10 @@ export interface MoleculeItem {
   groupId: string | null
   /** Display name for the group (e.g. PDB ID). */
   groupName: string | null
+  /** User-assigned aliases (e.g. Chinese names). */
+  aliases: string[]
+  /** User-assigned category (e.g. '激酶', '蛋白酶'). */
+  category: string | null
 }
 
 /** A receptor with its associated ligands, for grouped display. */
@@ -54,6 +58,43 @@ export interface MoleculeGroup {
   name: string
   receptor: MoleculeItem | null
   ligands: MoleculeItem[]
+}
+
+// ── manifest (persistent storage) ───────────────────────────────────────────
+
+/** Wire format for a single molecule in the manifest. */
+export interface MoleculeManifestEntry {
+  id: string
+  name: string
+  path: string
+  size: number
+  detectedType: MoleculeType
+  detectionConfidence: number
+  detectionSource: DetectionSource
+  detectionReason: string | null
+  assignedType: MoleculeType | null
+  status: MoleculeStatus
+  preview: unknown
+  report: unknown
+  artifacts: Artifact[]
+  pdbqt: string | null
+  error: unknown
+  receptorOptions: ReceptorOptions
+  ligandOptions: LigandOptions
+  groupId: string | null
+  groupName: string | null
+  aliases: string[]
+  category: string | null
+  mtime: number | null
+  createdAt: string
+  updatedAt: string
+}
+
+/** Workspace-level molecule manifest. */
+export interface MoleculeManifest {
+  formatVersion: string
+  updatedAt: string
+  molecules: MoleculeManifestEntry[]
 }
 
 export function getEffectiveType(mol: MoleculeItem): MoleculeType {

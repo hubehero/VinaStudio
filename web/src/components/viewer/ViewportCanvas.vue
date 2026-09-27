@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Aim, Download, RefreshLeft } from '@element-plus/icons-vue'
+import { Aim, Close, Download, RefreshLeft, WarningFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n'
 import { saveImage } from '@/api/bridge'
 import {
   DEFAULT_VIEWER_STYLE,
+  rendererInfo,
   useMoleculeViewer,
   type BoxGeometry,
   type InteractionData,
@@ -63,10 +64,16 @@ const settings = useSettingsStore()
 const { t } = useI18n()
 
 const container = ref<HTMLElement | null>(null)
-const { viewer, ready, error } = useMoleculeViewer(container, { autoReferenceFrame: false })
+const { viewer, ready, error, recreate } = useMoleculeViewer(container, {
+  autoReferenceFrame: false,
+  // A getter so a quality rebuild always binds the latest preset.
+  quality: () => settings.viewer.renderQuality,
+})
 const loadError = ref<string | null>(null)
 const hasMolecule = ref(false)
 const dragging = ref(false)
+/** Session-level dismissal of the software-renderer warning pill. */
+const rendererWarnDismissed = ref(false)
 
 /**
  * Surface kind and opacity live in ``settings.viewer`` as the single source of
@@ -110,28 +117,81 @@ function applyAutoRotate(): void {
   }
 }
 
-watch(ready, (isReady) => { if (isReady) applyAutoRotate() })
+watch(ready, (isReady) => {
+  if (!isReady) return
+  // A rebuilt viewer starts on the constructor's default background; re-assert
+  // the theme colour so light mode never flashes the dark default.
+  viewer.value?.setBackground(STAGE_BACKGROUND[ui.resolvedTheme])
+  applyAutoRotate()
+})
 watch(() => settings.viewer.autoRotate, applyAutoRotate)
 watch(() => settings.viewer.autoRotateSpeed, () => {
   if (settings.viewer.autoRotate) applyAutoRotate()
 })
 
-async function applyReceptor(url: string | null): Promise<void> {
+// ---------------------------------------------------------------------------
+// Molecule loading — single coordinated loader
+//
+// All molecule state (receptor, ligand, pose) is applied together to avoid
+// race conditions between concurrent async watchers.  A generation counter
+// discards the result of any stale operation so only the latest prop values
+// take effect, even when requests resolve out of order.
+// ---------------------------------------------------------------------------
+let loadGeneration = 0
+
+/**
+ * Apply all molecule props in one atomic operation.
+ *
+ * The receptor is loaded first; removeReceptor() internally removes the
+ * ligand too, so the ligand is always loaded /after/ the receptor.  Pose
+ * SDF content shares the ligand slot with ligandUrl — pose takes priority
+ * when both are set.
+ *
+ * The receptor is only rebuilt when its URL changes: pose navigation fires
+ * this watcher on every step and re-fetching + re-styling the whole receptor
+ * each time was the dominant cost of browsing poses. The residual risk — the
+ * same URL rewritten in place while this view stays mounted — does not occur:
+ * receptor preparation happens on /molecules, where this view is unmounted.
+ */
+let loadedReceptorUrl: string | null = null
+
+async function applyMolecules(): Promise<void> {
   const instance = viewer.value
-  if (!instance) {
-    return
-  }
+  if (!instance || !ready.value) return
+
+  const gen = ++loadGeneration
+
   try {
-    instance.removeReceptor()
-    if (url) {
-      await instance.loadReceptor(url)
+    // --- receptor ---
+    if (props.receptorUrl !== loadedReceptorUrl) {
+      instance.removeReceptor()          // also removes ligand + surface
+      if (props.receptorUrl) {
+        await instance.loadReceptor(props.receptorUrl)
+      }
+      if (gen !== loadGeneration) return  // stale — a newer call superseded us
+      loadedReceptorUrl = props.receptorUrl
+    } else {
+      // Receptor unchanged: keep it (and its surface), swap only the ligand.
+      instance.removeLigand()
+      if (gen !== loadGeneration) return
     }
+
+    // --- ligand / pose ---
+    if (props.poseSdfContent) {
+      instance.loadPoseFromSdf(props.poseSdfContent)
+    } else if (props.ligandUrl) {
+      await instance.loadLigand(props.ligandUrl)
+    }
+    if (gen !== loadGeneration) return
+
     loadError.value = null
   } catch (cause) {
+    if (gen !== loadGeneration) return
     loadError.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
+    if (gen !== loadGeneration) return
     hasMolecule.value = instance.hasMolecule
-    if (url) {
+    if (instance.hasMolecule) {
       instance.focus()
     } else {
       instance.drawReferenceFrame()
@@ -139,70 +199,12 @@ async function applyReceptor(url: string | null): Promise<void> {
   }
 }
 
-async function applyLigand(url: string | null): Promise<void> {
-  const instance = viewer.value
-  if (!instance) {
-    return
-  }
-  try {
-    instance.removeLigand()
-    if (url) {
-      await instance.loadLigand(url)
-    }
-    loadError.value = null
-  } catch (cause) {
-    loadError.value = cause instanceof Error ? cause.message : String(cause)
-  } finally {
-    hasMolecule.value = instance.hasMolecule
-    if (url) {
-      instance.focus()
-    }
-  }
-}
-
-// Loading is deferred until the viewer exists; `ready` flips once it does, and
-// then the first load runs with whatever URLs are already set.
-watch([ready, () => props.receptorUrl], () => void applyReceptor(props.receptorUrl), {
-  immediate: true,
-})
-watch([ready, () => props.ligandUrl], () => void applyLigand(props.ligandUrl), { immediate: true })
-
-/**
- * Load a docked pose from inline SDF content.
- *
- * The pose occupies the ligand slot, so the two ligand sources must never both
- * draw: a view passes either `ligandUrl` or `poseSdfContent`, picked by a
- * computed. Clearing on a null pose is therefore conditional — when a ligand
- * URL stands by, `applyLigand` (created earlier, so it runs first) is mid-swap
- * and an unconditional `removeLigand` here would wipe the ligand it just drew.
- */
-async function applyPose(sdfContent: string | null): Promise<void> {
-  const instance = viewer.value
-  if (!instance || !ready.value) {
-    return
-  }
-  try {
-    if (sdfContent) {
-      instance.removeLigand()
-      instance.loadPoseFromSdf(sdfContent)
-    } else if (!props.ligandUrl) {
-      instance.removeLigand()
-    }
-    loadError.value = null
-  } catch (cause) {
-    loadError.value = cause instanceof Error ? cause.message : String(cause)
-  } finally {
-    hasMolecule.value = instance.hasMolecule
-    if (sdfContent) {
-      instance.focus()
-    }
-  }
-}
-
-// Immediate so revisiting this page with a pose already selected still draws it.
-watch([ready, () => props.poseSdfContent], () => void applyPose(props.poseSdfContent), {
-  immediate: true,
-})
+// Trigger on any molecule-prop change or viewer becoming ready.
+watch(
+  [ready, () => props.receptorUrl, () => props.ligandUrl, () => props.poseSdfContent],
+  () => void applyMolecules(),
+  { immediate: true },
+)
 
 // Draw interactions when the array changes.
 watch([ready, () => props.interactions], () => {
@@ -236,10 +238,23 @@ watch([ready, () => effectiveStyle.value], () => {
   if (viewer.value) {
     void viewer.value.applyStyle(effectiveStyle.value)
   }
-}, { deep: true })
+})
 
 watch([ready, () => props.orthographic], () => {
   viewer.value?.setProjection(props.orthographic)
+})
+
+// Quality presets bind antialias/cartoonQuality at construction time, so a
+// preset change must rebuild the viewer to take full effect — setQuality
+// alone only re-applies ambient occlusion. While not ready the quality getter
+// already supplies the new preset to the pending construction.
+watch(() => settings.viewer.renderQuality, () => {
+  if (ready.value) {
+    // The rebuild starts from an empty container — forget which receptor the
+    // cache believes is loaded, or applyMolecules would skip re-adding it.
+    loadedReceptorUrl = null
+    recreate()
+  }
 })
 
 // ---------------------------------------------------------------------------
@@ -337,8 +352,9 @@ function onWheel(event: WheelEvent): void {
   const invert = settings.viewer.invertZoom
   const zoomIn = invert ? scrollDown : !scrollDown
   const scale = zoomIn ? 0.85 : 1.15
-  instance.raw.zoom(scale)
-  instance.raw.render()
+  // Coalesced: a wheel burst fires many events per frame, and each direct
+  // render would spend a full ambient-occlusion pass on frames nobody sees.
+  instance.zoomBy(scale)
 }
 
 watch(ready, (isReady) => {
@@ -481,6 +497,29 @@ const emptyBody = computed(() => t('workbench.viewport.emptyBody'))
       {{ t('box.dragHint') }}
     </div>
 
+    <!-- Bottom-right: the one free corner (toolbar top-right, hint top-left,
+         empty card bottom-left). Shown only when Chromium silently fell back
+         to a CPU rasteriser. -->
+    <div
+      v-if="rendererInfo?.software && !rendererWarnDismissed"
+      class="viewport__sw-warn"
+      role="status"
+    >
+      <el-icon :size="14" class="viewport__sw-warn__icon"><WarningFilled /></el-icon>
+      <div class="viewport__sw-warn__text">
+        <strong>{{ t('viewport.softwareRenderer') }}</strong>
+        <span>{{ t('viewport.softwareRendererHint', { renderer: rendererInfo.renderer }) }}</span>
+      </div>
+      <el-button
+        size="small"
+        text
+        :aria-label="t('common.close')"
+        @click="rendererWarnDismissed = true"
+      >
+        <el-icon><Close /></el-icon>
+      </el-button>
+    </div>
+
     <div class="viewport__toolbar">
       <el-tooltip :content="t('viewport.focusView')" placement="bottom">
         <el-button size="small" text :disabled="!ready" @click="resetView">
@@ -513,11 +552,30 @@ const emptyBody = computed(() => t('workbench.viewport.emptyBody'))
   height: 100%;
 }
 
-/* Ensure the WebGL canvas renders crisply and fills its container. */
+/*
+ * Ensure the WebGL canvas renders crisply and fills its container.
+ *
+ * We deliberately avoid `!important` on width/height: 3Dmol manages the
+ * canvas dimensions internally via ResizeObserver and sets inline styles
+ * for both the buffer resolution and display size.  Forcing `100%` with
+ * `!important` overrides those inline styles, which can cause the WebGL
+ * framebuffer resolution to diverge from the CSS display size.  When that
+ * happens the projection matrix is computed for one resolution while the
+ * browser stretches/compresses the content to fit another — producing the
+ * deformation and disappearing artefacts visible at certain camera angles.
+ *
+ * Instead we hint the layout engine to fill the container with flex and
+ * let 3Dmol own the actual pixel dimensions.
+ */
+.viewport__canvas {
+  display: flex;
+}
+
 .viewport__canvas :deep(canvas) {
   display: block;
-  width: 100% !important;
-  height: 100% !important;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
   outline: none;
 }
 
@@ -607,5 +665,41 @@ const emptyBody = computed(() => t('workbench.viewport.emptyBody'))
   background: color-mix(in srgb, var(--vs-bg-surface) 86%, transparent);
   border: 1px solid var(--vs-border);
   backdrop-filter: blur(6px);
+}
+
+.viewport__sw-warn {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 320px;
+  padding: 8px 10px;
+  border-radius: var(--vs-radius);
+  background: color-mix(in srgb, var(--vs-bg-surface) 90%, transparent);
+  border: 1px solid color-mix(in srgb, var(--vs-warning) 45%, var(--vs-border));
+  color: var(--vs-warning);
+  font-size: 11.5px;
+  line-height: 1.5;
+  backdrop-filter: blur(6px);
+  z-index: 2;
+}
+
+.viewport__sw-warn__icon {
+  margin-top: 2px;
+  flex: none;
+}
+
+.viewport__sw-warn__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  color: var(--vs-text-muted);
+}
+
+.viewport__sw-warn__text strong {
+  color: var(--vs-warning);
 }
 </style>

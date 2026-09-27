@@ -18,12 +18,15 @@ Directory layout inside the workspace::
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from vinastudio.core.errors import InvalidInputError
+
+log = logging.getLogger(__name__)
 
 WORKSPACE_VERSION = 1
 _CONFIG_FILENAME = ".vinastudio.json"
@@ -197,3 +200,59 @@ def migrate_workspace(source: Path, target: Path) -> WorkspaceConfig:
             shutil.copy2(item, dest)
 
     return load_config(target)
+
+
+# ── molecule manifest ──────────────────────────────────────────────────────
+
+_MANIFEST_FILENAME = "molecules.json"
+
+
+def _manifest_path(workspace: Path) -> Path:
+    return workspace / _MANIFEST_FILENAME
+
+
+def load_molecule_manifest(workspace: Path) -> dict[str, Any]:
+    """Read the molecule manifest, returning an empty manifest if missing.
+
+    A corrupt or unreadable file is logged and treated as empty — this
+    function never raises.
+    """
+    from vinastudio.schemas.molecule import MoleculeManifest
+
+    path = _manifest_path(workspace)
+    if not path.is_file():
+        return MoleculeManifest().model_dump()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        manifest = MoleculeManifest(**data)
+        return manifest.model_dump()
+    except (json.JSONDecodeError, OSError) as exc:
+        log.warning("corrupt molecule manifest, starting fresh: %s", exc)
+        return MoleculeManifest().model_dump()
+    except Exception as exc:  # noqa: BLE001 - any schema/shape error → empty manifest
+        log.warning("invalid molecule manifest, starting fresh: %s", exc)
+        return MoleculeManifest().model_dump()
+
+
+def save_molecule_manifest(workspace: Path, manifest: dict[str, Any]) -> None:
+    """Atomically write the molecule manifest.
+
+    Uses ``tmp + os.replace`` to prevent corruption on crash.
+    """
+    from vinastudio.schemas.molecule import MoleculeManifest
+
+    validated = MoleculeManifest(**manifest)
+    validated.updatedAt = datetime.now(UTC).isoformat()
+    data = validated.model_dump()
+
+    workspace.mkdir(parents=True, exist_ok=True)
+    target = _manifest_path(workspace)
+    tmp = target.with_suffix(".json.tmp")
+    try:
+        tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        import os
+        os.replace(str(tmp), str(target))
+    except Exception:
+        # Clean up the temp file on failure.
+        tmp.unlink(missing_ok=True)
+        raise

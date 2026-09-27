@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -51,12 +50,27 @@ class ProjectReceptor(BaseModel):
     flexPath: str | None = None
 
 
+class ProjectResultRef(BaseModel):
+    """A pointer to one job's artifacts under ``<workspace>/jobs/<id>/``.
+
+    Format 1.1 (TASK-07): projects reference results instead of embedding
+    them.  ``extra="ignore"`` because before 1.1 ``results`` was an untyped
+    dict — older files may carry keys this model does not know, and a load
+    must never fail over them.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    jobId: str
+    label: str = ""
+
+
 class ProjectFile(BaseModel):
     """Root model for a .vinaproj project file."""
 
     model_config = ConfigDict(extra="forbid")
 
-    formatVersion: str = "1.0"
+    formatVersion: str = "1.1"
     createdAt: str = Field(default_factory=lambda: datetime.now().isoformat())
     updatedAt: str = Field(default_factory=lambda: datetime.now().isoformat())
     name: str = ""
@@ -69,4 +83,4 @@ class ProjectFile(BaseModel):
 
     # Results metadata (not the actual results, just references)
     lastJobId: str | None = None
-    results: list[dict[str, Any]] = Field(default_factory=list)
+    results: list[ProjectResultRef] = Field(default_factory=list)

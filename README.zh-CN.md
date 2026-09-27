@@ -1,68 +1,61 @@
 # VinaStudio
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
-[![AutoDock Vina 1.2.7](https://img.shields.io/badge/AutoDock-Vina-1.2.7-green.svg)](https://vina.scripps.edu/)
+面向 **AutoDock Vina** 的现代化桌面工作台：Vue 3 + 3Dmol.js 界面运行在
+**PySide6** 内嵌浏览器中，后端直接使用官方 `vina` Python API，分子参数化与
+格式转换由 **Meeko** 完成。
 
-VinaStudio 是一款围绕 [AutoDock Vina 1.2.7](https://vina.scripps.edu/) 构建的图形化桌面应用，目标是让研究人员和学生能够快速上手分子对接，而不需要记忆复杂的命令行参数或手动编辑配置文件。
-
-在传统的对接流程中，受体准备、配体参数化、盒子设置、运行对接、查看结果往往分散在不同的工具里。VinaStudio 把这些步骤整合到了一个窗口中：加载 PDB 或 SDF 文件，可视化地定义结合位点，一键启动对接，然后直接浏览按亲和力排序的构象、能量分解和相互作用图谱。
-
-应用桌面端基于 PySide6 (Qt)，前端使用 Vue 3 单页应用，两者通过本地 REST API 通信。支持 Linux、macOS 和 Windows 平台。
-
-> **说明：** VinaStudio 定位于初学者学习和探索性研究，尚未经过大规模基准数据集的验证，不建议作为论文中的主要工具引用。如需进行正式的对接研究，请直接使用 AutoDock Vina 或经过验证的工作流程。
-
-[English Documentation](README.md) | [用户指南](docs/USER_GUIDE.md) | [架构文档](docs/ARCHITECTURE.md)
+English documentation: [README.md](README.md)
+**用户手册（零基础可学）**: [docs/USER_GUIDE.md](docs/USER_GUIDE.md)
 
 ---
 
-## 功能特性
+## 这是什么
 
-- **受体与配体准备** — PDB/CIF/mmCIF → PDBQT（受体），MOL/SDF/MOL2/PDB → PDBQT（配体），基于 Meeko，支持删除水分子、去除非聚合物基团、重排原子顺序
-- **结合位点定义** — 自动按配体或受体重原子计算盒子，也可手动输入中心和尺寸，支持 3D 可视化
-- **分子对接** — 支持 Vina、Vinardo 和 AutoDock4 打分函数，完整参数控制（穷举度、随机种子、能量范围等）
-- **批量对接** — 逐个处理多个配体，带进度跟踪和 CSV 导出
-- **结果分析** — 按亲和力排序构象、RMSD 聚类、能量分解，以及氢键、疏水、离子相互作用检测
-- **3D 可视化** — 基于 3Dmol.js 的交互式分子查看器，支持卡通、棒状、球状和表面表示
-- **RCSB PDB 集成** — 直接从 PDB 数据库搜索并下载受体和配体
-- **项目管理** — 以 `.vinaproj` 文件保存和恢复完整的对接会话
-- **中英双语** — 支持中文和英文界面，可随时切换
-- **API 文档** — 内置 Swagger UI，可通过设置对话框访问
+AutoDock Vina 本身很优秀，但只有命令行界面，且其 Python API 是一组阻塞调用。
+VinaStudio 把两者包装成一个好用的桌面应用，同时保持科学上的严谨：
+
+- **受体与配体准备** —— 受体 PDB/CIF → PDBQT；配体 MOL/SDF/MOL2 → PDBQT，
+  全部经由 Meeko。对于只有 2D 坐标或缺氢的输入，会先补氢并生成 3D 构象再参数化。
+- **结合位点定义** —— 可由配体或残基选择自动推导包围盒，也可手动输入中心与尺寸，
+  在 3D 中实时渲染与编辑。
+- **分子对接** —— 支持 Vina、Vinardo 与 AutoDock4 三种打分函数，暴露完整参数面，
+  提供实时进度、流式日志与真正的取消功能。
+- **结果分析** —— 姿态排序、逐姿态能量分解、几何相互作用检测（氢键、盐桥、
+  疏水接触）并以 3D 标注绘制，另附 2D 相互作用图。
+- **结构输入** —— SMILES 生成 3D 配体；内置 **2D 画板**（模板环、链工具、
+  键级/立体、一键整理、周期表与自由基），绘制闭环直到导出使用。
+- **中英双语** —— 默认中文，可切换英文。
 
 ## 环境要求
 
 - Linux / macOS / Windows
 - Python 3.12
-- [uv](https://docs.astral.sh/uv/)（包管理器）
-- Node.js 20+ 与 [pnpm](https://pnpm.io/)（构建前端）
+- [uv](https://docs.astral.sh/uv/)
+- Node.js 20+ 与 [pnpm](https://pnpm.io/)（仅用于构建界面）
 
-## 快速开始
+## 安装与运行
 
 ```bash
-# 克隆仓库
-git clone https://github.com/hubehero/VinaStudio.git
-cd VinaStudio
-
-# 安装依赖
-uv sync --extra dev
-
-# 构建前端
-pnpm -C web install
-pnpm -C web build
-
-# 启动应用
-uv run python -m vinastudio
+uv sync --extra dev          # 创建 .venv 并安装科学计算依赖
+pnpm -C web install          # 安装界面依赖
+pnpm -C web build            # 构建界面到 vinastudio/server/static
+uv run python -m vinastudio  # 启动桌面应用
 ```
+
+`scripts/build_web.py` 封装了上面两条 pnpm 命令。
 
 ## 开发
 
-热重载模式运行：
+以热重载方式运行界面，并连接真实 API：
 
 ```bash
 uv run python scripts/dev.py
 ```
 
-运行测试和检查：
+该脚本会在固定回环端口启动 API、启动 Vite 开发服务器，并让 Qt 窗口指向 Vite。
+修改 `web/src` 下任意文件，窗口会即时更新，无需重启。
+
+运行检查：
 
 ```bash
 uv run pytest -q
@@ -72,80 +65,69 @@ pnpm -C web typecheck
 
 ## 架构
 
-| 层 | 位置 | 说明 |
-|----|------|------|
-| 桌面外壳 | `vinastudio/desktop/` | PySide6 窗口，原生菜单，QWebChannel 桥接 |
-| API 服务 | `vinastudio/server/` | FastAPI 回环服务，WebSocket 作业流 |
-| 领域核心 | `vinastudio/core/` | 对接、准备和分析逻辑 |
-| 前端界面 | `web/` | Vue 3 + 3Dmol.js 单页应用 |
+四层，边界严格：
 
-详见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
+| 层 | 位置 | 职责 |
+|---|---|---|
+| 桌面外壳 | `vinastudio/desktop/` | Qt 窗口、原生菜单、QWebChannel 桥 |
+| API 服务 | `vinastudio/server/` | 回环上的 FastAPI，托管单页应用，用 WebSocket 推送作业事件 |
+| 领域核心 | `vinastudio/core/` | 对接、准备与分析逻辑 —— 不依赖 Qt 与 FastAPI，可完全单元测试 |
+| 界面 | `web/` | 由内嵌 Chromium 渲染的 Vue 3 单页应用 |
 
-## 支持格式
+三条约束决定了其余设计，详见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)：
 
-| 类型 | 输入格式 |
-|------|----------|
-| 配体 | `.sdf`, `.mol`, `.mol2`, `.pdb`, `.pdbqt` |
-| 受体 | `.pdb`, `.cif`, `.mmcif`, `.ent`, `.pdbqt` |
+1. 界面通过**本地 HTTP** 提供，绝不使用 `file://` —— 文件协议下 ES 模块会被 CORS 拦截。
+2. 对接运行在 **spawn 出来的子进程**中 —— Vina 没有取消接口，杀进程是唯一的中止方式；
+   而 `fork` 与运行中的 Qt 事件循环共存是不安全的。
+3. **PDBQT 绝不直接渲染** —— 3Dmol.js 不解析该格式，且 PDBQT 不携带键级。
+   姿态由 Meeko 转为 SDF，从 PDBQT 头部记录的 SMILES 还原键级与形式电荷。
 
-## 致谢
+## 当前状态
 
-本项目基于以下开源软件构建：
+项目分阶段构建。目前已经可用的部分：
 
-- **[AutoDock Vina 1.2.7](https://vina.scripps.edu/)** — The Scripps Research Institute 开发的分子对接引擎。采用 [Apache License 2.0](https://github.com/ccsb-scripps/AutoDock-Vina/blob/develop/LICENSE) 许可。
-- **[Meeko](https://github.com/forlilab/Meeko)** — AutoDock Vina 分子准备工具。采用 [Apache License 2.0](https://github.com/forlilab/Meeko/blob/master/LICENSE) 许可。
-- **[RDKit](https://www.rdkit.org/)** — 化学信息学工具包。采用 [BSD 3-Clause](https://github.com/rdkit/rdkit/blob/master/license.txt) 许可。
-- **[3Dmol.js](https://3dmol.org/)** — 分子可视化库。采用 [MIT License](https://github.com/3dmol/3Dmol.js/blob/master/LICENSE) 许可。
-- **[Vue.js](https://vuejs.org/)** — 渐进式 JavaScript 框架。采用 [MIT License](https://github.com/vuejs/vue/blob/dev/LICENSE) 许可。
-- **[PySide6](https://doc.qt.io/qtforpython-6/)** — Qt for Python。采用 [LGPL](https://doc.qt.io/qtforpython-6/license.html) 许可。
-- **[FastAPI](https://fastapi.tiangolo.com/)** — 现代 Python Web 框架。采用 [MIT License](https://github.com/fastapi/fastapi/blob/master/LICENSE) 许可。
+- 桌面外壳（PySide6 + 内嵌 Chromium）、中英双语与主题切换、环境自检
+  （真实导入 `vina`/`meeko`/`rdkit`）
+- **配体准备** —— MOL/SDF/MOL2/PDB → PDBQT，经由 Meeko，并报告补了多少氢、
+  是否生成了 3D 构象、检出多少可旋转键。可逐字节复现上游 1iep 参考 PDBQT。
+- **受体准备** —— PDB/mmCIF → PDBQT，使用 Meeko 的模板匹配；可按需删除水分子
+  与非聚合物基团、拆出柔性侧链，并包含官方 1iep 示例所需的残基原子归位。
+- **盒子与对接** —— 自动/手动包围盒（3D 中渲染可编辑）；Vina、Vinardo 与
+  AutoDock4 打分，spawn 子进程作业带实时进度、流式日志与真取消；批量对接
+  与排行榜。
+- **结果分析** —— 构象几何体检、Redocking RMSD 对照、RMSD 聚类、2D 相互
+  作用图、逐姿态能量分解。
+- **持久化与导出** —— 作业历史与项目保存/重启恢复、自包含 HTML 结果包、
+  独立「结果汇报」页。
+- **结构输入** —— SMILES 生成 3D 配体；内置 2D 画板（见上）；分子管理器
+  批量检查与准备。
+- **渲染诊断** —— GPU/软件渲染可见、画质分档；桌面原生文件对话框，
+  浏览器端上传兜底。
 
-### AI 辅助开发
+路线图见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 
-本项目在开发过程中使用了 [Claude](https://claude.ai/)（Anthropic 开发的 AI 助手）进行辅助。Claude 用于：
+## 参考项目与致谢
 
-- 代码生成与重构
-- Bug 识别与调试
-- 文档编写
-- 架构设计讨论
-- 测试用例开发
+VinaStudio 站在开源生态之上。以下组件为直接依赖，或作为有据可查的
+行为/规格参考（licenses 指上游项目自身）：
 
-## 贡献
-
-欢迎贡献！请参阅 [CONTRIBUTING.md](CONTRIBUTING.md)。
+- [AutoDock Vina](https://github.com/ccsb-scripps/AutoDock-Vina)
+  （Apache-2.0）—— 对接引擎。
+- [Meeko](https://github.com/forlilab/Meeko)（LGPL-2.1）—— 配体与受体
+  PDBQT 参数化。
+- [RDKit](https://www.rdkit.org/)（BSD-3-Clause）—— 化学信息学、SMILES
+  处理与 2D 绘制。
+- [3Dmol.js](https://3dmol.csb.pitt.edu/)（BSD-3-Clause）—— WebGL 分子
+  查看器。
+- [MoleditPy](https://pypi.org/project/moleditpy/)（**GPL-3.0**）—— 内置
+  画板的 2D 绘制**交互模型**（指针语义、快捷键、渲染约定）以其实现为
+  行为规格参考。VinaStudio 画板是独立的 Vue 3 + SVG 重新实现，**未包含、
+  链接或分发任何 MoleditPy 源代码**，亦未以其为依赖。
+- [Vue 3](https://vuejs.org/)（MIT）、[Element Plus](https://element-plus.org/)
+  （MIT）—— 界面框架与组件库。
+- [PySide6](https://doc.qt.io/qtforpython/)（LGPL-3.0）—— Qt for Python
+  桌面外壳。
 
 ## 许可证
 
-本项目采用 MIT 许可证 — 详见 [LICENSE](LICENSE)。
-
-**注意：** 本项目使用 AutoDock Vina 1.2.7，其采用 Apache License 2.0。Apache License 2.0 与 MIT 许可证兼容。使用或分发本软件时，用户必须遵守两个许可证的条款。
-
-## 引用
-
-如果您在研究中使用 VinaStudio，请引用：
-
-```bibtex
-@software{vinastudio2026,
-  title = {VinaStudio: A Modern Desktop Workbench for AutoDock Vina},
-  year = {2026},
-  url = {https://github.com/hubehero/VinaStudio}
-}
-```
-
-以及底层工具：
-
-```bibtex
-@article{trott2010,
-  title = {AutoDock Vina: Improving the speed and accuracy of docking with a new scoring function, efficient optimization, and multithreading},
-  author = {Trott, Oleg and Olson, Arthur J.},
-  journal = {Journal of Computational Chemistry},
-  volume = {31},
-  number = {2},
-  pages = {455--461},
-  year = {2010}
-}
-```
-
----
-
-**免责声明：** 本软件仅供科学研究和教育目的。用户需自行承担使用本软件进行分子对接研究的风险和责任。
+MIT（见 [LICENSE](LICENSE)）

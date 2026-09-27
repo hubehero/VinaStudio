@@ -24,6 +24,7 @@ what we hoped it produced.
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -150,7 +151,10 @@ def _captured_rdkit_messages() -> Iterator[list[str]]:
 
 def _explain(messages: list[str], fallback: str) -> str:
     """The one line worth showing the user for a failed read or parameterisation."""
-    return brief_error(messages[-1] if messages else fallback)
+    raw = messages[-1] if messages else fallback
+    # RDKit's python logger prefixes "[HH:MM:SS] "; it is noise in a UI error.
+    cleaned = re.sub(r"^\[\d{2}:\d{2}:\d{2}\]\s*", "", raw.strip())
+    return brief_error(cleaned or fallback)
 
 
 def read_mol(path: Path) -> tuple[Chem.Mol, int]:
@@ -373,6 +377,113 @@ def _embed_3d(mol: Chem.Mol, options: LigandPrepOptions) -> bool:
         return False
 
 
+def _ensure_hydrogens_and_conformer(
+    mol: Chem.Mol,
+    options: LigandPrepOptions,
+    label: str,
+) -> tuple[Chem.Mol, int, bool, bool]:
+    """Add polar-required hydrogens and embed when coordinates are missing.
+
+    Shared by the file and SMILES entry points so both take the same protonation
+    and embedding path; only the error prefix (*label*) differs.
+    """
+    input_atoms = mol.GetNumAtoms()
+    if input_atoms == 0:
+        raise PreparationError(
+            f"{label} contains no atoms; the molecule may be corrupted "
+            "or in an unexpected format"
+        )
+    had_3d = _has_3d(mol)
+
+    # Meeko rejects implicit hydrogens outright, so this is not optional. When
+    # 3D coordinates already exist the hydrogens must be placed from that
+    # geometry: adding them without coordinates would leave them at the origin
+    # and fabricate clashes that dominate the docking score.
+    explicit_before = _count_attached_hydrogens(mol)
+    if _count_implicit_hydrogens(mol) or explicit_before == 0:
+        try:
+            mol = Chem.AddHs(mol, addCoords=had_3d)
+        except Exception as exc:
+            raise PreparationError(
+                f"failed to add hydrogens to {label}: {brief_error(exc)}"
+            ) from exc
+    hydrogens_added = _count_attached_hydrogens(mol) - explicit_before
+    if hydrogens_added == 0 and _count_implicit_hydrogens(mol):
+        raise PreparationError(
+            f"{label} still has implicit hydrogens after AddHs; "
+            "the molecule cannot be parameterised for docking"
+        )
+
+    conformer_generated = False
+    geometry_optimised = False
+    if not had_3d:
+        geometry_optimised = _embed_3d(mol, options)
+        conformer_generated = True
+
+    return mol, hydrogens_added, conformer_generated, geometry_optimised
+
+
+def _meeko_parameterise(
+    mol: Chem.Mol,
+    options: LigandPrepOptions,
+    label: str,
+    warnings: list[str],
+) -> tuple[str, object]:
+    """Run Meeko and write PDBQT. Returns ``(pdbqt_text, parsed_document)``.
+
+    Shared by every prepare path: one place owns the Meeko option wiring,
+    fragment special-case and writer error mapping.
+    """
+    from meeko import MoleculePreparation, PDBQTWriterLegacy
+
+    mk_prep = MoleculePreparation(
+        rigid_macrocycles=options.rigid_macrocycles,
+        flexible_amides=options.flexible_amides,
+        hydrate=options.hydrate,
+        double_bond_penalty=options.double_bond_penalty,
+    )
+    with _captured_rdkit_messages() as messages:
+        try:
+            molsetups = mk_prep(mol)
+        except Exception as exc:
+            msg = str(exc)
+            if "fragments" in msg and ("Must have 1" in msg or "fragment" in msg):
+                raise PreparationError(
+                    f"{label} contains multiple disconnected fragments "
+                    f"(e.g. multi-chain proteins). Single molecules like ligands "
+                    f"should be prepared here; for protein receptors, use the "
+                    f"receptor preparation panel instead."
+                ) from exc
+            raise PreparationError(
+                f"Meeko could not parameterise {label}: "
+                f"{_explain(messages, str(exc))}"
+            ) from exc
+
+    if not molsetups:
+        raise PreparationError(
+            f"Meeko produced no molecule setup for {label}: "
+            f"{_explain(messages, 'unsupported chemistry')}"
+        )
+    if len(molsetups) > 1:
+        warnings.append(
+            f"Meeko produced {len(molsetups)} setups (reactive docking); the first was used"
+        )
+
+    pdbqt, success, error_message = PDBQTWriterLegacy.write_string(molsetups[0])
+    if not success:
+        raise PreparationError(
+            f"PDBQT writer rejected {label}: "
+            f"{brief_error(error_message) if error_message else _explain(messages, 'unknown reason')}"
+        )
+
+    try:
+        parsed = parse_pdbqt(pdbqt)
+    except PdbqtError as exc:  # pragma: no cover - would mean a Meeko bug
+        raise PreparationError(f"Meeko wrote unparsable PDBQT: {brief_error(exc)}") from exc
+
+    return pdbqt, parsed
+
+
 def prepare_ligand(
     path: str | Path,
     options: LigandPrepOptions | None = None,
@@ -383,8 +494,6 @@ def prepare_ligand(
     :class:`UnsupportedFormatError` for the wrong extension, and
     :class:`PreparationError` when Meeko refuses the molecule.
     """
-    from meeko import MoleculePreparation, PDBQTWriterLegacy
-
     options = options or LigandPrepOptions()
     file_path = Path(path)
     if not file_path.is_file():
@@ -406,83 +515,95 @@ def prepare_ligand(
         warnings.append(f"file contains {records} molecules; only the first was prepared")
 
     input_atoms = mol.GetNumAtoms()
-    if input_atoms == 0:
-        raise PreparationError(
-            f"{file_path.name} contains no atoms; the file may be corrupted "
-            "or in an unexpected format"
-        )
-    had_3d = _has_3d(mol)
-
-    # Meeko rejects implicit hydrogens outright, so this is not optional. When
-    # 3D coordinates already exist the hydrogens must be placed from that
-    # geometry: adding them without coordinates would leave them at the origin
-    # and fabricate clashes that dominate the docking score.
-    explicit_before = _count_attached_hydrogens(mol)
-    if _count_implicit_hydrogens(mol) or explicit_before == 0:
-        try:
-            mol = Chem.AddHs(mol, addCoords=had_3d)
-        except Exception as exc:
-            raise PreparationError(
-                f"failed to add hydrogens to {file_path.name}: {brief_error(exc)}"
-            ) from exc
-    hydrogens_added = _count_attached_hydrogens(mol) - explicit_before
-    if hydrogens_added == 0 and _count_implicit_hydrogens(mol):
-        raise PreparationError(
-            f"{file_path.name} still has implicit hydrogens after AddHs; "
-            "the molecule cannot be parameterised for docking"
-        )
-
-    conformer_generated = False
-    geometry_optimised = False
-    if not had_3d:
-        geometry_optimised = _embed_3d(mol, options)
-        conformer_generated = True
-
-    mk_prep = MoleculePreparation(
-        rigid_macrocycles=options.rigid_macrocycles,
-        flexible_amides=options.flexible_amides,
-        hydrate=options.hydrate,
-        double_bond_penalty=options.double_bond_penalty,
+    mol, hydrogens_added, conformer_generated, geometry_optimised = (
+        _ensure_hydrogens_and_conformer(mol, options, file_path.name)
     )
+    pdbqt, parsed = _meeko_parameterise(mol, options, file_path.name, warnings)
+    result = _build_ligand_preparation(
+        pdbqt=pdbqt,
+        mol=mol,
+        parsed=parsed,
+        source=str(file_path),
+        input_format=detect_format(file_path) or file_path.suffix.lstrip("."),
+        input_atoms=input_atoms,
+        hydrogens_added=hydrogens_added,
+        conformer_generated=conformer_generated,
+        geometry_optimised=geometry_optimised,
+        warnings=warnings,
+    )
+    return result
+
+
+def parse_smiles(smiles: str) -> Chem.Mol:
+    """Parse a SMILES string into an RDKit molecule, or raise InvalidInputError."""
+    text = smiles.strip()
+    if not text:
+        raise InvalidInputError("SMILES is empty")
     with _captured_rdkit_messages() as messages:
-        try:
-            molsetups = mk_prep(mol)
-        except Exception as exc:
-            msg = str(exc)
-            if "fragments" in msg and ("Must have 1" in msg or "fragment" in msg):
-                raise PreparationError(
-                    f"{file_path.name} contains multiple disconnected fragments "
-                    f"(e.g. multi-chain proteins). Single molecules like ligands "
-                    f"should be prepared here; for protein receptors, use the "
-                    f"receptor preparation panel instead."
-                ) from exc
-            raise PreparationError(
-                f"Meeko could not parameterise {file_path.name}: "
-                f"{_explain(messages, str(exc))}"
-            ) from exc
-
-    if not molsetups:
-        raise PreparationError(
-            f"Meeko produced no molecule setup for {file_path.name}: "
-            f"{_explain(messages, 'unsupported chemistry')}"
+        mol = Chem.MolFromSmiles(text)
+    if mol is None:
+        raise InvalidInputError(
+            f"invalid SMILES {text!r}: "
+            f"{_explain(messages, 'RDKit could not parse the string')}"
         )
-    if len(molsetups) > 1:
+    if mol.GetNumAtoms() == 0:
+        raise InvalidInputError(f"invalid SMILES {text!r}: no atoms after parsing")
+    return mol
+
+
+def prepare_ligand_from_smiles(
+    smiles: str,
+    name: str,
+    options: LigandPrepOptions | None = None,
+) -> LigandPreparation:
+    """Build a 3D ligand from SMILES and parameterise it through Meeko.
+
+    Shares :func:`_ensure_hydrogens_and_conformer` and :func:`_meeko_parameterise`
+    with :func:`prepare_ligand` so atom typing and the torsion tree cannot diverge
+    between the file and SMILES entry points.
+    """
+    options = options or LigandPrepOptions()
+    mol = parse_smiles(smiles)
+    # Snapshot before AddHs so input_atoms matches prepare_ligand's meaning.
+    input_atoms = mol.GetNumAtoms()
+    # SMILES has no coordinates: ETKDG always runs. The report must say the
+    # conformer is algorithmic — it is not an experimental geometry.
+    mol, hydrogens_added, conformer_generated, geometry_optimised = (
+        _ensure_hydrogens_and_conformer(mol, options, name)
+    )
+    warnings: list[str] = []
+    if conformer_generated:
         warnings.append(
-            f"Meeko produced {len(molsetups)} setups (reactive docking); the first was used"
+            "嵌入构象为算法生成的低能构象，不代表实验构象"
         )
+    pdbqt, parsed = _meeko_parameterise(mol, options, name, warnings)
+    return _build_ligand_preparation(
+        pdbqt=pdbqt,
+        mol=mol,
+        parsed=parsed,
+        source=name,
+        input_format="smiles",
+        input_atoms=input_atoms,
+        hydrogens_added=hydrogens_added,
+        conformer_generated=conformer_generated,
+        geometry_optimised=geometry_optimised,
+        warnings=warnings,
+    )
 
-    pdbqt, success, error_message = PDBQTWriterLegacy.write_string(molsetups[0])
-    if not success:
-        raise PreparationError(
-            f"PDBQT writer rejected {file_path.name}: "
-            f"{brief_error(error_message) if error_message else _explain(messages, 'unknown reason')}"
-        )
 
-    try:
-        parsed = parse_pdbqt(pdbqt)
-    except PdbqtError as exc:  # pragma: no cover - would mean a Meeko bug
-        raise PreparationError(f"Meeko wrote unparsable PDBQT: {brief_error(exc)}") from exc
-
+def _build_ligand_preparation(
+    *,
+    pdbqt: str,
+    mol: Chem.Mol,
+    parsed,
+    source: str,
+    input_format: str,
+    input_atoms: int,
+    hydrogens_added: int,
+    conformer_generated: bool,
+    geometry_optimised: bool,
+    warnings: list[str],
+) -> LigandPreparation:
     pose = parsed.first_pose
     polar_hydrogens = sum(1 for atom in pose.atoms if atom.is_polar_hydrogen)
     mol_hydrogens = sum(1 for atom in mol.GetAtoms() if atom.GetAtomicNum() == 1)
@@ -491,9 +612,6 @@ def prepare_ligand(
 
     if parsed.smiles is None:
         warnings.append("no SMILES recorded in the PDBQT header; bond orders cannot be restored")
-    # A TORSDOF that is missing or zero means the torsion tree was not recorded,
-    # which is the case this warning exists for; comparing it against itself hid
-    # exactly that.
     if pose.torsdof is None or pose.torsdof != parsed.rotatable_bonds:
         warnings.append(
             f"BRANCH records ({parsed.rotatable_bonds}) disagree with TORSDOF "
@@ -509,8 +627,8 @@ def prepare_ligand(
         pdbqt=pdbqt,
         sdf=Chem.MolToMolBlock(mol),
         report=LigandReport(
-            source=str(file_path),
-            input_format=detect_format(file_path) or file_path.suffix.lstrip("."),
+            source=source,
+            input_format=input_format,
             input_atoms=input_atoms,
             hydrogens_added=hydrogens_added,
             conformer_generated=conformer_generated,

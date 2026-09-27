@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Cpu, Crop, Expand, Files, Fold, Grid, InfoFilled, Position, List } from '@element-plus/icons-vue'
+import { Cpu, Crop, DataAnalysis, Expand, Files, Fold, Grid, InfoFilled, Position, List } from '@element-plus/icons-vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -19,6 +19,7 @@ const items: NavItem[] = [
   { to: '/molecules', icon: Files, key: 'nav.molecules' },
   { to: '/box', icon: Crop, key: 'nav.box' },
   { to: '/docking', icon: Position, key: 'nav.docking' },
+  { to: '/report', icon: DataAnalysis, key: 'nav.report' },
   { to: '/batch', icon: List, key: 'nav.batch' },
   { to: '/environment', icon: Cpu, key: 'nav.environment' },
   { to: '/about', icon: InfoFilled, key: 'nav.about' },

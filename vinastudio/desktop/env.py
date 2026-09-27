@@ -21,8 +21,20 @@ def prepare_qt_environment() -> None:
 
     # Software rendering keeps the app usable on machines without a working GPU
     # stack. Opt-in rather than default, since GPU rendering is much faster.
+    # When it is on it wins over every GPU flag below — the user asked for
+    # software rendering explicitly (or a broken driver forced their hand).
     if os.environ.get("VINASTUDIO_SOFTWARE_RENDER") == "1":
         flags.append("--disable-gpu")
+    else:
+        # Chromium's GPU blocklist wrongly disables WebGL on several Linux
+        # driver stacks and then silently falls back to SwiftShader — the app
+        # looks healthy while every frame is CPU-rasterised. Ignoring the
+        # blocklist keeps hardware acceleration on those machines.
+        flags.append("--ignore-gpu-blocklist")
+        # Faster compositing paths, but known to artefact on some VMs and
+        # older drivers — opt-in so the default stays artefact-free.
+        if os.environ.get("VINASTUDIO_GPU_PERF") == "1":
+            flags.extend(["--enable-gpu-rasterization", "--enable-zero-copy"])
 
     if flags:
         existing = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "")

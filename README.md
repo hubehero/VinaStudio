@@ -1,68 +1,68 @@
 # VinaStudio
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
-[![AutoDock Vina 1.2.7](https://img.shields.io/badge/AutoDock-Vina-1.2.7-green.svg)](https://vina.scripps.edu/)
+A modern desktop workbench for **AutoDock Vina** docking: a Vue 3 + 3Dmol.js
+interface running inside a **PySide6** embedded browser, backed by the official
+`vina` Python API and **Meeko** for molecular parameterisation and format
+conversion.
 
-VinaStudio is a graphical desktop application built around [AutoDock Vina 1.2.7](https://vina.scripps.edu/), designed to help researchers and students get started with molecular docking without memorizing command-line flags or hand-editing configuration files.
-
-Instead of stitching together separate tools for receptor preparation, ligand parameterization, box setup, docking runs, and result inspection, VinaStudio brings the entire workflow into a single window: load your PDB or SDF files, visually define the binding site, launch the docking with a click, and browse ranked poses with energy breakdowns and interaction maps — all in one place.
-
-The application is built with PySide6 (Qt) on the desktop side and a Vue 3 single-page application for the interface, communicating over a local REST API. It runs on Linux, macOS, and Windows.
-
-> **Note:** VinaStudio is intended for learning and exploratory research. It has not been extensively validated against benchmark datasets and should not be cited as a primary tool in publications. For production docking campaigns, please use AutoDock Vina directly or validated workflows.
-
-[中文文档](README.zh-CN.md) | [用户指南](docs/USER_GUIDE.md) | [架构文档](docs/ARCHITECTURE.md)
+Chinese documentation: [README.zh-CN.md](README.zh-CN.md)
+**User Guide (step-by-step for beginners)**: [docs/USER_GUIDE.md](docs/USER_GUIDE.md)
 
 ---
 
-## Features
+## What it is
 
-- **Receptor & Ligand Preparation** — PDB/CIF/mmCIF → PDBQT for receptors, MOL/SDF/MOL2/PDB → PDBQT for ligands via Meeko, with options to remove waters, strip heteroatoms, and normalise atom ordering
-- **Binding-Site Definition** — automatic box around ligand or receptor heavy atoms, with manual center/size input and 3D visualisation
-- **Molecular Docking** — Vina, Vinardo, and AutoDock4 scoring functions with full parameter control (exhaustiveness, seeds, energy range, etc.)
-- **Batch Docking** — process multiple ligands sequentially with progress tracking and CSV export
-- **Result Analysis** — pose ranking by affinity, RMSD clustering, energy decomposition, and hydrogen-bond / hydrophobic / ionic interaction detection
-- **3D Visualisation** — interactive molecular viewer powered by 3Dmol.js, with cartoon, stick, sphere, and surface representations
-- **RCSB PDB Integration** — search and download receptors and ligands directly from the PDB database
-- **Project Management** — save and restore complete docking sessions as `.vinaproj` files
-- **Bilingual UI** — Chinese and English interface, switchable at any time
-- **API Documentation** — built-in Swagger UI accessible from the settings dialog
+AUTO Dock Vina is excellent but command-line only, and its Python API is a set
+of blocking calls. VinaStudio wraps both in a desktop application that is
+pleasant to use and stays scientifically honest:
+
+- **Receptor and ligand preparation** — PDB/CIF → PDBQT for receptors,
+  MOL/SDF/MOL2 → PDBQT for ligands via Meeko. Inputs that are 2D or lack
+  hydrogens are embedded and protonated before parameterisation.
+- **Binding-site definition** — automatic bounding box from a ligand or a
+  residue selection, or explicit centre and size, rendered and editable in 3D.
+- **Docking** — Vina, Vinardo and AutoDock4 scoring functions with the full
+  parameter surface exposed, live progress and streamed logs, and real
+  cancellation.
+- **Analysis** — pose ranking, per-pose energy decomposition, geometric
+  interaction detection (hydrogen bonds, salt bridges, hydrophobic contacts)
+  drawn as 3D annotations, plus a 2D interaction map.
+- **Structure input** — SMILES to 3D ligand, and a built-in **2D sketcher**
+  (template rings, chain tool, bond/stereo tools, one-click cleanup, periodic
+  table and radicals) with a complete draw-to-export loop.
+- **Bilingual** — Chinese and English, Chinese by default.
 
 ## Requirements
 
-- Linux, macOS, or Windows
+- Linux, macOS or Windows
 - Python 3.12
-- [uv](https://docs.astral.sh/uv/) (package manager)
-- Node.js 20+ and [pnpm](https://pnpm.io/) (for building the frontend)
+- [uv](https://docs.astral.sh/uv/)
+- Node.js 20+ and [pnpm](https://pnpm.io/) (only to build the interface)
 
-## Quick Start
+## Install and run
 
 ```bash
-# Clone the repository
-git clone https://github.com/hubehero/VinaStudio.git
-cd VinaStudio
-
-# Install dependencies
-uv sync --extra dev
-
-# Build the frontend
-pnpm -C web install
-pnpm -C web build
-
-# Launch the application
-uv run python -m vinastudio
+uv sync --extra dev          # create .venv and install the scientific stack
+pnpm -C web install          # interface dependencies
+pnpm -C web build            # build the interface into vinastudio/server/static
+uv run python -m vinastudio  # launch the desktop application
 ```
+
+`scripts/build_web.py` wraps the two pnpm steps.
 
 ## Development
 
-Run with hot reload:
+Run the interface with hot reload against a live API:
 
 ```bash
 uv run python scripts/dev.py
 ```
 
-Run tests and linters:
+This starts the API on a fixed loopback port, the Vite dev server, and the Qt
+window pointed at Vite. Edit anything under `web/src` and the window updates
+without a restart.
+
+Run the checks:
 
 ```bash
 uv run pytest -q
@@ -72,80 +72,81 @@ pnpm -C web typecheck
 
 ## Architecture
 
-| Layer | Location | Description |
-|-------|----------|-------------|
-| Desktop Shell | `vinastudio/desktop/` | PySide6 window, native menus, QWebChannel bridge |
-| API Server | `vinastudio/server/` | FastAPI on loopback, WebSocket job streaming |
-| Domain Core | `vinastudio/core/` | Docking, preparation, and analysis logic |
-| Frontend | `web/` | Vue 3 + 3Dmol.js SPA |
+Three layers with strict boundaries:
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed design decisions.
+| Layer | Location | Responsibility |
+|---|---|---|
+| Desktop shell | `vinastudio/desktop/` | Qt window, native menus, QWebChannel bridge |
+| API server | `vinastudio/server/` | FastAPI on loopback, serves the SPA, streams job events over WebSocket |
+| Domain core | `vinastudio/core/` | Docking, preparation and analysis logic — no Qt, no FastAPI, fully unit-testable |
+| Interface | `web/` | Vue 3 SPA rendered by the embedded Chromium |
 
-## Supported Formats
+Three constraints shape everything else, and are documented in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md):
 
-| Type | Input Formats |
-|------|---------------|
-| Ligands | `.sdf`, `.mol`, `.mol2`, `.pdb`, `.pdbqt` |
-| Receptors | `.pdb`, `.cif`, `.mmcif`, `.ent`, `.pdbqt` |
+1. The interface is served over **local HTTP**, never `file://`, because ES
+   modules are blocked by CORS on the file scheme.
+2. Docking runs in **spawned child processes** — Vina has no cancellation API,
+   so killing the process is the only way to stop a job, and `fork` is unsafe
+   next to a live Qt event loop.
+3. **PDBQT is never rendered directly.** 3Dmol.js does not parse it, and PDBQT
+   carries no bond orders. Poses are converted to SDF by Meeko, which restores
+   bond orders and formal charges from the SMILES recorded in the PDBQT header.
 
-## Acknowledgments
+## Status
 
-This project is built upon the following open-source software:
+The project is being built in phases. What works today:
 
-- **[AutoDock Vina 1.2.7](https://vina.scripps.edu/)** — The molecular docking engine developed by The Scripps Research Institute. Licensed under [Apache License 2.0](https://github.com/ccsb-scripps/AutoDock-Vina/blob/develop/LICENSE).
-- **[Meeko](https://github.com/forlilab/Meeko)** — Molecular preparation tool for AutoDock Vina. Licensed under [Apache License 2.0](https://github.com/forlilab/Meeko/blob/master/LICENSE).
-- **[RDKit](https://www.rdkit.org/)** — Cheminformatics toolkit. Licensed under [BSD 3-Clause](https://github.com/rdkit/rdkit/blob/master/license.txt).
-- **[3Dmol.js](https://3dmol.org/)** — Molecular visualization library. Licensed under [MIT License](https://github.com/3dmol/3Dmol.js/blob/master/LICENSE).
-- **[Vue.js](https://vuejs.org/)** — Progressive JavaScript framework. Licensed under [MIT License](https://github.com/vuejs/vue/blob/dev/LICENSE).
-- **[PySide6](https://doc.qt.io/qtforpython-6/)** — Qt for Python. Licensed under [LGPL](https://doc.qt.io/qtforpython-6/license.html).
-- **[FastAPI](https://fastapi.tiangolo.com/)** — Modern Python web framework. Licensed under [MIT License](https://github.com/fastapi/fastapi/blob/master/LICENSE).
+- Desktop shell (PySide6 + embedded Chromium), bilingual UI with theme
+  switching, and an environment self-check that imports `vina`, `meeko` and
+  `rdkit` for real
+- **Ligand preparation** — MOL/SDF/MOL2/PDB → PDBQT through Meeko, reporting the
+  hydrogens added, the conformer generated and the rotatable bonds found. The
+  upstream 1iep reference PDBQT is reproduced byte for byte.
+- **Receptor preparation** — PDB/mmCIF → PDBQT with Meeko's template matching,
+  waters and non-polymer groups stripped on request, flexible sidechains split
+  out, and the residue regroup that the official 1iep file needs.
+- **Box and docking** — automatic or manual bounding box rendered and editable
+  in 3D; Vina, Vinardo and AutoDock4 scoring, spawned jobs with live progress,
+  streamed logs and real cancellation; batch docking with a leaderboard.
+- **Analysis** — per-pose geometry validation, redocking RMSD reference,
+  RMSD clustering, the 2D interaction map, and per-pose energy decomposition.
+- **Persistence and export** — job history plus project save/reload across
+  restarts, self-contained HTML result bundles, and a standalone results
+  report page.
+- **Structure input** — SMILES to 3D ligand, the built-in 2D sketcher (see
+  above), and a molecule manager for batch inspection and preparation.
+- **Rendering diagnostics** — GPU/software renderer visibility with quality
+  tiers; native file dialogs on the desktop, upload fallback in a browser.
 
-### AI-Assisted Development
+See the roadmap in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-This project was developed with the assistance of [Claude](https://claude.ai/), an AI assistant by Anthropic. Claude was used for:
+## References and acknowledgements
 
-- Code generation and refactoring
-- Bug identification and debugging
-- Documentation writing
-- Architecture design discussions
-- Test case development
+VinaStudio stands on the open-source ecosystem. The components below are
+either direct dependencies or documented behavioural/specification
+references (the license named is the upstream project's own):
 
-## Contributing
-
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+- [AutoDock Vina](https://github.com/ccsb-scripps/AutoDock-Vina)
+  (Apache-2.0) — the docking engine.
+- [Meeko](https://github.com/forlilab/Meeko) (LGPL-2.1) — ligand and
+  receptor PDBQT parameterisation.
+- [RDKit](https://www.rdkit.org/) (BSD-3-Clause) — cheminformatics, SMILES
+  handling and 2D depiction.
+- [3Dmol.js](https://3dmol.csb.pitt.edu/) (BSD-3-Clause) — the WebGL
+  molecular viewer.
+- [MoleditPy](https://pypi.org/project/moleditpy/) (**GPL-3.0**) — the
+  sketching *interaction model* of the built-in 2D sketcher (pointer
+  semantics, keyboard shortcuts, rendering conventions) was studied as a
+  behavioural specification.  VinaStudio's sketcher is an independent
+  Vue 3 + SVG reimplementation: **no MoleditPy source code is included,
+  linked or distributed with this project**, and it is not a dependency.
+- [Vue 3](https://vuejs.org/) (MIT),
+  [Element Plus](https://element-plus.org/) (MIT) — UI framework and
+  components.
+- [PySide6](https://doc.qt.io/qtforpython/) (LGPL-3.0) — Qt for Python
+  desktop shell.
 
 ## License
 
-This project is licensed under the MIT License — see [LICENSE](LICENSE) for details.
-
-**Note:** This project uses AutoDock Vina 1.2.7, which is licensed under the Apache License 2.0. The Apache License 2.0 is compatible with the MIT License. Users must comply with the terms of both licenses when using or distributing this software.
-
-## Citation
-
-If you use VinaStudio in your research, please cite:
-
-```bibtex
-@software{vinastudio2026,
-  title = {VinaStudio: A Modern Desktop Workbench for AutoDock Vina},
-  year = {2026},
-  url = {https://github.com/hubehero/VinaStudio}
-}
-```
-
-And cite the underlying tools:
-
-```bibtex
-@article{trott2010,
-  title = {AutoDock Vina: Improving the speed and accuracy of docking with a new scoring function, efficient optimization, and multithreading},
-  author = {Trott, Oleg and Olson, Arthur J.},
-  journal = {Journal of Computational Chemistry},
-  volume = {31},
-  number = {2},
-  pages = {455--461},
-  year = {2010}
-}
-```
-
----
-
-**Disclaimer:** This software is intended for scientific research and educational purposes only. Users assume all responsibility for molecular docking research conducted with this tool.
+MIT (see [LICENSE](LICENSE))

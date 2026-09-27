@@ -27,7 +27,8 @@ export default defineConfig({
   },
   build: {
     outDir: fileURLToPath(new URL('../vinastudio/server/static', import.meta.url)),
-    emptyOutDir: true,
+    // Keep false so swagger/ assets survive across builds.
+    emptyOutDir: false,
     // 3Dmol bundles Three.js and the surface kernels, so the chem chunk is
     // legitimately large; the warning threshold reflects that.
     chunkSizeWarningLimit: 2400,

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ArrowRight, Delete, InfoFilled, MagicStick, RefreshRight, View, WarningFilled } from '@element-plus/icons-vue'
-import { ElAlert, ElButton, ElMessage } from 'element-plus'
-import { computed, onMounted } from 'vue'
+import { ElAlert, ElButton, ElMessage, ElInput, ElTag, ElSelect, ElOption } from 'element-plus'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import MoleculeOptions from '@/components/panels/MoleculeOptions.vue'
@@ -247,6 +247,26 @@ function handleAssignType(kind: 'receptor' | 'ligand'): void {
 function handleRemove(): void {
   if (mol.value) store.removeItem(mol.value.id)
 }
+
+// -- alias & category editing ------------------------------------------------
+
+const newAlias = ref('')
+
+function handleAddAlias(): void {
+  if (!mol.value || !newAlias.value.trim()) return
+  store.addAlias(mol.value.id, newAlias.value)
+  newAlias.value = ''
+}
+
+function handleRemoveAlias(alias: string): void {
+  if (!mol.value) return
+  store.removeAlias(mol.value.id, alias)
+}
+
+function handleSetCategory(cat: string | null): void {
+  if (!mol.value) return
+  store.setCategory(mol.value.id, cat)
+}
 </script>
 
 <template>
@@ -332,6 +352,70 @@ function handleRemove(): void {
         {{ t('molecules.typeLigand') }}
       </ElButton>
     </div>
+
+    <section class="detail__section">
+      <h3 class="detail__section-title">{{ t('molecules.metadata') }}</h3>
+
+      <!-- Category -->
+      <div class="detail__meta-row">
+        <span class="detail__meta-label">{{ t('molecules.category') }}</span>
+        <div class="detail__meta-value">
+          <ElTag
+            v-if="mol.category"
+            closable
+            size="small"
+            @close="handleSetCategory(null)"
+          >
+            {{ mol.category }}
+          </ElTag>
+          <ElSelect
+            :model-value="mol.category ?? ''"
+            size="small"
+            filterable
+            allow-create
+            clearable
+            :placeholder="t('molecules.categoryPlaceholder')"
+            @update:model-value="(v: string) => handleSetCategory(v || null)"
+          >
+            <ElOption
+              v-for="cat in store.availableCategories"
+              :key="cat"
+              :label="cat"
+              :value="cat"
+            />
+          </ElSelect>
+        </div>
+      </div>
+
+      <!-- Aliases -->
+      <div class="detail__meta-row">
+        <span class="detail__meta-label">{{ t('molecules.aliases') }}</span>
+        <div class="detail__meta-value detail__meta-value--col">
+          <div v-if="mol.aliases.length > 0" class="detail__alias-tags">
+            <ElTag
+              v-for="alias in mol.aliases"
+              :key="alias"
+              closable
+              size="small"
+              @close="handleRemoveAlias(alias)"
+            >
+              {{ alias }}
+            </ElTag>
+          </div>
+          <div class="detail__alias-input">
+            <ElInput
+              v-model="newAlias"
+              size="small"
+              :placeholder="t('molecules.aliasPlaceholder')"
+              @keyup.enter="handleAddAlias"
+            />
+            <ElButton size="small" :disabled="!newAlias.trim()" @click="handleAddAlias">
+              {{ t('molecules.addAlias') }}
+            </ElButton>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <div class="detail__viewport">
       <ViewportCanvas
@@ -798,5 +882,46 @@ function handleRemove(): void {
 @keyframes detail-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
+}
+
+/* -- metadata (alias & category) ------------------------------------------- */
+
+.detail__meta-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.detail__meta-label {
+  flex: none;
+  width: 50px;
+  font-size: 12px;
+  color: var(--vs-text-muted);
+}
+
+.detail__meta-value {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.detail__meta-value--col {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.detail__alias-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.detail__alias-input {
+  display: flex;
+  gap: 4px;
 }
 </style>

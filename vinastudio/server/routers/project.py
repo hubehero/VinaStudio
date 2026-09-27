@@ -17,7 +17,7 @@ from typing import Any
 from fastapi import APIRouter
 
 from vinastudio.core.errors import InvalidInputError
-from vinastudio.core.paths import resolve_within
+from vinastudio.core.paths import JOB_STATE_FILENAME, resolve_within, workspace_root
 from vinastudio.schemas.project import ProjectFile
 
 log = logging.getLogger(__name__)
@@ -67,6 +67,8 @@ def save_project(request: dict[str, Any]) -> dict[str, str]:
     try:
         project = ProjectFile(**project_data)
         project.updatedAt = datetime.now().isoformat()
+        # Saving writes the current format, whatever the client sent.
+        project.formatVersion = "1.1"
 
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(project.model_dump(), f, indent=2, ensure_ascii=False)
@@ -97,6 +99,7 @@ def save_project_as(request: dict[str, Any]) -> dict[str, str]:
     try:
         project = ProjectFile(**project_data)
         project.updatedAt = datetime.now().isoformat()
+        project.formatVersion = "1.1"
 
         filepath.parent.mkdir(parents=True, exist_ok=True)
         with open(filepath, "w", encoding="utf-8") as f:
@@ -112,9 +115,27 @@ def save_project_as(request: dict[str, Any]) -> dict[str, str]:
         raise InvalidInputError(f"Failed to save project: {e}") from None
 
 
+def _job_index_exists(job_id: str) -> bool:
+    """True when a referenced job still has its index in this workspace.
+
+    The id travels in a file the user can edit, so it is resolved against the
+    workspace root first — an escaping id counts as missing, never as a path
+    to probe outside.
+    """
+    try:
+        directory = resolve_within(workspace_root(), job_id)
+    except ValueError:
+        return False
+    return (directory / JOB_STATE_FILENAME).is_file()
+
+
 @router.post("/load")
 def load_project(request: dict[str, Any]) -> dict[str, Any]:
-    """Load a project from a .vinaproj file."""
+    """Load a project from a .vinaproj file.
+
+    Result references whose job artifacts are gone come back as warnings:
+    the project itself still loads (TASK-07 §4.5 — 提示不报错).
+    """
     filepath_str = request.get("path", "")
 
     if not filepath_str:
@@ -132,9 +153,15 @@ def load_project(request: dict[str, Any]) -> dict[str, Any]:
             data = json.load(f)
 
         project = ProjectFile(**data)
+        warnings = [
+            f"result job {ref.jobId} no longer exists in this workspace"
+            for ref in project.results
+            if not _job_index_exists(ref.jobId)
+        ]
         return {
             "path": str(filepath),
             "project": project.model_dump(),
+            "warnings": warnings,
         }
     except json.JSONDecodeError as e:
         raise InvalidInputError(f"invalid JSON in project file: {e}") from None

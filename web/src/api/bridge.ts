@@ -1,4 +1,5 @@
 import type { DesktopBridge } from '@/types/api'
+import { downloadTextFile } from '@/utils/download'
 
 /**
  * Access to the QWebChannel object published by the PySide6 host.
@@ -68,7 +69,7 @@ export async function nativeAppInfo(): Promise<Record<string, unknown> | null> {
     return null
   }
   try {
-    return JSON.parse(bridge.appInfo()) as Record<string, unknown>
+    return JSON.parse(await bridge.appInfo()) as Record<string, unknown>
   } catch {
     return null
   }
@@ -92,7 +93,8 @@ export async function pickFiles(options: {
     return []
   }
   try {
-    return JSON.parse(bridge.openFiles(options.title, options.filters, options.multiple ?? false)) as string[]
+    const raw = await bridge.openFiles(options.title, options.filters, options.multiple ?? false)
+    return JSON.parse(raw) as string[]
   } catch {
     return []
   }
@@ -104,7 +106,23 @@ export async function pickDirectory(title: string): Promise<string | null> {
   if (!bridge) {
     return null
   }
-  return bridge.openDirectory(title) || null
+  return (await bridge.openDirectory(title)) || null
+}
+
+/**
+ * Open a URL in the system default browser.
+ *
+ * In the desktop host this uses QDesktopServices.openUrl() via the bridge,
+ * which reliably opens the system browser even when QWebEngine blocks popups.
+ * In a plain browser, falls back to window.open().
+ */
+export async function openInBrowser(url: string): Promise<void> {
+  const bridge = await desktopBridge()
+  if (bridge) {
+    await bridge.openUrl(url)
+  } else {
+    window.open(url, '_blank')
+  }
 }
 
 /**
@@ -121,7 +139,7 @@ export async function pickSaveFile(
   if (!bridge) {
     return null
   }
-  return bridge.saveFile(title, suggestedName, filters) || null
+  return (await bridge.saveFile(title, suggestedName, filters)) || null
 }
 
 /**
@@ -135,7 +153,7 @@ export async function pickSaveFile(
 export async function saveImage(dataUrl: string, suggestedName: string): Promise<boolean> {
   const bridge = await desktopBridge()
   if (bridge) {
-    return Boolean(bridge.saveImage(dataUrl, suggestedName))
+    return Boolean(await bridge.saveImage(dataUrl, suggestedName))
   }
   const link = document.createElement('a')
   link.href = dataUrl
@@ -143,6 +161,49 @@ export async function saveImage(dataUrl: string, suggestedName: string): Promise
   document.body.appendChild(link)
   link.click()
   link.remove()
+  return true
+}
+
+/**
+ * Write UTF-8 text to `path` through the desktop host (TASK-24).
+ *
+ * The path-selection dialog is the caller's concern — this shell only writes
+ * and reports whether it worked. Returns `false` without a host (plain
+ * browser) so callers fall back through {@link saveTextFile} instead of
+ * assuming success.
+ */
+export async function writeTextFile(path: string, content: string): Promise<boolean> {
+  const bridge = await desktopBridge()
+  if (!bridge) {
+    return false
+  }
+  try {
+    return await bridge.writeTextFile(path, content)
+  } catch {
+    return false
+  }
+}
+
+/**
+ * The one place that chooses between desktop write and browser download.
+ *
+ * Desktop host: native save dialog, then {@link writeTextFile}; a cancelled
+ * dialog or a failed write both yield `false`. Plain browser: the historical
+ * `<a download>` blob and `true` (there is nothing to report back).
+ */
+export async function saveTextFile(
+  content: string,
+  options: { filename: string; mime: string; saveTitle: string; filters?: string },
+): Promise<boolean> {
+  const bridge = await desktopBridge()
+  if (bridge) {
+    const path = await pickSaveFile(options.saveTitle, options.filename, options.filters ?? '')
+    if (!path) {
+      return false
+    }
+    return writeTextFile(path, content)
+  }
+  downloadTextFile(content, options.filename, options.mime)
   return true
 }
 

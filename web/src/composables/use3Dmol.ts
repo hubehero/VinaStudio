@@ -18,6 +18,116 @@ export type LigandRepresentation = 'stick' | 'sphere' | 'line'
  */
 export type SurfaceKind = 'VDW' | 'SAS' | 'SES'
 
+/**
+ * Rendering quality presets — controls visual fidelity vs performance.
+ *
+ * This only affects the 3D viewer rendering, NOT docking calculations.
+ * All scientific results (affinity, poses, energies) are computed by
+ * Vina in the Python backend and are completely unaffected by this setting.
+ */
+export type RenderQuality = 'low' | 'medium' | 'high'
+
+/**
+ * Quality preset configuration.
+ *
+ * - `cartoonQuality`: Controls the number of segments in cartoon ribbons
+ * - `shapeQuality`: Controls the tessellation of spheres and cylinders
+ * - `aoStrength`: Ambient occlusion intensity (0 = disabled)
+ * - `aoRadius`: AO sampling radius in Angstroms
+ * - `maxInteractions`: Maximum number of interaction annotations to render
+ * - `antialias`: WebGL anti-aliasing
+ */
+export interface RenderQualityPreset {
+  name: string
+  description: string
+  cartoonQuality: number
+  shapeQuality: number
+  aoStrength: number
+  aoRadius: number
+  maxInteractions: number
+  antialias: boolean
+}
+
+/** Quality presets — low prioritizes performance, high prioritizes visuals. */
+export const RENDER_QUALITY_PRESETS: Record<RenderQuality, RenderQualityPreset> = {
+  low: {
+    name: 'Performance',
+    description: 'Fast rendering for large molecules or low-end devices',
+    cartoonQuality: 8,
+    shapeQuality: 1,
+    aoStrength: 0,
+    aoRadius: 0,
+    maxInteractions: 15,
+    antialias: false,
+  },
+  medium: {
+    name: 'Balanced',
+    description: 'Good balance of performance and visual quality',
+    cartoonQuality: 10,
+    shapeQuality: 2,
+    aoStrength: 0.15,
+    aoRadius: 3.0,
+    maxInteractions: 30,
+    antialias: true,
+  },
+  high: {
+    name: 'Quality',
+    description: 'Best visuals for screenshots and demos',
+    cartoonQuality: 14,
+    shapeQuality: 3,
+    aoStrength: 0.2,
+    aoRadius: 5.0,
+    maxInteractions: 50,
+    antialias: true,
+  },
+}
+
+/** Which WebGL renderer the viewer actually got, probed once per session. */
+export interface RendererInfo {
+  /** UNMASKED_RENDERER_WEBGL (or RENDERER) string, verbatim. */
+  renderer: string
+  /** True when the string names a CPU rasteriser — frames will be slow. */
+  software: boolean
+}
+
+/**
+ * Shared renderer probe result.
+ *
+ * Chromium silently serves SwiftShader when the GPU is blocklisted, so the
+ * app cannot assume hardware acceleration — this ref lets the viewport and
+ * settings tell the user which renderer they are actually on.
+ */
+export const rendererInfo = ref<RendererInfo | null>(null)
+
+/** Strings that only ever appear on CPU rasterisers. */
+const SOFTWARE_RENDERER_RE =
+  /swiftshader|llvmpipe|softpipe|software rasterizer|microsoft basic render|gdi generic/i
+
+/** Ask the GL context who it is; safe to call once after viewer creation. */
+function probeRenderer(viewer: $3Dmol.GLViewer): void {
+  if (rendererInfo.value !== null) return
+  // 3Dmol exposes no public GL handle: `renderer` is private in the typings
+  // but present at runtime, and its context is the shared (singleton) one, so
+  // a single probe describes every viewer in the page.
+  const renderer = (
+    viewer as unknown as {
+      renderer?: { getContext?: () => WebGL2RenderingContext | null }
+    }
+  ).renderer
+  const gl = renderer?.getContext?.()
+  if (!gl) return
+  const name = (() => {
+    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info')
+    if (debugInfo) {
+      return String(gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL))
+    }
+    return String(gl.getParameter(gl.RENDERER))
+  })()
+  if (name) {
+    rendererInfo.value = { renderer: name, software: SOFTWARE_RENDERER_RE.test(name) }
+  }
+}
+
 /** Interaction data for 3D visualization. */
 export interface InteractionData {
   type: 'hydrogen_bond' | 'hydrophobic' | 'ionic'
@@ -28,8 +138,34 @@ export interface InteractionData {
   ligandY: number
   ligandZ: number
   receptorResidue?: string
+  /** Receptor-side identifiers carried by the analysis rows; the residue
+   * highlight key needs them (absent on older/synthetic callers). */
+  receptorChain?: string
+  receptorResSeq?: string
   ligandAtom?: string
   distance?: number
+}
+
+/**
+ * Residue key exactly as the 2D map and the interactions table build it:
+ * `chain|resSeq|resname`. Same template, same fields — the highlight must
+ * agree with the row the user clicked, never an approximation of it.
+ */
+function contactResidueKey(row: InteractionData): string {
+  return `${row.receptorChain}|${row.receptorResSeq}|${row.receptorResidue}`
+}
+
+/** Overlay colour for the selected residue — distinct from every contact colour. */
+const HIGHLIGHT_COLOR = '#f59e0b'
+/** Adjacent atoms further apart than this are not bridged (ring closures). */
+const HIGHLIGHT_MAX_BOND = 2.5
+
+/** A concrete centre for an atom, or null when the coordinates are absent. */
+function atomCenter(atom: $3Dmol.AtomSpec | undefined): { x: number; y: number; z: number } | null {
+  if (atom?.x === undefined || atom.y === undefined || atom.z === undefined) {
+    return null
+  }
+  return { x: atom.x, y: atom.y, z: atom.z }
 }
 
 export interface ViewerStyle {
@@ -89,28 +225,38 @@ export class MoleculeViewer {
   private interactionShapes: $3Dmol.GLShape[] = []
   private boxFrame: number | null = null
 
-  constructor(container: HTMLElement, options: { background?: string } = {}) {
+  /** Current rendering quality preset. */
+  private currentQuality: RenderQuality = 'medium'
+
+  constructor(container: HTMLElement, options: { background?: string; quality?: RenderQuality } = {}) {
+    this.currentQuality = options.quality ?? 'medium'
+    const preset = RENDER_QUALITY_PRESETS[this.currentQuality]
+
     // 3Dmol installs its own ResizeObserver on the container and renders the
     // canvas at 100% of it, so no extra resize plumbing is needed here.
     this.raw = $3Dmol.createViewer(container, {
       backgroundColor: options.background ?? '#0d1526',
-      antialias: true,
-      cartoonQuality: 14,
+      antialias: preset.antialias,
+      cartoonQuality: preset.cartoonQuality,
       disableFog: true,
     })
 
     // Enable ambient occlusion for depth shading — makes crevices and pockets
-    // visually deeper without any extra geometry.  strength 0.15 is subtle enough
-    // to avoid darkening flat surfaces while still defining shape.
-    try {
-      this.raw.setViewStyle({
-        style: 'ambientOcclusion',
-        strength: 0.15,
-        radius: 5.0,
-      })
-    } catch {
-      // AO may not be supported on all WebGL implementations; degrade gracefully.
+    // visually deeper without any extra geometry.  Strength and radius are
+    // controlled by the quality preset.
+    if (preset.aoStrength > 0) {
+      try {
+        this.raw.setViewStyle({
+          style: 'ambientOcclusion',
+          strength: preset.aoStrength,
+          radius: preset.aoRadius,
+        })
+      } catch {
+        // AO may not be supported on all WebGL implementations; degrade gracefully.
+      }
     }
+
+    probeRenderer(this.raw)
   }
 
   resize(): void {
@@ -139,23 +285,79 @@ export class MoleculeViewer {
     })
   }
 
+  /**
+   * Zoom by a factor, coalescing the redraw with any other pending update.
+   *
+   * Wheel bursts fire far faster than the screen can show frames; a direct
+   * render per event spends a full AO pass on frames nobody sees.
+   */
+  zoomBy(scale: number): void {
+    this.raw.zoom(scale)
+    this.scheduleRender()
+  }
+
   setBackground(color: string): void {
     // The type declares alpha as required even though the runtime defaults it.
     this.raw.setBackgroundColor(color, 1.0)
     this.raw.render()
   }
 
+  /**
+   * Change the rendering quality preset.
+   *
+   * This updates AO settings but does NOT recreate the viewer — cartoon quality
+   * and anti-aliasing are set at construction time and cannot be changed at runtime.
+   * For full effect, the viewer should be recreated with the new quality.
+   *
+   * This only affects visual rendering, NOT docking calculations.
+   */
+  setQuality(quality: RenderQuality): void {
+    this.currentQuality = quality
+    const preset = RENDER_QUALITY_PRESETS[quality]
+
+    // Update ambient occlusion
+    try {
+      if (preset.aoStrength > 0) {
+        this.raw.setViewStyle({
+          style: 'ambientOcclusion',
+          strength: preset.aoStrength,
+          radius: preset.aoRadius,
+        })
+      } else {
+        // Reset to default view style (no AO)
+        this.raw.setViewStyle({ style: 'default' })
+      }
+    } catch {
+      // AO may not be supported; degrade gracefully.
+    }
+
+    this.scheduleRender()
+  }
+
+  /** Get the current quality preset configuration. */
+  getQualityPreset(): RenderQualityPreset {
+    return RENDER_QUALITY_PRESETS[this.currentQuality]
+  }
+
   clear(): void {
     this.raw.removeAllModels()
-    this.raw.removeAllShapes()
     this.raw.removeAllSurfaces()
     this.raw.removeAllLabels()
+    // Shapes are removed through their owners instead of a blanket wipe:
+    // every shape this viewer draws belongs to the box or the interaction set,
+    // so tracking stays honest about who owns what.
+    for (const shape of this.boxShapes) {
+      this.raw.removeShape(shape)
+    }
+    for (const shape of this.interactionShapes) {
+      this.raw.removeShape(shape)
+    }
     // The viewer forgot the models, so the handles must not outlive them.
     this.receptorModel = null
     this.ligandModel = null
     this.boxShapes = []
     this.interactionShapes = []
-    this.raw.render()
+    this.scheduleRender()
   }
 
   /**
@@ -304,7 +506,7 @@ export class MoleculeViewer {
       return
     }
     const rep = this.style.receptor
-    const base: Record<string, unknown> = { colorscheme: this.style.receptorColour }
+    const base = receptorColourSpec(this.style.receptorColour)
     switch (rep) {
       case 'cartoon':
         model.setStyle({}, { cartoon: { ...base, tubes: false, opacity: 1.0 } })
@@ -392,10 +594,11 @@ export class MoleculeViewer {
    *
    * The file must be PDB: 3Dmol cannot parse PDBQT, and the backend writes a
    * PDB alongside every prepared receptor precisely so the cartoon can be drawn.
+   *
+   * Callers must remove any existing receptor before calling this method.
    */
   async loadReceptor(url: string): Promise<void> {
     const text = await fetchMolecule(url)
-    this.removeReceptor()
     this.receptorModel = this.raw.addModel(text, 'pdb')
     this.applyReceptorStyle()
     this.scheduleRender()
@@ -406,10 +609,11 @@ export class MoleculeViewer {
    *
    * SDF rather than PDBQT because SDF carries bond orders, so the sticks are
    * drawn with correct connectivity and the ring systems look right.
+   *
+   * Callers must remove any existing ligand before calling this method.
    */
   async loadLigand(url: string): Promise<void> {
     const text = await fetchMolecule(url)
-    this.removeLigand()
     this.ligandModel = this.raw.addModel(text, 'sdf')
     this.applyLigandStyle()
     this.scheduleRender()
@@ -420,7 +624,9 @@ export class MoleculeViewer {
     if (this.ligandModel !== null) {
       this.raw.removeModel(this.ligandModel)
       this.ligandModel = null
-      this.raw.render()
+      // Coalesced: callers (applyMolecules) follow up with a load in the same
+      // tick, and one drawn frame beats two back-to-back full passes.
+      this.scheduleRender()
     }
   }
 
@@ -430,9 +636,10 @@ export class MoleculeViewer {
    * This is used for docked poses which are extracted from the multi-molecule
    * posesSdf result. The SDF carries bond orders so the stick rendering is
    * chemically correct.
+   *
+   * Callers must remove any existing ligand before calling this method.
    */
   loadPoseFromSdf(sdfContent: string): void {
-    this.removeLigand()
     this.ligandModel = this.raw.addModel(sdfContent, 'sdf')
     this.applyLigandStyle()
     this.scheduleRender()
@@ -445,7 +652,8 @@ export class MoleculeViewer {
     if (this.receptorModel !== null) {
       this.raw.removeModel(this.receptorModel)
       this.receptorModel = null
-      this.raw.render()
+      // Coalesced with the load that invariably follows in the same tick.
+      this.scheduleRender()
     }
   }
 
@@ -466,8 +674,13 @@ export class MoleculeViewer {
    */
   drawInteractions(interactions: InteractionData[]): void {
     this.removeInteractions()
+    const preset = RENDER_QUALITY_PRESETS[this.currentQuality]
     const shapes: $3Dmol.GLShape[] = []
-    for (const inter of interactions) {
+
+    // Limit the number of interactions based on quality preset
+    const toRender = interactions.slice(0, preset.maxInteractions)
+
+    for (const inter of toRender) {
       const start = { x: inter.receptorX, y: inter.receptorY, z: inter.receptorZ }
       const end = { x: inter.ligandX, y: inter.ligandY, z: inter.ligandZ }
 
@@ -489,6 +702,7 @@ export class MoleculeViewer {
             color: '#22c55e',
             radius: 0.12,
             opacity: 0.5,
+            quality: preset.shapeQuality,
           }))
           break
 
@@ -521,8 +735,101 @@ export class MoleculeViewer {
           break
       }
     }
+    this.pushResidueHighlight(interactions, shapes)
     this.interactionShapes = shapes
-    this.raw.render()
+    // Coalesced: filtering reassigns the interactions array several times per
+    // user action, and each reassign would otherwise cost a full AO frame.
+    this.scheduleRender()
+  }
+
+  /**
+   * Thick stick overlay for the residue every given row names.
+   *
+   * A uniform `chain|resSeq|resname` key across the rows is how the 2D map's
+   * residue filter reaches this viewer — the selection state lives in an
+   * out-of-reach component, so the row set is the only signal available. A
+   * mixed set means "all interactions" and highlights nothing; missing key
+   * fields or a residue the receptor does not contain mean no highlight
+   * rather than a guessed one. The shapes join `interactionShapes`, so
+   * removeInteractions() clears them together with the contact annotations.
+   */
+  private pushResidueHighlight(rows: InteractionData[], shapes: $3Dmol.GLShape[]): void {
+    const receptor = this.receptorModel
+    if (!receptor || rows.length === 0) {
+      return
+    }
+    const first = rows[0]
+    if (!first?.receptorChain || !first.receptorResSeq || !first.receptorResidue) {
+      return
+    }
+    const key = contactResidueKey(first)
+    if (!rows.every((row) => contactResidueKey(row) === key)) {
+      return
+    }
+    // 3Dmol's resi selector takes a number; a residue key that is not a plain
+    // number (insertion codes, SDF-ligand rows with no resSeq) cannot be
+    // located here, so it gets no highlight instead of a wrong one.
+    const resSeq = Number(first.receptorResSeq)
+    if (!Number.isFinite(resSeq)) {
+      return
+    }
+    const atoms = receptor.selectedAtoms({
+      chain: first.receptorChain,
+      resi: resSeq,
+      resn: first.receptorResidue,
+    })
+    if (atoms.length === 0) {
+      return
+    }
+    const preset = RENDER_QUALITY_PRESETS[this.currentQuality]
+    const quality = preset.shapeQuality
+    if (atoms.length === 1) {
+      const only = atomCenter(atoms[0])
+      if (!only) return
+      shapes.push(
+        this.raw.addSphere({
+          center: only,
+          color: HIGHLIGHT_COLOR,
+          radius: 0.24,
+          quality,
+        }),
+      )
+      return
+    }
+    let drawn = 0
+    for (let i = 0; i < atoms.length - 1; i++) {
+      const a = atomCenter(atoms[i])
+      const b = atomCenter(atoms[i + 1])
+      if (!a || !b) continue
+      if (Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z) > HIGHLIGHT_MAX_BOND) continue
+      shapes.push(
+        this.raw.addCylinder({
+          start: a,
+          end: b,
+          color: HIGHLIGHT_COLOR,
+          radius: 0.1,
+          fromCap: 2,
+          toCap: 2,
+        }),
+      )
+      drawn += 1
+    }
+    if (drawn === 0) {
+      // No adjacent pair within bonding distance (unusual geometry): dot
+      // every atom so the selection still shows instead of vanishing.
+      for (const atom of atoms) {
+        const center = atomCenter(atom)
+        if (!center) continue
+        shapes.push(
+          this.raw.addSphere({
+            center,
+            color: HIGHLIGHT_COLOR,
+            radius: 0.16,
+            quality,
+          }),
+        )
+      }
+    }
   }
 
   /** Remove the interaction annotations drawn by this viewer. */
@@ -533,7 +840,7 @@ export class MoleculeViewer {
       this.raw.removeShape(shape)
     }
     this.interactionShapes = []
-    this.raw.render()
+    this.scheduleRender()
   }
 
   /** Frame the receptor if present, otherwise the ligand. */
@@ -605,6 +912,24 @@ function ligandStyle(kind: LigandRepresentation): Record<string, unknown> {
   }
 }
 
+/**
+ * A 3Dmol style spec for the receptor colour scheme chosen in the UI.
+ *
+ * 3Dmol spells the per-residue rainbow as `color: "spectrum"` — its own
+ * docs example does the same. Under `colorscheme` the string matches no
+ * builtin scheme, so every cartoon atom logs "Could not interpret colorscheme
+ * spectrum" and the drawing keeps atom colours instead of the rainbow.
+ * `ss` and `element` are our labels, not the library's: the builtin ids are
+ * `ssPyMol` and `default`. Non-cartoon styles read `color` but skip the value
+ * "spectrum", so they keep their atom-colour fallback without warning.
+ */
+function receptorColourSpec(scheme: ReceptorColourScheme): Record<string, unknown> {
+  if (scheme === 'spectrum') return { color: 'spectrum' }
+  if (scheme === 'ss') return { colorscheme: 'ssPyMol' }
+  if (scheme === 'element') return { colorscheme: 'default' }
+  return { colorscheme: 'chain' }
+}
+
 /** Fetch a molecule file, reporting the status when it fails. */
 async function fetchMolecule(url: string): Promise<string> {
   const response = await fetch(url)
@@ -623,7 +948,12 @@ async function fetchMolecule(url: string): Promise<string> {
  */
 export function useMoleculeViewer(
   container: Ref<HTMLElement | null>,
-  options: { background?: string; autoReferenceFrame?: boolean } = {},
+  options: {
+    background?: string
+    autoReferenceFrame?: boolean
+    /** Preset, or a getter so a rebuild picks up the latest selection. */
+    quality?: RenderQuality | (() => RenderQuality)
+  } = {},
 ) {
   const viewer = shallowRef<MoleculeViewer | null>(null)
   const ready = ref(false)
@@ -632,6 +962,11 @@ export function useMoleculeViewer(
   let lastWidth = 0
   let lastHeight = 0
   let rafId: number | null = null
+
+  function resolvedOptions(): { background?: string; autoReferenceFrame?: boolean; quality?: RenderQuality } {
+    const quality = typeof options.quality === 'function' ? options.quality() : options.quality
+    return { background: options.background, autoReferenceFrame: options.autoReferenceFrame, quality }
+  }
 
   function create(): void {
     const element = container.value
@@ -658,7 +993,7 @@ export function useMoleculeViewer(
     }
 
     try {
-      const instance = new MoleculeViewer(element, options)
+      const instance = new MoleculeViewer(element, resolvedOptions())
       if (options.autoReferenceFrame !== false) {
         instance.drawReferenceFrame()
       }
@@ -670,6 +1005,37 @@ export function useMoleculeViewer(
       console.error('[vinastudio] failed to create the 3Dmol viewer', cause)
       error.value = cause instanceof Error ? cause.message : String(cause)
     }
+  }
+
+  /**
+   * Rebuild the viewer with the current options.
+   *
+   * Antialiasing and cartoon quality bind at construction time, so this is
+   * the only way a quality-preset change takes full effect (setQuality alone
+   * re-applies ambient occlusion). Callers re-assert theme, molecules and
+   * annotations when `ready` flips back to true.
+   */
+  function recreate(): void {
+    if (rafId !== null) {
+      window.cancelAnimationFrame(rafId)
+      rafId = null
+    }
+    viewer.value?.dispose()
+    viewer.value = null
+    ready.value = false
+    const element = container.value
+    if (element) {
+      // GLViewer appends its canvas on construction and never removes it on
+      // teardown — clear it or rebuilds stack canvases in the same box.
+      for (const canvas of element.querySelectorAll('canvas')) {
+        canvas.remove()
+      }
+    }
+    framesWaited = 0
+    lastWidth = 0
+    lastHeight = 0
+    error.value = null
+    create()
   }
 
   onMounted(create)
@@ -684,5 +1050,5 @@ export function useMoleculeViewer(
     ready.value = false
   })
 
-  return { viewer, ready, error }
+  return { viewer, ready, error, recreate }
 }

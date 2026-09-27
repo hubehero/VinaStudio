@@ -6,6 +6,7 @@ import BoxView from '@/views/BoxView.vue'
 import DockView from '@/views/DockView.vue'
 import EnvironmentView from '@/views/EnvironmentView.vue'
 import MoleculeManagerView from '@/views/MoleculeManagerView.vue'
+import ReportView from '@/views/ReportView.vue'
 import WorkbenchView from '@/views/WorkbenchView.vue'
 
 /**
@@ -21,6 +22,9 @@ const routes: RouteRecordRaw[] = [
   { path: '/prepare', redirect: '/molecules' },
   { path: '/box', name: 'box', component: BoxView },
   { path: '/docking', name: 'docking', component: DockView },
+  // Dedicated report & analysis page; the docking view keeps its contextual
+  // summary card, this route deep-links straight to the analysis.
+  { path: '/report', name: 'report', component: ReportView },
   { path: '/batch', name: 'batch', component: BatchDockingView },
   { path: '/environment', name: 'environment', component: EnvironmentView },
   { path: '/about', name: 'about', component: AboutView },

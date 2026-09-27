@@ -451,29 +451,55 @@ async def fetch_from_library(req: LibraryFetchRequest) -> LibraryFetchResponse:
     pdb_id = req.pdbId.upper()
 
     if req.kind == "receptor":
-        url = f"{_RCSB_FILES_URL}/{pdb_id}.pdb"
-        filename = f"{pdb_id}.pdb"
+        # Try PDB first; fall back to mmCIF for EM/NMR structures without PDB files.
+        pdb_url = f"{_RCSB_FILES_URL}/{pdb_id}.pdb"
+        cif_url = f"{_RCSB_FILES_URL}/{pdb_id}.cif"
+        content: bytes | None = None
+        used_filename = f"{pdb_id}.pdb"
+
+        async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True) as client:
+            # Attempt PDB download
+            try:
+                resp = await client.get(pdb_url)
+                if resp.status_code == 200:
+                    content = resp.content
+            except httpx.RequestError:
+                pass
+
+            # Fallback to mmCIF if PDB not available
+            if content is None or len(content) < 10:
+                try:
+                    resp = await client.get(cif_url)
+                    if resp.status_code == 200 and len(resp.content) > 10:
+                        content = resp.content
+                        used_filename = f"{pdb_id}.cif"
+                        log.info("PDB not available for %s, using mmCIF fallback", pdb_id)
+                except httpx.RequestError:
+                    pass
+
+        if content is None or len(content) < 10:
+            raise ExternalServiceError(
+                f"RCSB download failed: no PDB or mmCIF file available for {pdb_id}"
+            )
     else:
         # Ligand: use CCD ideal SDF
         if not req.ligandId:
             raise InvalidInputError("ligandId is required when kind=ligand")
         url = f"{_RCSB_LIGAND_URL}/{req.ligandId.upper()}_ideal.sdf"
-        filename = f"{req.ligandId.upper()}.sdf"
+        used_filename = f"{req.ligandId.upper()}.sdf"
 
-    try:
-        async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True) as client:
-            resp = await client.get(url)
-            resp.raise_for_status()
-    except httpx.HTTPStatusError as exc:
-        raise ExternalServiceError(f"RCSB download failed: HTTP {exc.response.status_code}") from exc
-    except httpx.RequestError as exc:
-        raise ExternalServiceError(f"RCSB download failed: {exc}") from exc
-    except Exception as exc:
-        raise ExternalServiceError(f"RCSB download failed: {exc}") from exc
+        try:
+            async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True) as client:
+                resp = await client.get(url)
+                resp.raise_for_status()
+                content = resp.content
+        except httpx.HTTPStatusError as exc:
+            raise ExternalServiceError(f"RCSB download failed: HTTP {exc.response.status_code}") from exc
+        except httpx.RequestError as exc:
+            raise ExternalServiceError(f"RCSB download failed: {exc}") from exc
+        except Exception as exc:
+            raise ExternalServiceError(f"RCSB download failed: {exc}") from exc
 
-    content = resp.content
-    if len(content) < 10:
-        raise ExternalServiceError("Downloaded file is empty or too small")
     if len(content) > _MAX_FILE_SIZE:
         raise ExternalServiceError(
             f"Downloaded file is too large ({len(content) / 1024 / 1024:.1f} MB); "
@@ -482,7 +508,7 @@ async def fetch_from_library(req: LibraryFetchRequest) -> LibraryFetchResponse:
 
     try:
         ws = create_workspace(f"library-{pdb_id.lower()}")
-        target = ws.file(filename)
+        target = ws.file(used_filename)
         target.write_bytes(content)
     except OSError as exc:
         raise ExternalServiceError(
@@ -491,7 +517,7 @@ async def fetch_from_library(req: LibraryFetchRequest) -> LibraryFetchResponse:
 
     return LibraryFetchResponse(
         path=str(target),
-        name=filename,
+        name=used_filename,
         bytes=len(content),
         pdbId=pdb_id,
     )
@@ -521,22 +547,37 @@ async def fetch_all_from_library(req: LibraryFetchAllRequest) -> LibraryFetchAll
     """Download receptor PDB + all ligand SDFs from RCSB PDB in one call."""
     pdb_id = req.pdbId.upper()
 
-    # Download receptor
-    receptor_url = f"{_RCSB_FILES_URL}/{pdb_id}.pdb"
+    # Download receptor — try PDB first, fall back to mmCIF for EM/NMR structures.
+    pdb_url = f"{_RCSB_FILES_URL}/{pdb_id}.pdb"
+    cif_url = f"{_RCSB_FILES_URL}/{pdb_id}.cif"
+    receptor_content: bytes | None = None
     receptor_filename = f"{pdb_id}.pdb"
 
-    try:
-        async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True) as client:
-            resp = await client.get(receptor_url)
-            resp.raise_for_status()
-    except httpx.HTTPStatusError as exc:
-        raise ExternalServiceError(f"RCSB receptor download failed: HTTP {exc.response.status_code}") from exc
-    except httpx.RequestError as exc:
-        raise ExternalServiceError(f"RCSB receptor download failed: {exc}") from exc
+    async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True) as client:
+        # Attempt PDB download
+        try:
+            resp = await client.get(pdb_url)
+            if resp.status_code == 200:
+                receptor_content = resp.content
+        except httpx.RequestError:
+            pass
 
-    receptor_content = resp.content
-    if len(receptor_content) < 10:
-        raise ExternalServiceError("Downloaded receptor file is empty or too small")
+        # Fallback to mmCIF if PDB not available
+        if receptor_content is None or len(receptor_content) < 10:
+            try:
+                resp = await client.get(cif_url)
+                if resp.status_code == 200 and len(resp.content) > 10:
+                    receptor_content = resp.content
+                    receptor_filename = f"{pdb_id}.cif"
+                    log.info("PDB not available for %s, using mmCIF fallback", pdb_id)
+            except httpx.RequestError:
+                pass
+
+    if receptor_content is None or len(receptor_content) < 10:
+        raise ExternalServiceError(
+            f"RCSB receptor download failed: no PDB or mmCIF file available for {pdb_id}"
+        )
+
     if len(receptor_content) > _MAX_FILE_SIZE:
         raise ExternalServiceError(
             f"Downloaded receptor file is too large ({len(receptor_content) / 1024 / 1024:.1f} MB); "

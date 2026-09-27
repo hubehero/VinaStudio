@@ -13,6 +13,7 @@ import { clearNativeCommands, registerNativeCommands } from '@/api/native'
 import { pickFiles, pickSaveFile } from '@/api/bridge'
 import { eventSocket, type ServerEvent } from '@/api/ws'
 import { useDockingStore } from '@/stores/docking'
+import { useMoleculeStore } from '@/stores/molecules'
 import { useProjectStore } from '@/stores/project'
 import { useSystemStore } from '@/stores/system'
 import { useUiStore } from '@/stores/ui'
@@ -23,6 +24,7 @@ const system = useSystemStore()
 const docking = useDockingStore()
 const workspace = useWorkspaceStore()
 const project = useProjectStore()
+const molecules = useMoleculeStore()
 const router = useRouter()
 const { t } = useI18n()
 
@@ -90,8 +92,12 @@ onMounted(async () => {
   // Only proceed with system refresh + services if workspace is configured
   if (workspace.isConfigured) {
     await system.refresh()
+    await molecules.loadFromManifest()
     startServices()
   }
+
+  // Warn before closing with unsaved molecule changes.
+  window.addEventListener('beforeunload', onBeforeUnload)
 
   registerNativeCommands({
     newProject: () => {
@@ -145,7 +151,14 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   stopServices()
   clearNativeCommands()
+  window.removeEventListener('beforeunload', onBeforeUnload)
 })
+
+function onBeforeUnload(e: BeforeUnloadEvent): void {
+  if (molecules.isDirty) {
+    e.preventDefault()
+  }
+}
 
 function onWorkspaceComplete() {
   // No reload needed — workspace store is already updated reactively

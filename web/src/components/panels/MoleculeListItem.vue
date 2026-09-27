@@ -78,6 +78,10 @@ function onKeydown(event: KeyboardEvent): void {
       @keydown="onKeydown"
     >
       <span class="mol-row__name">{{ molecule.name }}</span>
+      <span v-if="molecule.aliases.length > 0 || molecule.category" class="mol-row__extra">
+        <span v-if="molecule.aliases.length > 0" class="mol-row__alias">{{ molecule.aliases[0] }}</span>
+        <span v-if="molecule.category" class="mol-row__category">{{ molecule.category }}</span>
+      </span>
       <span class="mol-row__meta">
         <span class="mol-row__format">{{ formatTag }}</span>
         <span class="mol-row__type" :class="typeClass">{{ typeLabel }}</span>
@@ -236,5 +240,32 @@ function onKeydown(event: KeyboardEvent): void {
 .mol-row__remove:focus-visible {
   outline: 2px solid var(--vs-accent);
   outline-offset: -2px;
+}
+
+/* -- alias & category display ----------------------------------------------- */
+
+.mol-row__extra {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.mol-row__alias {
+  font-size: 11px;
+  color: var(--vs-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mol-row__category {
+  font-size: 9.5px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--vs-accent) 12%, transparent);
+  color: var(--vs-accent);
+  white-space: nowrap;
+  flex: none;
 }
 </style>

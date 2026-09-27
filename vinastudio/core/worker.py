@@ -146,6 +146,9 @@ def batch_docking_worker(params: dict[str, Any], pipe: Connection) -> None:
     Iterates over ligands, docking each one and reporting progress.  Every
     ligand writes into its own subdirectory of ``output_dir`` so the poses
     survive the run: results on disk are what the job's artifacts point at.
+
+    Optimisation: Vina maps are pre-computed once and reused for every
+    ligand, eliminating redundant grid calculations.
     """
     from pathlib import Path
 
@@ -157,6 +160,27 @@ def batch_docking_worker(params: dict[str, Any], pipe: Connection) -> None:
     started = time.monotonic()
 
     _emit(pipe, "stage", {"stage": "initialising", "totalLigands": len(ligands)})
+
+    # Pre-compute Vina maps once — they are identical for every ligand.
+    map_prefix: str = ""
+    scoring = params.get("scoring", "vina")
+    if scoring != "ad4" and not params.get("map_paths"):
+        try:
+            from vinastudio.core.docking import precompute_vina_maps
+
+            map_prefix = precompute_vina_maps(
+                receptor_path=params.get("receptor_path", ""),
+                flex_pdbqt_path=params.get("flex_pdbqt_path"),
+                center=tuple(params.get("center", [0, 0, 0])),
+                size=tuple(params.get("size", [20, 20, 20])),
+                scoring=scoring,
+                spacing=params.get("spacing", 0.375),
+                force_even_voxels=params.get("force_even_voxels", False),
+                output_dir=output_dir,
+            )
+            _emit(pipe, "stage", {"stage": "docking"})
+        except Exception as exc:  # noqa: BLE001 - fall back to per-ligand maps
+            log.warning("map pre-computation failed, will compute per-ligand: %s", exc)
 
     results: list[dict[str, Any]] = []
     completed = 0
@@ -204,9 +228,9 @@ def batch_docking_worker(params: dict[str, Any], pipe: Connection) -> None:
                 flex_pdbqt_path=params.get("flex_pdbqt_path"),
                 ligand_path=ligand_path,
                 ligand_pdbqt_string=ligand_string,
-                center=params.get("center", [0, 0, 0]),
-                size=params.get("size", [20, 20, 20]),
-                scoring=params.get("scoring", "vina"),
+                center=tuple(params.get("center", [0, 0, 0])),
+                size=tuple(params.get("size", [20, 20, 20])),
+                scoring=scoring,
                 exhaustiveness=params.get("exhaustiveness", 8),
                 n_poses=params.get("n_poses", 20),
                 energy_range=params.get("energy_range", 3.0),
@@ -214,6 +238,8 @@ def batch_docking_worker(params: dict[str, Any], pipe: Connection) -> None:
                 cpu=params.get("cpu", 0),
                 seed=params.get("seed", 0),
                 no_refine=params.get("no_refine", False),
+                map_prefix=map_prefix or None,
+                engine=params.get("engine", "vina"),
             )
 
             run_dir = Path(output_dir) / out_name if output_dir else Path(out_name)
