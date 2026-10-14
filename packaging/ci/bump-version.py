@@ -15,6 +15,7 @@ Files updated:
     4. web/package.json             (frontend version)
     5. packaging/linux/debian/control (debian package version)
     6. packaging/windows/vinastudio.iss (Inno Setup default VERSION)
+    7. uv.lock                      (the workspace package's own version)
 """
 
 from __future__ import annotations
@@ -144,6 +145,31 @@ def update_debian_control(version: str) -> None:
     )
 
 
+def update_uv_lock(version: str) -> None:
+    """Update the project's own version inside uv.lock.
+
+    The lock records the workspace package's version, so a bump that skips it
+    leaves the published tree with `pyproject.toml` on the new version and a lock
+    still naming the old one.  The dependency data does not depend on this field,
+    so a textual update is what ``uv lock`` would write anyway (and it avoids
+    re-resolving the whole lock, which would also rewrite the mirror URLs).
+    """
+    path = REPO_ROOT / "uv.lock"
+    if not path.exists():
+        print("  SKIP  uv.lock (not found)")
+        return
+
+    text = path.read_text()
+    if 'name = "vinastudio"' not in text:
+        print("  SKIP  uv.lock (no vinastudio package entry)")
+        return
+    replace_in_file(
+        path,
+        r'(\nname = "vinastudio"\nversion = )"[^"]+"',
+        rf'\1"{version}"',
+    )
+
+
 def update_inno_setup(version: str) -> None:
     replace_in_file(
         REPO_ROOT / "packaging" / "windows" / "vinastudio.iss",
@@ -193,6 +219,7 @@ def main() -> None:
         ("web/package.json", update_package_json),
         ("packaging/linux/debian/control", update_debian_control),
         ("packaging/windows/vinastudio.iss", update_inno_setup),
+        ("uv.lock", update_uv_lock),
     ]
 
     # In dry-run mode, monkeypatch Path.write_text to be a no-op
