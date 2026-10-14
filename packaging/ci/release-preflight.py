@@ -31,6 +31,7 @@ Exit code 0 means "safe to tag". Every failure says what to fix.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -140,6 +141,42 @@ def changelog_section(version: str) -> str | None:
     module = module_from_spec(spec)
     spec.loader.exec_module(module)
     return module.section_for(CHANGELOG.read_text(encoding="utf-8"), version)
+
+
+def commit_range(candidate: tuple[int, int, int]) -> str:
+    """The newest tag strictly below the candidate, or the empty string."""
+    for tag in run("git", "tag", "--sort=-v:refname").stdout.split():
+        if not tag.startswith("v"):
+            continue
+        try:
+            parsed = parse_version(tag)
+        except SystemExit:
+            continue
+        if parsed < candidate:
+            return tag
+    return ""
+
+
+def offending_commits(candidate: tuple[int, int, int]) -> list[str]:
+    """Commits in the release range whose author/committer is not the project.
+
+    This is the identity that actually lands in public history; the local git
+    config only decides what the *next* commit would use, and CI has none.
+    """
+    previous = commit_range(candidate)
+    revision = f"{previous}..HEAD" if previous else "HEAD"
+    log = run("git", "log", revision, "--format=%h|%an|%ae|%cn|%ce").stdout
+    offenders: list[str] = []
+    for line in log.splitlines():
+        parts = line.split("|")
+        if len(parts) != 5:
+            continue
+        sha, author_name, author_email, committer_name, committer_email = parts
+        if author_email != PROJECT_IDENTITY_EMAIL or author_name != PROJECT_IDENTITY_NAME:
+            offenders.append(f"{sha} author {author_name} <{author_email}>")
+        elif committer_email != PROJECT_IDENTITY_EMAIL or committer_name != PROJECT_IDENTITY_NAME:
+            offenders.append(f"{sha} committer {committer_name} <{committer_email}>")
+    return offenders
 
 
 def commits_since_last_release(candidate: tuple[int, int, int]) -> str:
@@ -304,24 +341,41 @@ def main() -> int:
     for passed, label in checks:
         (ok if passed else bad)(label, "" if passed else "a sync step overwrote it")
 
-    # 7. Identity: a personal address must never enter public history.
+    # 7. Identity: a personal address must never enter public history. What lands
+    #    there is the released commits, so check those first; the local config is
+    #    what the *next* commit would use, and only a developer machine has one.
     print("\n[7] Commit identity")
-    name = run("git", "config", "--local", "user.name").stdout.strip()
-    email = run("git", "config", "--local", "user.email").stdout.strip()
-    if email != PROJECT_IDENTITY_EMAIL or name != PROJECT_IDENTITY_NAME:
-        global_email = run("git", "config", "--global", "user.email").stdout.strip()
+    offenders = offending_commits(parsed)
+    if offenders:
         bad(
-            "public identity",
-            f"local user is {name!r} <{email or 'unset'}>; expected "
-            f"{PROJECT_IDENTITY_NAME!r} <{PROJECT_IDENTITY_EMAIL}>. "
-            + (
-                f"The global identity ({global_email}) would otherwise end up in public history."
-                if global_email and global_email != email
-                else "Set it with: git config --local user.email …"
-            ),
+            "released commit identity",
+            f"{len(offenders)} commit(s) carry a non-project address: "
+            + "; ".join(offenders[:3]),
         )
     else:
-        ok("commit identity is the project's", f"{name} <{email}>")
+        ok(
+            "released commits use the project identity",
+            f"{PROJECT_IDENTITY_NAME} <{PROJECT_IDENTITY_EMAIL}>",
+        )
+
+    name = run("git", "config", "--local", "user.name").stdout.strip()
+    email = run("git", "config", "--local", "user.email").stdout.strip()
+    if email == PROJECT_IDENTITY_EMAIL and name == PROJECT_IDENTITY_NAME:
+        ok("local git identity is the project's", f"{name} <{email}>")
+    elif os.environ.get("GITHUB_ACTIONS") == "true":
+        note("CI checkout has no local git identity — nothing is committed here; the released commits were checked instead")
+    else:
+        global_email = run("git", "config", "--global", "user.email").stdout.strip()
+        bad(
+            "local git identity",
+            f"{name!r} <{email or 'unset'}>, expected "
+            f"{PROJECT_IDENTITY_NAME!r} <{PROJECT_IDENTITY_EMAIL}>"
+            + (
+                f" — otherwise the global identity {global_email!r} ends up in public history"
+                if global_email and global_email != email
+                else " — set it with: git config --local user.email …"
+            ),
+        )
 
     # 8. The workflow must not fall back to generated notes.
     print("\n[8] Workflow")
