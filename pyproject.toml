@@ -5,7 +5,7 @@ description = "Modern desktop workbench for AutoDock Vina docking, built with Py
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 license = { text = "MIT" }
-authors = [{ name = "VinaStudio Contributors" }]
+authors = [{ name = "hubehero" }, { name = "VinaStudio Contributors" }]
 keywords = ["molecular-docking", "autoDock-vina", "computational-chemistry", "drug-discovery"]
 classifiers = [
     "Development Status :: 4 - Beta",

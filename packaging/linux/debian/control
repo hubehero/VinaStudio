@@ -6,4 +6,4 @@ Description: Desktop molecular docking workbench for AutoDock Vina
  VinaStudio is a modern graphical interface for AutoDock Vina molecular docking, built with PySide6, FastAPI, and Vue 3.
 Section: science
 Priority: optional
-Maintainer: VinaStudio Contributors
+Maintainer: hubehero

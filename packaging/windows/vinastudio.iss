@@ -11,8 +11,8 @@
 #endif
 
 #define MyAppName "VinaStudio"
-#define MyAppPublisher "VinaStudio Contributors"
-#define MyAppURL "https://github.com/VinaStudio/vina_simple"
+#define MyAppPublisher "hubehero"
+#define MyAppURL "https://github.com/hubehero/VinaStudio"
 #define MyAppExeName "vinastudio.exe"
 #define MyAppSource "..\dist\vinastudio"
 
