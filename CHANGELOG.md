@@ -62,7 +62,7 @@ entries about the product — no internal task ids or workflow narration.
 
 ### 不包含
 
-- Windows 发布（上游 vina 无 Windows 轮子，故仅提供 Linux 包）；MM-GBSA、GNOME/GNINA
+- Windows 发布（上游 vina 无 Windows 轮子，故仅提供 Linux 包）；MM-GBSA、GNINA
   类替代引擎、Docker 镜像等进阶项。
 
 ### Added
