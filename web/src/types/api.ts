@@ -129,6 +129,18 @@ export interface SampleFile {
   bytes: number
 }
 
+export interface LigandProperties {
+  molWt: number
+  molLogP: number
+  tpsa: number
+  numHDonors: number
+  numHAcceptors: number
+  numRotatableBonds: number
+  ringCount: number
+  qed: number
+  lipinskiViolations: number
+}
+
 export interface LigandPreview {
   source: string
   inputFormat: string
@@ -142,6 +154,8 @@ export interface LigandPreview {
   smiles: string | null
   records: number
   notes: string[]
+  properties?: LigandProperties | null
+  propertiesError?: string | null
 }
 
 export interface LigandOptions {
@@ -194,6 +208,24 @@ export interface LigandFromSmilesItem {
   preparation: LigandPreparation
 }
 
+/** One residue cell of the sequence view (TASK-12 design §3 contract). */
+export interface SequenceResidue {
+  seqId: number
+  name: string
+  het: boolean
+  /** 'H'/'' helix, 'E' sheet; absent/'' when no HELIX/SHEET record covers it. */
+  ss?: 'H' | 'E' | ''
+}
+
+export interface SequenceChain {
+  id: string
+  residues: SequenceResidue[]
+}
+
+export interface ReceptorSequence {
+  chains: SequenceChain[]
+}
+
 export interface ReceptorPreview {
   source: string
   inputFormat: string
@@ -205,6 +237,8 @@ export interface ReceptorPreview {
   hetero: string[]
   residueNames: string[]
   notes: string[]
+  /** Absent/null for formats without a polymer sequence (PDBQT). */
+  sequence?: ReceptorSequence | null
 }
 
 export interface ReceptorOptions {
@@ -283,6 +317,121 @@ export interface AutoboxResult {
   box: BoxMetrics
   points: number
   source: string
+}
+
+export interface PocketsRequest {
+  path: string
+  minRadius?: number
+  maxRadius?: number
+  linkMinPairs?: number
+  minSpheres?: number
+  topK?: number
+  spacing?: number
+}
+
+/**
+ * One geometrically detected cavity, with the box it implies.
+ *
+ * `score` ranks the candidates within this receptor (larger is better). It is a
+ * geometric score from the alpha-sphere descriptors — it says "this looks like a
+ * pocket by shape", not "a ligand binds here".
+ */
+export interface PocketCandidate {
+  rank: number
+  center: [number, number, number]
+  size: [number, number, number]
+  volume: number
+  spheres: number
+  score: number
+  apolarFraction: number
+  box: BoxMetrics
+}
+
+export interface PocketsResult {
+  pockets: PocketCandidate[]
+  /** Heavy atoms the detection ran on, so a wrong file is visible. */
+  atoms: number
+  params: Record<string, number>
+}
+
+/**
+ * One box for a site screen: the detected candidate, in the form the screen
+ * takes it (the caller's `index` comes back on every row).
+ */
+export interface SiteCandidate {
+  index: number
+  label: string
+  center: [number, number, number]
+  size: [number, number, number]
+}
+
+/**
+ * One ligand docked into several candidate boxes, ranked by affinity (S2).
+ *
+ * Exhaustiveness is deliberately low: the *ordering* is what this answers, and
+ * the affinities are not comparable with a production docking run.
+ */
+export interface SiteScreeningRequest {
+  receptorPath: string
+  flexReceptorPath?: string | null
+  ligandPath?: string | null
+  ligandPdbqtString?: string | null
+  candidates: SiteCandidate[]
+  scoring?: ScoringFunction
+  exhaustiveness?: number
+  nPoses?: number
+  energyRange?: number
+  minRmsd?: number
+  cpu?: number
+  seed?: number
+  noRefine?: boolean
+  verbosity?: number
+  spacing?: number
+  forceEvenVoxels?: boolean
+  weights?: number[] | null
+  mapPaths?: string[] | null
+}
+
+/** One candidate's outcome, joined with the box it ran in. */
+export interface SiteRow {
+  index: number
+  label: string
+  status: 'completed' | 'failed'
+  /** 1-based among scored boxes; null when the box produced no pose. */
+  rank: number | null
+  center: [number, number, number] | null
+  size: [number, number, number] | null
+  bestAffinity: number | null
+  nPoses: number | null
+  elapsedMs: number | null
+  error: string | null
+}
+
+export interface SiteScreeningStatus {
+  jobId: string
+  status: DockingStatus
+  progress: number
+  stage: string | null
+  error: string | null
+  elapsedMs: number | null
+  totalCandidates: number
+  completedCandidates: number
+  failedCandidates: number
+  currentLabel: string
+  /** Rows that have landed so far — a screen is useful while it fills in. */
+  rows: SiteRow[]
+}
+
+export interface SiteScreeningResult {
+  jobId: string
+  status: DockingStatus
+  scoring: ScoringFunction
+  exhaustiveness: number
+  /** Scored boxes first (most negative affinity), then the unrankable ones. */
+  rows: SiteRow[]
+  bestAffinity: number | null
+  bestIndex: number | null
+  elapsedMs: number | null
 }
 
 export interface ConfigText {
@@ -392,6 +541,31 @@ export interface DockingJobResult {
   scoring: ScoringFunction
   elapsedMs: number
   artifacts: Artifact[]
+  /**
+   * The request the job actually ran with (snake_case, as persisted in
+   * ``job.json``), minus the inline ligand string. The report's "Methods"
+   * paragraph is generated from these values.
+   */
+  params: Record<string, unknown> | null
+}
+
+export interface ResultRunSummary {
+  jobId: string          // = runs.job_id（对接任务 id）
+  label: string          // 配体/任务名；空则后端回退配体文件名
+  createdAt: number      // epoch 秒（与 DockingJobSummary.createdAt 同语义）
+  receptor: string       // 受体文件名（basename）；无则 ''
+  scoring: string        // 'vina' | 'ad4' | …（原样透传，不枚举收窄）
+  status: 'completed' | 'failed' | 'cancelled'
+  bestAffinity: number | null
+  isBatch: boolean
+  matchedLigand: string | null  // q 命中某 poses 行的 ligand_name 时回填
+                                // （批量 job 或命中即 label 本身时为 null）
+}
+export interface ResultRunDetail extends ResultRunSummary {
+  params: Record<string, unknown> | null   // 可读参数 JSON（exhaustiveness/n_poses/center/size…）
+  nPoses: number
+  elapsedMs: number | null
+  poses: PoseInfo[]        // 复用既有 PoseInfo（index/affinity/rmsdLower/rmsdUpper）
 }
 
 /** WebSocket event from a docking job. */
@@ -584,6 +758,8 @@ export interface BatchDockingRequest {
   cpu: number
   seed: number
   noRefine: boolean
+  /** Concurrent ligand workers; omitted = server default (TASK-14 §4.1). */
+  parallelism?: number
 }
 
 export interface BatchLigandResult {
@@ -593,6 +769,8 @@ export interface BatchLigandResult {
   pdbqt: string
   energies: PoseInfo[]
   bestAffinity: number | null
+  /** Per-ligand artifact directory under the job dir (TASK-16 grouping). */
+  outDir: string
   error: string
 }
 
@@ -602,6 +780,8 @@ export interface BatchLigandProgress {
   status: string
   affinity: number | null
   error: string
+  qed?: number | null
+  lipinskiViolations?: number | null
 }
 
 export interface BatchDockingResponse {
@@ -954,4 +1134,207 @@ export interface LibraryFetchAllRequest {
 export interface LibraryFetchAllResponse {
   receptor: LibraryFetchResponse
   ligands: LibraryFetchResponse[]
+}
+
+// --------------------------------------------------------------------------
+// molecule library (PubChem PUG-REST)
+// --------------------------------------------------------------------------
+
+export interface PubChemFetchRequest {
+  query: string
+}
+
+export interface PubChemFetchResponse {
+  path: string
+  name: string
+  bytes: number
+  cid: number
+}
+
+// --------------------------------------------------------------------------
+// virtual screening (TASK-13)
+// --------------------------------------------------------------------------
+
+export type RankingSortBy = 'affinity' | 'qed' | 'lipinski'
+
+/** Body of POST /api/screening/runs — mirrors schemas/screening.py. */
+export interface ScreeningStartRequest {
+  library: string
+  receptorPath: string
+  flexReceptorPath?: string | null
+  center: [number, number, number]
+  size: [number, number, number]
+  scoring: ScoringFunction
+  exhaustiveness: number
+  nPoses: number
+  energyRange: number
+  cpu: number
+  seed: number
+  noRefine?: boolean
+  /** Concurrent ligand workers; omitted = server default. */
+  parallelism?: number
+  engine?: 'vina'
+}
+
+export interface LibrarySummary {
+  name: string
+  /** All entries in the library. */
+  total: number
+  /** Entries with a prepared PDBQT (computed server-side by file presence). */
+  prepared: number
+  /** Epoch seconds. */
+  created: number
+}
+
+/**
+ * §3 `LibraryEntry` — renamed: `LibraryEntry` is taken by the RCSB entry
+ * type above, and the dialog consuming it is on the don't-touch list.
+ */
+export interface ScreeningLibraryEntry {
+  /** 0-based stable index inside the library (= NNNNNN filename). */
+  index: number
+  name: string
+  molWt: number | null
+  qed: number | null
+  lipinskiViolations: number | null
+  prepare: 'none' | 'done' | 'failed'
+}
+
+export interface LibraryDetail {
+  name: string
+  total: number
+  created: number
+  /** Full list even at thousands of rows — no client-side pagination. */
+  entries: ScreeningLibraryEntry[]
+}
+
+export interface LibraryImportResult {
+  name: string
+  imported: number
+  skipped: number
+  failedCount: number
+  failed: { index: number; name: string; reason: 'parse' | 'too_large' | 'cap' | 'write' }[]
+  // `failed` is capped at 100 rows server-side; failedCount is exact.
+}
+
+export interface ScreeningRunSummary {
+  jobId: string
+  library: string
+  createdAt: number
+  status: 'running' | 'completed' | 'failed' | 'cancelled'
+  progress: number
+  totalLigands: number
+  completedLigands: number
+  failedLigands: number
+  bestAffinity: number | null
+  error: string | null
+}
+
+export interface ScreeningRunStatus extends ScreeningRunSummary {
+  currentLigand: string | null
+  elapsedMs: number | null
+}
+
+export interface RankingRow {
+  rank: number
+  ligandIndex: number
+  name: string
+  affinity: number | null
+  nPoses: number | null
+  qed: number | null
+  lipinskiViolations: number | null
+}
+
+export interface RankingResponse {
+  total: number
+  rows: RankingRow[]
+}
+
+// interaction fingerprints (TASK-16)
+
+export type IfpType = 'ionic' | 'hydrogen_bond' | 'hydrophobic'
+
+/** One receptor-residue column of the fingerprint matrix. */
+export interface IfpResidue {
+  key: string
+  resname: string
+  chain: string
+  resSeq: number
+  icode: string
+}
+
+/** One pose's fingerprint: bits as (residue index, type order) pairs. */
+export interface IfpFingerprint {
+  index: number
+  pairs: [number, number][]
+  nContacts: number
+}
+
+/** One BUTINA cluster over fingerprints (0-based fingerprint indices). */
+export interface IfpClusterRow {
+  members: number[]
+  centroid: number
+  size: number
+}
+
+/** Body of POST /api/docking/jobs/{id}/ifp — cutoff 0..1, default 0.5. */
+export interface IfpJobRequest {
+  cutoff: number
+}
+
+export interface IfpJobResponse {
+  jobId: string
+  residues: IfpResidue[]
+  types: IfpType[]
+  fingerprints: IfpFingerprint[]
+  clusters: IfpClusterRow[]
+  nClusters: number
+  cutoff: number
+  cached: boolean
+}
+
+/** One ligand input of POST /api/results/ifp-cluster. */
+export interface IfpGroupLigand {
+  label: string
+  pdbqtPath: string
+}
+
+/** 2..200 ligands; every path must resolve inside the active workspace. */
+export interface IfpGroupRequest {
+  receptorPath: string
+  ligands: IfpGroupLigand[]
+  cutoff: number
+}
+
+/** One ligand row of the grouping matrix (fingerprint bits as pairs, Q1 方案 A). */
+export interface IfpGroupLigandRow {
+  index: number
+  label: string
+  nContacts: number
+  cluster: number
+  pairs: [number, number][]
+}
+
+export interface IfpGroupResponse {
+  residues: IfpResidue[]
+  types: IfpType[]
+  ligands: IfpGroupLigandRow[]
+  clusters: IfpClusterRow[]
+  nClusters: number
+  cutoff: number
+  /** Pairwise Tanimoto similarity, rounded to 3 decimals. */
+  matrix: number[][]
+}
+
+/**
+ * Internal row shape both IfpMatrix consumers build (poses in job mode,
+ * ligands in group mode) — not a wire type.
+ */
+export interface IfpMatrixRow {
+  index: number
+  label: string
+  fpCluster: number
+  /** RMSD cluster for the same index, or null when RMSD was not run. */
+  rmsdCluster: number | null
+  pairs: [number, number][]
 }

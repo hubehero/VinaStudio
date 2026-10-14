@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { Refresh } from '@element-plus/icons-vue'
-import { onMounted } from 'vue'
+import { Document, Position, Refresh } from '@element-plus/icons-vue'
+import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 
 import DockingReport from '@/components/docking/DockingReport.vue'
 import JobHistory from '@/components/docking/JobHistory.vue'
+import MethodsDialog from '@/components/docking/MethodsDialog.vue'
 import { useDockingStore } from '@/stores/docking'
 
 const { t } = useI18n()
+const router = useRouter()
 const docking = useDockingStore()
+const methodsOpen = ref(false)
 
 onMounted(async () => {
   // Land on an actual report rather than the empty state: history is this
@@ -27,6 +31,12 @@ function refresh(): void {
   // finished while this page was open without polling (restored jobs).
   void docking.refreshStatus()
 }
+
+function inspectInDock(): void {
+  // Reports are read-only; pose browsing and 3D interaction analysis live on
+  // the docking view, against whatever job is active here.
+  if (docking.activeJobId) void router.push('/docking')
+}
 </script>
 
 <template>
@@ -36,7 +46,23 @@ function refresh(): void {
         <h1 class="vs-page__title">{{ t('docking.resultsReport.title') }}</h1>
         <p class="vs-page__subtitle">{{ t('docking.resultsReport.subtitle') }}</p>
       </div>
-      <el-button :icon="Refresh" @click="refresh">{{ t('common.refresh') }}</el-button>
+      <div class="report-view__actions">
+        <el-button
+          :icon="Document"
+          :disabled="!docking.hasResult"
+          @click="methodsOpen = true"
+        >
+          {{ t('docking.methods.button') }}
+        </el-button>
+        <el-button
+          :icon="Position"
+          :disabled="!docking.activeJobId"
+          @click="inspectInDock"
+        >
+          {{ t('docking.resultsReport.openInDock') }}
+        </el-button>
+        <el-button :icon="Refresh" @click="refresh">{{ t('common.refresh') }}</el-button>
+      </div>
     </div>
 
     <!-- Report takes the wide column; the history picker picks which run the
@@ -45,6 +71,8 @@ function refresh(): void {
       <DockingReport class="report-view__report" />
       <JobHistory class="report-view__history" />
     </div>
+
+    <MethodsDialog v-model="methodsOpen" />
   </div>
 </template>
 
@@ -54,6 +82,12 @@ function refresh(): void {
   grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
   gap: 16px;
   align-items: start;
+}
+
+.report-view__actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 /* The card is tuned for the 380px docking sidebar: on this wide column its

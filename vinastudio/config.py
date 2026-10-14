@@ -13,7 +13,7 @@ from typing import Final, Literal
 
 APP_NAME: Final = "VinaStudio"
 APP_ID: Final = "vinastudio"
-APP_VERSION: Final = "0.2.0"
+APP_VERSION: Final = "0.3.0"
 
 PACKAGE_DIR: Final = Path(__file__).resolve().parent
 STATIC_DIR: Final = PACKAGE_DIR / "server" / "static"
@@ -55,6 +55,14 @@ DEFAULT_MAX_UPLOAD_MB: Final = 100
 
 #: Environment variable to override the upload limit.
 UPLOAD_LIMIT_ENV: Final = "VINASTUDIO_MAX_UPLOAD_MB"
+
+
+#: Environment variables capping a screening library import (TASK-13 §4.1).
+#: Same shape as the upload limit: env overrides, bad values fall back.
+LIB_MAX_MOLS_ENV: Final = "VINASTUDIO_LIB_MAX_MOLS"
+LIB_MAX_MOLS_DEFAULT: Final = 5000
+LIB_MAX_MOL_MB_ENV: Final = "VINASTUDIO_LIB_MAX_MOL_MB"
+LIB_MAX_MOL_MB_DEFAULT: Final = 5
 
 
 def app_home() -> Path:
@@ -104,6 +112,26 @@ def max_upload_bytes() -> int:
         return mb * 1024 * 1024
     except (ValueError, TypeError):
         return DEFAULT_MAX_UPLOAD_MB * 1024 * 1024
+
+
+def lib_max_mols() -> int:
+    """Maximum molecules one library import may hold (>=1)."""
+    try:
+        value = int(os.environ.get(LIB_MAX_MOLS_ENV, LIB_MAX_MOLS_DEFAULT))
+    except (ValueError, TypeError):
+        return LIB_MAX_MOLS_DEFAULT
+    return value if value >= 1 else LIB_MAX_MOLS_DEFAULT
+
+
+def lib_max_mol_bytes() -> int:
+    """Maximum size of a single molecule record during import (>=1 MB)."""
+    try:
+        mb = int(os.environ.get(LIB_MAX_MOL_MB_ENV, LIB_MAX_MOL_MB_DEFAULT))
+    except (ValueError, TypeError):
+        return LIB_MAX_MOL_MB_DEFAULT
+    if mb < 1:
+        return LIB_MAX_MOL_MB_DEFAULT
+    return mb * 1024 * 1024
 
 
 @dataclass(slots=True)

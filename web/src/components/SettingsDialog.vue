@@ -348,6 +348,22 @@ defineExpose({ open })
             :closable="false"
             :title="t('settings.softwareRendererWarn')"
           />
+
+          <!-- Optional quality trades; both default off = preset look. -->
+          <label class="settings-item">
+            <div class="settings-item__info">
+              <span class="settings-item__label">{{ t('settings.antialiasOffLabel') }}</span>
+              <span class="settings-item__desc">{{ t('settings.antialiasOffHint') }}</span>
+            </div>
+            <ElSwitch v-model="settings.viewer.antialiasOff" size="small" />
+          </label>
+          <label class="settings-item">
+            <div class="settings-item__info">
+              <span class="settings-item__label">{{ t('settings.adaptiveAOLabel') }}</span>
+              <span class="settings-item__desc">{{ t('settings.adaptiveAOHint') }}</span>
+            </div>
+            <ElSwitch v-model="settings.viewer.adaptiveAO" size="small" />
+          </label>
         </div>
 
         <!-- Surface -->

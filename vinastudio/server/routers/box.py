@@ -10,6 +10,7 @@ from fastapi import APIRouter
 from vinastudio.core.box import Box, autobox_from_file
 from vinastudio.core.errors import InvalidInputError
 from vinastudio.core.paths import resolve_within, workspace_root
+from vinastudio.core.pocket import PocketParams, pockets_from_file
 from vinastudio.schemas.box import (
     AutoboxFromResiduesRequest,
     AutoboxRequest,
@@ -17,6 +18,9 @@ from vinastudio.schemas.box import (
     BoxMetrics,
     BoxSpec,
     ConfigText,
+    PocketCandidate,
+    PocketRequest,
+    PocketsResponse,
     WriteMapsRequest,
     WriteMapsResponse,
 )
@@ -121,6 +125,51 @@ def from_residues(request: AutoboxFromResiduesRequest) -> AutoboxResponse:
         points,
     )
     return AutoboxResponse(box=_metrics_from_box(box), points=points, source=request.path)
+
+
+@router.post("/pockets", response_model=PocketsResponse)
+def detect_pockets(request: PocketRequest) -> PocketsResponse:
+    """Propose candidate binding sites from the receptor's geometry alone.
+
+    The answer is a ranked list of cavities found with the alpha-sphere method
+    (``docs/references/``): a starting point for the box, not a predicted
+    binding site. The interface labels it as such.
+    """
+    params = PocketParams(
+        min_radius=request.minRadius,
+        max_radius=request.maxRadius,
+        link_min_pairs=request.linkMinPairs,
+        min_spheres=request.minSpheres,
+    )
+    found, atoms = pockets_from_file(request.path, params, top_k=request.topK)
+    log.info(
+        "pocket detection on %s: %d atoms -> %d candidate(s)",
+        request.path,
+        atoms,
+        len(found),
+    )
+    return PocketsResponse(
+        pockets=[
+            PocketCandidate(
+                rank=index + 1,
+                center=pocket.center,
+                size=pocket.size,
+                volume=pocket.volume,
+                spheres=pocket.spheres,
+                score=pocket.score,
+                apolarFraction=pocket.apolar_fraction,
+                box=_metrics_from_box(pocket.box(request.spacing)),
+            )
+            for index, pocket in enumerate(found)
+        ],
+        atoms=atoms,
+        params={
+            "minRadius": params.min_radius,
+            "maxRadius": params.max_radius,
+            "linkMinPairs": float(params.link_min_pairs),
+            "minSpheres": float(params.min_spheres),
+        },
+    )
 
 
 @router.post("/to-config", response_model=ConfigText)

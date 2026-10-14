@@ -1,32 +1,44 @@
 <script setup lang="ts">
-import { Delete, Document, Search, Upload } from '@element-plus/icons-vue'
+import { Document, Search, Upload } from '@element-plus/icons-vue'
 import { ElInput, ElMessage, ElMessageBox, ElSelect, ElOption } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useMoleculeStore } from '@/stores/molecules'
+import { useSettingsStore, type MoleculeViewMode } from '@/stores/settings'
 
 import MoleculeListSection from './MoleculeListSection.vue'
 import MoleculeUploadButton from './MoleculeUploadButton.vue'
 
 const store = useMoleculeStore()
+const settings = useSettingsStore()
 const { t } = useI18n()
 
 const dragDepth = ref(0)
 const dragOver = computed(() => dragDepth.value > 0)
 
-/** Expanded group IDs in the grouped view. */
+/** List organisation, persisted in the settings store (single owner). */
+const viewMode = computed(() => settings.molecules.viewMode)
+
+/** Expanded group IDs in the source view. */
 const expandedGroups = ref<Set<string>>(new Set())
 
 onMounted(() => {
   if (!store.filters) {
     void store.loadReferenceData()
   }
-  // Expand all groups by default
-  for (const g of store.groupedMolecules) {
-    if (g.receptor) expandedGroups.value.add(g.id)
+  // Source groups start expanded; collapsing is the opt-in.
+  for (const group of store.sourceGroups) {
+    expandedGroups.value.add(group.id)
   }
 })
+
+function setViewMode(mode: MoleculeViewMode): void {
+  settings.molecules.viewMode = mode
+  // The type filter duplicates the type sections: when the sections themselves
+  // are the type axis, a leftover type filter would silently hide molecules.
+  if (mode === 'type') store.filterType = 'all'
+}
 
 function handleSelect(id: string): void {
   store.setActive(id)
@@ -77,10 +89,7 @@ function toggleGroup(id: string): void {
   }
 }
 
-/** Molecules that belong to a group, shown in grouped view. */
-const hasGroups = computed(() => store.groupedMolecules.some((g) => g.id !== '_ungrouped'))
-
-/** Ungrouped molecules shown in the flat section view. */
+/** Ungrouped molecules shown in the source view's "Ungrouped" section. */
 const ungroupedReceptors = computed(() =>
   store.visibleReceptors.filter((m) => !m.groupId),
 )
@@ -122,15 +131,6 @@ const nothingVisible = computed(
           {{ t('molecules.fileCount', { n: store.molecules.length }) }}
         </span>
       </div>
-      <button
-        v-if="store.molecules.length > 0"
-        type="button"
-        class="mol-panel__clear"
-        :title="t('molecules.clearAll')"
-        @click="handleClear"
-      >
-        <el-icon :size="13"><Delete /></el-icon>
-      </button>
     </header>
 
     <MoleculeUploadButton />
@@ -145,6 +145,7 @@ const nothingVisible = computed(
       />
       <div class="mol-panel__filter-row">
         <ElSelect
+          v-if="viewMode === 'source'"
           v-model="store.filterType"
           size="small"
           :placeholder="t('molecules.filterType')"
@@ -185,17 +186,55 @@ const nothingVisible = computed(
     </div>
 
     <div class="mol-panel__list">
-      <!-- Grouped view: receptor + ligands per PDB entry -->
-      <template v-if="hasGroups">
-        <div
-          v-for="group in store.groupedMolecules.filter((g) => g.id !== '_ungrouped')"
-          :key="group.id"
-          class="mol-group"
+      <!-- List organisation, not a filter: by type, or by provenance group. -->
+      <div v-if="store.molecules.length > 0" class="mol-viewswitch">
+        <button
+          type="button"
+          class="mol-viewswitch__btn"
+          :class="{ 'is-active': viewMode === 'type' }"
+          @click="setViewMode('type')"
         >
-          <div
-            class="mol-group__header"
-            @click="toggleGroup(group.id)"
-          >
+          {{ t('molecules.viewByType') }}
+        </button>
+        <button
+          type="button"
+          class="mol-viewswitch__btn"
+          :class="{ 'is-active': viewMode === 'source' }"
+          @click="setViewMode('source')"
+        >
+          {{ t('molecules.viewBySource') }}
+        </button>
+      </div>
+
+      <!-- By type: the docking workflow's axis (one receptor + N ligands). -->
+      <template v-if="viewMode === 'type'">
+        <MoleculeListSection
+          :title="t('molecules.sectionReceptors')"
+          :items="store.visibleReceptors"
+          :active-id="store.activeId"
+          @select="handleSelect"
+          @remove="handleRemove"
+        />
+        <MoleculeListSection
+          :title="t('molecules.sectionLigands')"
+          :items="store.visibleLigands"
+          :active-id="store.activeId"
+          @select="handleSelect"
+          @remove="handleRemove"
+        />
+        <MoleculeListSection
+          :title="t('molecules.sectionUnknowns')"
+          :items="store.visibleUnknowns"
+          :active-id="store.activeId"
+          @select="handleSelect"
+          @remove="handleRemove"
+        />
+      </template>
+
+      <!-- By source: one block per imported entry, then everything ungrouped. -->
+      <template v-else>
+        <div v-for="group in store.sourceGroups" :key="group.id" class="mol-group">
+          <div class="mol-group__header" @click="toggleGroup(group.id)">
             <span class="mol-group__arrow">{{ expandedGroups.has(group.id) ? '▾' : '▸' }}</span>
             <span class="mol-group__icon">🧬</span>
             <span class="mol-group__name">{{ group.name || group.id }}</span>
@@ -220,12 +259,9 @@ const nothingVisible = computed(
             />
           </div>
         </div>
-      </template>
 
-      <!-- Flat sections for ungrouped molecules -->
-      <template v-if="ungroupedCount > 0">
-        <div v-if="hasGroups" class="mol-panel__divider">
-          <span>{{ t('molecules.sectionUnknowns') }}</span>
+        <div v-if="ungroupedCount > 0" class="mol-panel__divider">
+          <span>{{ t('molecules.sectionUngrouped') }}</span>
         </div>
         <MoleculeListSection
           :title="t('molecules.sectionReceptors')"
@@ -272,6 +308,9 @@ const nothingVisible = computed(
         {{ t('molecules.sectionUnknowns') }} {{ store.unknowns.length }}
       </span>
       <span class="mol-panel__foot-size">{{ totalSize }}</span>
+      <button type="button" class="mol-panel__clear-all" @click="handleClear">
+        {{ t('molecules.clearAll') }}
+      </button>
     </footer>
 
     <div v-if="dragOver" class="mol-panel__overlay" aria-hidden="true">
@@ -326,25 +365,59 @@ const nothingVisible = computed(
   font-variant-numeric: tabular-nums;
 }
 
-.mol-panel__clear {
-  flex: none;
-  width: 26px;
-  height: 26px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--vs-border);
-  border-radius: var(--vs-radius-sm);
+.mol-panel__clear-all {
+  margin-left: 10px;
+  padding: 0;
+  border: none;
   background: none;
+  font: inherit;
+  font-size: 11px;
   color: var(--vs-text-muted);
   cursor: pointer;
 }
 
-.mol-panel__clear:hover {
+.mol-panel__clear-all:hover {
   color: var(--vs-danger);
-  border-color: var(--vs-danger);
+  text-decoration: underline;
 }
 
-.mol-panel__clear:focus-visible {
+.mol-panel__clear-all:focus-visible {
+  outline: 2px solid var(--vs-accent);
+  outline-offset: 2px;
+}
+
+/* List-organisation switch: sits directly above the list it reorganises. */
+.mol-viewswitch {
+  display: inline-flex;
+  margin-bottom: 8px;
+  padding: 2px;
+  border: 1px solid var(--vs-border);
+  border-radius: var(--vs-radius-sm);
+  background: var(--vs-bg-sunken);
+}
+
+.mol-viewswitch__btn {
+  padding: 3px 12px;
+  border: none;
+  border-radius: calc(var(--vs-radius-sm) - 2px);
+  background: none;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--vs-text-muted);
+  cursor: pointer;
+}
+
+.mol-viewswitch__btn:hover {
+  color: var(--vs-text);
+}
+
+.mol-viewswitch__btn.is-active {
+  background: var(--vs-accent-soft);
+  color: var(--vs-accent);
+  font-weight: 600;
+}
+
+.mol-viewswitch__btn:focus-visible {
   outline: 2px solid var(--vs-accent);
   outline-offset: 1px;
 }

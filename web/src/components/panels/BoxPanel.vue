@@ -8,6 +8,8 @@ import StatusPill from '@/components/StatusPill.vue'
 import MoleculeSelect from '@/components/common/MoleculeSelect.vue'
 import { useBoxStore } from '@/stores/box'
 import { useMoleculeStore } from '@/stores/molecules'
+import { useSiteScreeningStore } from '@/stores/site-screening'
+import type { PocketCandidate, SiteRow } from '@/types/api'
 
 /**
  * The search box panel.
@@ -65,6 +67,65 @@ async function autoboxFromReceptor(): Promise<void> {
   // picker arrives with the pocket-selection work in a later phase.
   if (await box.autoboxFromResidues(path, [], extend.value)) {
     ElMessage.success(t('box.autoboxDone', { n: box.autoboxPoints ?? 0 }))
+  }
+}
+
+// -- candidate sites ---------------------------------------------------------
+const pocketsAttempted = ref(false)
+
+async function detectPockets(): Promise<void> {
+  const path = residueSource.value
+  if (!path) {
+    return
+  }
+  pocketsAttempted.value = true
+  // The list and the empty/error states are rendered inline; a toast would only
+  // duplicate them.
+  await box.detectPockets(path)
+}
+
+function usePocket(candidate: PocketCandidate): void {
+  box.applyPocket(candidate)
+  ElMessage.success(t('box.pockets.applied'))
+}
+
+// -- screening the candidates ------------------------------------------------
+const screen = useSiteScreeningStore()
+/** Coarse by design: a screen ranks sites, it does not produce final numbers. */
+const screenExhaustiveness = ref(4)
+
+const canScreen = computed(
+  () => molecules.receptorPdbqtPath !== null && molecules.ligandPdbqtPath !== null,
+)
+
+async function runScreen(): Promise<void> {
+  const receptorPath = molecules.receptorPdbqtPath
+  const ligandPath = molecules.ligandPdbqtPath
+  if (receptorPath === null || ligandPath === null) {
+    return
+  }
+  // The candidates go in the order the list shows them, and each row's index is
+  // its position here — that is how a row finds its box again.
+  await screen.start({
+    receptorPath,
+    flexReceptorPath: molecules.flexReceptorPath ?? null,
+    ligandPath,
+    candidates: box.pockets.map((candidate, index) => ({
+      index,
+      label: `#${candidate.rank}`,
+      center: candidate.center,
+      size: candidate.size,
+    })),
+    exhaustiveness: screenExhaustiveness.value,
+    nPoses: 5,
+    seed: 0,
+  })
+}
+
+function useScreenRow(row: SiteRow): void {
+  const candidate = box.pockets[row.index]
+  if (candidate !== undefined) {
+    usePocket(candidate)
   }
 }
 
@@ -265,6 +326,147 @@ function setSizeAxis(axis: 0 | 1 | 2, value: number | undefined): void {
 
       <el-divider />
 
+      <!-- Candidate sites: for a receptor with no known ligand to box around. -->
+      <div class="pockets">
+        <div class="pockets__head">
+          <span>{{ t('box.pockets.title') }}</span>
+          <el-button
+            size="small"
+            :icon="Aim"
+            :disabled="!residueSource"
+            :loading="box.pocketsLoading"
+            data-test="detect-pockets"
+            @click="detectPockets"
+          >
+            {{ t('box.pockets.detect') }}
+          </el-button>
+        </div>
+        <p class="vs-faint pockets__note">{{ t('box.pockets.hint') }}</p>
+        <p v-if="!residueSource" class="vs-faint pockets__note">
+          {{ t('box.pockets.noReceptor') }}
+        </p>
+        <p v-if="box.pocketsError" class="pockets__error">
+          {{ t('box.pockets.failed') }}: {{ box.pocketsError }}
+        </p>
+        <p
+          v-else-if="pocketsAttempted && box.pockets.length === 0"
+          class="vs-faint pockets__note"
+        >
+          {{ t('box.pockets.empty') }}
+        </p>
+        <ol v-else-if="box.pockets.length > 0" class="pockets__list">
+          <li
+            v-for="candidate in box.pockets"
+            :key="candidate.rank"
+            class="pockets__row"
+            :title="
+              t('box.pockets.detail', {
+                volume: Math.round(candidate.volume),
+                spheres: candidate.spheres,
+                apolar: (candidate.apolarFraction * 100).toFixed(0),
+              })
+            "
+          >
+            <span class="pockets__rank">#{{ candidate.rank }}</span>
+            <span class="pockets__score">{{ candidate.score.toFixed(2) }}</span>
+            <span class="vs-mono pockets__centre">
+              {{ candidate.center.map((value) => value.toFixed(1)).join(', ') }}
+            </span>
+            <el-button text size="small" type="primary" @click="usePocket(candidate)">
+              {{ t('box.pockets.use') }}
+            </el-button>
+          </li>
+        </ol>
+
+        <!-- The geometric order is a guess; docking each box is the test. -->
+        <div v-if="box.pockets.length > 0" class="screen">
+          <div class="screen__head">
+            <span class="vs-faint">{{ t('box.pockets.screenTitle') }}</span>
+            <el-button
+              size="small"
+              type="primary"
+              :disabled="!canScreen"
+              :loading="screen.running"
+              data-test="screen-sites"
+              @click="runScreen"
+            >
+              {{ t('box.pockets.screenRun') }}
+            </el-button>
+            <el-button v-if="screen.running" text size="small" @click="screen.cancel()">
+              {{ t('box.pockets.screenCancel') }}
+            </el-button>
+          </div>
+
+          <div class="screen__effort">
+            <span>{{ t('box.pockets.screenExhaustiveness') }}</span>
+            <el-input-number
+              v-model="screenExhaustiveness"
+              :min="1"
+              :max="64"
+              size="small"
+              controls-position="right"
+            />
+          </div>
+
+          <p v-if="!canScreen" class="vs-faint pockets__note">
+            {{ t('box.pockets.screenNeeds') }}
+          </p>
+          <p v-if="screen.running" class="screen__progress">
+            {{ t('box.pockets.screenProgress', { done: screen.done, total: screen.total }) }}
+            <span v-if="screen.status?.currentLabel" class="vs-mono">
+              · {{ screen.status.currentLabel }}
+            </span>
+          </p>
+          <p v-if="screen.error" class="pockets__error">{{ screen.error }}</p>
+
+          <table v-if="screen.rows.length > 0" class="screen__table">
+            <thead>
+              <tr>
+                <th>{{ t('box.pockets.screenRank') }}</th>
+                <th>{{ t('box.pockets.screenBox') }}</th>
+                <th>{{ t('box.pockets.screenAffinity') }}</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="row in screen.rows"
+                :key="row.index"
+                :class="{ 'screen__row--best': row.rank === 1 }"
+              >
+                <td>{{ row.rank ?? '—' }}</td>
+                <td class="vs-mono">#{{ row.index + 1 }}</td>
+                <td class="vs-mono">
+                  <template v-if="row.bestAffinity !== null">
+                    {{ row.bestAffinity.toFixed(1) }}
+                  </template>
+                  <span v-else-if="row.error" class="vs-faint">
+                    {{ t('box.pockets.screenFailed') }}
+                  </span>
+                  <template v-else>—</template>
+                </td>
+                <td>
+                  <el-button
+                    v-if="row.rank !== null"
+                    text
+                    size="small"
+                    type="primary"
+                    @click="useScreenRow(row)"
+                  >
+                    {{ t('box.pockets.use') }}
+                  </el-button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p v-if="screen.rows.length > 0" class="vs-faint pockets__note">
+            {{ t('box.pockets.screenCaveat') }}
+          </p>
+        </div>
+      </div>
+
+      <el-divider />
+
       <div class="config">
         <div class="config__head">
           <span>{{ t('box.config') }}</span>
@@ -426,6 +628,135 @@ function setSizeAxis(axis: 0 | 1 | 2, value: number | undefined): void {
 
 .reset {
   margin-top: 14px;
+}
+
+/* -- candidate sites -------------------------------------------------------- */
+
+.pockets__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pockets__note {
+  margin: 6px 0 0;
+  line-height: 1.5;
+}
+
+.pockets__error {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--vs-danger);
+}
+
+.pockets__list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pockets__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 2px;
+  border-radius: var(--vs-radius-sm);
+  font-size: 12px;
+}
+
+.pockets__row:hover {
+  background: var(--vs-bg-sunken);
+}
+
+.pockets__rank {
+  flex: none;
+  width: 22px;
+  color: var(--vs-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pockets__score {
+  flex: none;
+  width: 34px;
+  text-align: right;
+  color: var(--vs-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.pockets__centre {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--vs-text-faint);
+}
+
+.screen {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--vs-border);
+}
+
+.screen__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.screen__head > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.screen__effort {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--vs-text-muted);
+}
+
+.screen__effort :deep(.el-input-number) {
+  width: 92px;
+}
+
+.screen__progress {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--vs-text-muted);
+}
+
+.screen__table {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.screen__table th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--vs-text-faint);
+  padding-bottom: 4px;
+}
+
+.screen__table td {
+  padding: 3px 4px 3px 0;
+  border-top: 1px solid var(--vs-border);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The winning row is the answer the screen was run for. */
+.screen__row--best td {
+  color: var(--vs-accent);
+  font-weight: 500;
 }
 
 :deep(.el-divider) {

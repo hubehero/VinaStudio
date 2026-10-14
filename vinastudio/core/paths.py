@@ -45,6 +45,12 @@ JOB_STATE_FILENAME = "job.json"
 JOB_LOG_FILENAME = "job.log"
 POSES_SDF_FILENAME = "poses.sdf"
 BATCH_RESULTS_CSV_FILENAME = "batch_results.csv"
+#: Append-only per-molecule rows of a screening run (TASK-13 §4.2): the
+#: writer (job_manager) and the resume/ranking/ingest readers share one
+#: spelling of the name, so it lives with the other job filenames.
+SCREENING_JSONL_FILENAME = "screening.jsonl"
+#: Per-candidate rows of a site screen (S2): one append-only line per box.
+SITES_JSONL_FILENAME = "sites.jsonl"
 
 #: Analysis-cache convention (TASK-07 §4.7) — format agreed, implementation
 #: arrives with each analysis task: a JSON array of entries shaped

@@ -68,6 +68,50 @@ class ConfigText(BaseModel):
     text: str
 
 
+class PocketRequest(BaseModel):
+    """Detect candidate binding sites from the receptor's geometry alone.
+
+    Defaults are the published fpocket parameters (see
+    ``vinastudio.core.pocket`` and ``docs/references/``).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    path: str
+    minRadius: float = Field(default=3.0, gt=0, le=10.0)
+    maxRadius: float = Field(default=6.0, gt=0, le=20.0)
+    linkMinPairs: int = Field(default=8, ge=1, le=100)
+    minSpheres: int = Field(default=35, ge=1, le=1000)
+    topK: int = Field(default=5, ge=1, le=20)
+    spacing: float = DEFAULT_SPACING
+    """Grid spacing of the box each candidate hands back."""
+
+
+class PocketCandidate(BaseModel):
+    """One geometrically detected cavity, with the box it implies.
+
+    Deliberately *candidates*: the geometry says "a ligand could sit here",
+    which is not the same claim as a predicted binding site.
+    """
+
+    rank: int
+    center: tuple[float, float, float]
+    size: tuple[float, float, float]
+    volume: float
+    spheres: int
+    score: float
+    apolarFraction: float
+    box: BoxMetrics
+
+
+class PocketsResponse(BaseModel):
+    pockets: list[PocketCandidate]
+    atoms: int
+    """Heavy atoms the detection ran on, so a wrong file is visible."""
+    params: dict[str, float]
+    """The thresholds actually used, echoed back for the record."""
+
+
 class WriteMapsRequest(BaseModel):
     """Request to write affinity maps to disk."""
 

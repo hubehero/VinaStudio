@@ -27,13 +27,25 @@ import type {
   ExportPoseResponse,
   FileFilters,
   Health,
+  IfpGroupRequest,
+  PocketsRequest,
+  PocketsResult,
+  SiteScreeningRequest,
+  SiteScreeningResult,
+  SiteScreeningStatus,
+  IfpGroupResponse,
+  IfpJobRequest,
+  IfpJobResponse,
+  LibraryDetail,
   LibraryEntry,
   LibraryFetchAllRequest,
   LibraryFetchAllResponse,
   LibraryFetchRequest,
   LibraryFetchResponse,
+  LibraryImportResult,
   LibrarySearchRequest,
   LibrarySearchResponse,
+  LibrarySummary,
   LigandOptions,
   LigandPreparation,
   LigandFromSmilesItem,
@@ -41,15 +53,24 @@ import type {
   LigandPreview,
   OptimizeRequest,
   OptimizeResponse,
+  PubChemFetchRequest,
+  PubChemFetchResponse,
   RandomizeRequest,
   RandomizeResponse,
+  RankingResponse,
+  RankingSortBy,
   RmsdRequestBody,
   RmsdResponse,
   ReceptorOptions,
   ReceptorPreparation,
   ReceptorPreview,
+  ResultRunDetail,
+  ResultRunSummary,
   SampleFile,
   SavedUpload,
+  ScreeningRunStatus,
+  ScreeningRunSummary,
+  ScreeningStartRequest,
   SketchAnalyzeRequest,
   SketchAnalyzeResponse,
   SketchCleanupResponse,
@@ -224,6 +245,24 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(options),
     }),
+  pockets: (options: PocketsRequest) =>
+    request<PocketsResult>('/api/box/pockets', {
+      method: 'POST',
+      body: JSON.stringify(options),
+    }),
+  startSiteScreen: (options: SiteScreeningRequest) =>
+    request<{ jobId: string; status: string }>('/api/sites/start', {
+      method: 'POST',
+      body: JSON.stringify(options),
+    }),
+  siteScreenStatus: (jobId: string) =>
+    request<SiteScreeningStatus>(`/api/sites/${jobId}`),
+  siteScreenResult: (jobId: string) =>
+    request<SiteScreeningResult>(`/api/sites/${jobId}/result`),
+  cancelSiteScreen: (jobId: string) =>
+    request<{ status: string; jobId: string }>(`/api/sites/${jobId}/cancel`, {
+      method: 'POST',
+    }),
   boxToConfig: (spec: BoxSpec) =>
     request<ConfigText>('/api/box/to-config', {
       method: 'POST',
@@ -350,7 +389,7 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  // -- molecule library (RCSB PDB) ------------------------------------------
+  // -- molecule library (RCSB PDB / PubChem) --------------------------------
   librarySearch: (body: LibrarySearchRequest) =>
     request<LibrarySearchResponse>('/api/library/search', {
       method: 'POST',
@@ -365,6 +404,11 @@ export const api = {
     }),
   libraryFetchAll: (body: LibraryFetchAllRequest) =>
     request<LibraryFetchAllResponse>('/api/library/fetch-all', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  pubchemFetch: (body: PubChemFetchRequest) =>
+    request<PubChemFetchResponse>('/api/library/pubchem/fetch', {
       method: 'POST',
       body: JSON.stringify(body),
     }),
@@ -412,6 +456,74 @@ export const api = {
     request<{ existing: string[]; missing: string[]; mtimes: Record<string, number> }>('/api/molecules/verify', {
       method: 'POST',
       body: JSON.stringify({ ids }),
+    }),
+
+  // -- results index (cross-project search) ---------------------------------
+  resultsSearch: (q: string, limit?: number) =>
+    request<ResultRunSummary[]>(
+      `/api/results/search?q=${encodeURIComponent(q)}${limit != null ? `&limit=${limit}` : ''}`,
+    ),
+  resultsCompare: (runIds: string[]) =>
+    request<ResultRunDetail[]>(
+      `/api/results/compare?runIds=${encodeURIComponent(runIds.join(','))}`,
+    ),
+
+  // -- virtual screening (TASK-13) ------------------------------------------
+  screeningLibraries: () => request<LibrarySummary[]>('/api/screening/libraries'),
+  screeningImport: async (form: FormData): Promise<LibraryImportResult> => {
+    // Multipart: the browser must set the boundary, so JSON_HEADERS is wrong.
+    const response = await fetch('/api/screening/libraries/import', {
+      method: 'POST',
+      body: form,
+    })
+    if (!response.ok) {
+      let detail: unknown = null
+      try {
+        detail = await response.json()
+      } catch {
+        detail = await response.text().catch(() => null)
+      }
+      throw new ApiError(errorMessage(detail, response), response.status, detail)
+    }
+    return (await response.json()) as LibraryImportResult
+  },
+  screeningLibrary: (name: string) =>
+    request<LibraryDetail>(`/api/screening/libraries/${encodeURIComponent(name)}`),
+  screeningRuns: () => request<ScreeningRunSummary[]>('/api/screening/runs'),
+  screeningRun: (id: string) =>
+    request<ScreeningRunStatus>(`/api/screening/runs/${encodeURIComponent(id)}`),
+  screeningStart: (body: ScreeningStartRequest) =>
+    request<{ jobId: string }>('/api/screening/runs', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  screeningResume: (id: string) =>
+    request<ScreeningRunStatus>(`/api/screening/runs/${encodeURIComponent(id)}/resume`, {
+      method: 'POST',
+    }),
+  screeningCancel: (id: string) =>
+    request<void>(`/api/screening/runs/${encodeURIComponent(id)}/cancel`, {
+      method: 'POST',
+    }),
+  screeningRanking: (id: string, sortBy: RankingSortBy, top: number) =>
+    request<RankingResponse>(
+      `/api/screening/runs/${encodeURIComponent(id)}/ranking?sortBy=${sortBy}&top=${top}`,
+    ),
+  screeningExportRanking: (id: string, sortBy: RankingSortBy, top: number) =>
+    request<{ csv: string; filename: string }>(
+      `/api/screening/runs/${encodeURIComponent(id)}/ranking/export?sortBy=${sortBy}&top=${top}`,
+    ),
+
+  // -- interaction fingerprints (TASK-16) -------------------------------------
+  jobIfp: (jobId: string, body: IfpJobRequest) =>
+    request<IfpJobResponse>(`/api/docking/jobs/${encodeURIComponent(jobId)}/ifp`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  ifpCluster: (body: IfpGroupRequest) =>
+    request<IfpGroupResponse>('/api/results/ifp-cluster', {
+      method: 'POST',
+      body: JSON.stringify(body),
     }),
 }
 

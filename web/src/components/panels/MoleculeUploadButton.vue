@@ -136,6 +136,7 @@ const samples = computed(() => store.samples)
         size="small"
         :icon="desktop ? FolderOpened : Upload"
         :loading="busy"
+        :title="desktop ? t('molecules.desktopHint') : t('molecules.browserHint')"
         class="load-actions__choose"
         data-test="molecule-upload"
         @click="choose"
@@ -228,11 +229,6 @@ const samples = computed(() => store.samples)
         </ElButton>
       </template>
     </ElDialog>
-
-    <p class="load-actions__hint">
-      {{ desktop ? t('molecules.desktopHint') : t('molecules.browserHint') }}
-      <span class="load-actions__formats">{{ t('molecules.formatsHint') }}</span>
-    </p>
   </div>
 </template>
 
@@ -278,19 +274,6 @@ const samples = computed(() => store.samples)
 .load-actions__sample-name {
   font-family: var(--vs-font-mono);
   font-size: 12px;
-}
-
-.load-actions__hint {
-  margin: 0;
-  font-size: 11.5px;
-  line-height: 1.5;
-  color: var(--vs-text-faint);
-}
-
-.load-actions__formats {
-  display: block;
-  font-family: var(--vs-font-mono);
-  font-size: 10.5px;
 }
 
 .smiles-dialog__body {

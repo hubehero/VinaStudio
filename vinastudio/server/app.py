@@ -33,6 +33,9 @@ from vinastudio.server.routers import (
     molecules,
     project,
     receptor,
+    results,
+    screening,
+    sites,
     system,
     workspace,
 )
@@ -87,7 +90,7 @@ def create_app() -> FastAPI:
     app.include_router(ws_router)
 
     # Domain routers; each new phase adds one here.
-    for router in (system.router, files.router, ligand.router, receptor.router, box.router, docking.router, project.router, interactions.router, workspace.router, library.router, molecules.router, chem.router):
+    for router in (system.router, files.router, ligand.router, receptor.router, box.router, docking.router, project.router, interactions.router, workspace.router, library.router, molecules.router, chem.router, results.router, screening.router, sites.router):
         app.include_router(router, prefix="/api")
 
     _add_docs_endpoint(app)

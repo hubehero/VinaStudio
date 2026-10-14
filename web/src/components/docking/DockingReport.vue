@@ -7,6 +7,8 @@ import { useI18n } from 'vue-i18n'
 import { saveTextFile } from '@/api/bridge'
 import { api } from '@/api/http'
 import StatusPill from '@/components/StatusPill.vue'
+import DockingCharts from '@/components/docking/analysis/DockingCharts.vue'
+import IfpSection from '@/components/docking/IfpSection.vue'
 import type { PoseFindingSeverity } from '@/types/api'
 import { useDockingStore } from '@/stores/docking'
 
@@ -295,11 +297,16 @@ async function downloadCsv(): Promise<void> {
           </div>
         </section>
 
-        <!-- Ranked poses -->
-        <section v-if="docking.poses.length > 0" class="report-section">
-          <h4 class="report-section__title">
-            {{ t('docking.resultsReport.posesTitle') }}
-          </h4>
+        <!-- Ranked poses: collapsed by default so the report scans top-down,
+             with the count and a chevron advertising the hidden list. Native
+             <details> mirrors the log-excerpt disclosure below; no new state. -->
+        <details v-if="docking.poses.length > 0" class="report-section report-disclosure">
+          <summary class="report-disclosure__summary">
+            <span class="report-section__title">
+              {{ t('docking.resultsReport.posesTitle') }}
+            </span>
+            <span class="report-disclosure__count">{{ docking.poses.length }}</span>
+          </summary>
           <p class="report-hint">{{ t('docking.resultsReport.posesHint') }}</p>
           <ol class="report-poses">
             <li
@@ -329,7 +336,10 @@ async function downloadCsv(): Promise<void> {
               </span>
             </li>
           </ol>
-        </section>
+        </details>
+
+        <!-- Analysis figures: affinity profile / distribution / funnel / RMSD -->
+        <DockingCharts v-if="docking.hasResult && docking.poses.length > 0" />
 
         <!-- Validation summary -->
         <section v-if="docking.validation && validationCounts" class="report-section">
@@ -380,6 +390,9 @@ async function downloadCsv(): Promise<void> {
             </span>
           </div>
         </section>
+
+        <!-- Interaction fingerprints (TASK-16) -->
+        <IfpSection v-if="docking.hasResult && docking.poses.length > 0" />
 
         <!-- Log excerpt -->
         <details v-if="logExcerpt.length > 0" class="report-log">
@@ -679,6 +692,37 @@ async function downloadCsv(): Promise<void> {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+/* Ranked-pose disclosure — default-closed; the marker rotates on open. */
+.report-disclosure > summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+}
+
+.report-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.report-disclosure > summary::before {
+  content: '▸';
+  font-size: 10px;
+  line-height: 1;
+  color: var(--vs-text-faint);
+  transition: transform 0.15s ease;
+}
+
+.report-disclosure[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.report-disclosure__count {
+  font-size: 11px;
+  color: var(--vs-text-faint);
+  font-variant-numeric: tabular-nums;
 }
 
 .report-log summary {

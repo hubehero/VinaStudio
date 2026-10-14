@@ -66,8 +66,10 @@ const { t } = useI18n()
 const container = ref<HTMLElement | null>(null)
 const { viewer, ready, error, recreate } = useMoleculeViewer(container, {
   autoReferenceFrame: false,
-  // A getter so a quality rebuild always binds the latest preset.
+  // Getters so a rebuild always binds the latest preset and switch states.
   quality: () => settings.viewer.renderQuality,
+  antialiasOff: () => settings.viewer.antialiasOff ?? false,
+  adaptiveAO: () => settings.viewer.adaptiveAO ?? false,
 })
 const loadError = ref<string | null>(null)
 const hasMolecule = ref(false)
@@ -151,15 +153,25 @@ let loadGeneration = 0
  * this watcher on every step and re-fetching + re-styling the whole receptor
  * each time was the dominant cost of browsing poses. The residual risk — the
  * same URL rewritten in place while this view stays mounted — does not occur:
- * receptor preparation happens on /molecules, where this view is unmounted.
+ * receptor preparation happens on /molecules, where this view is unmounted
+ * (the module-level text cache in use3Dmol rests on the same conclusion).
  */
 let loadedReceptorUrl: string | null = null
+/** The ligandUrl this viewer last applied — the other half of molecule
+ * identity; a poseSdfContent-only swap never counts as a new molecule. */
+let loadedLigandUrl: string | null = null
 
 async function applyMolecules(): Promise<void> {
   const instance = viewer.value
   if (!instance || !ready.value) return
 
   const gen = ++loadGeneration
+  // Camera refit and the highlight repaint belong to molecule identity
+  // changes (new receptor/ligand, receptor rebuild, viewer recreate) —
+  // never to a pose step, which only swaps content inside the existing
+  // ligand slot.
+  const moleculeIdentityChanged =
+    props.receptorUrl !== loadedReceptorUrl || props.ligandUrl !== loadedLigandUrl
 
   try {
     // --- receptor ---
@@ -183,6 +195,7 @@ async function applyMolecules(): Promise<void> {
       await instance.loadLigand(props.ligandUrl)
     }
     if (gen !== loadGeneration) return
+    loadedLigandUrl = props.ligandUrl
 
     loadError.value = null
   } catch (cause) {
@@ -192,9 +205,18 @@ async function applyMolecules(): Promise<void> {
     if (gen !== loadGeneration) return
     hasMolecule.value = instance.hasMolecule
     if (instance.hasMolecule) {
-      instance.focus()
+      // Pose stepping keeps the user's camera — a refocus would yank a
+      // rotated view back to fit — and skips the highlight repaint: the
+      // ligand-slot swap never breaks the receptor styles.  Receptor model
+      // rebuilds still re-apply residue highlights the async load would
+      // otherwise wipe (TASK-12 §6).
+      if (moleculeIdentityChanged) {
+        instance.focus()
+        scheduleHighlight()
+      }
     } else {
       instance.drawReferenceFrame()
+      scheduleHighlight()
     }
   }
 }
@@ -245,16 +267,24 @@ watch([ready, () => props.orthographic], () => {
 })
 
 // Quality presets bind antialias/cartoonQuality at construction time, so a
-// preset change must rebuild the viewer to take full effect — setQuality
-// alone only re-applies ambient occlusion. While not ready the quality getter
-// already supplies the new preset to the pending construction.
-watch(() => settings.viewer.renderQuality, () => {
+// preset change must rebuild the viewer to take full effect — a runtime
+// AO-only tweak cannot retarget those bindings. While not ready the quality
+// getter already supplies the new preset to the pending construction.
+// antialiasOff joins the same channel: it also binds at construction.
+watch(() => [settings.viewer.renderQuality, settings.viewer.antialiasOff], () => {
   if (ready.value) {
-    // The rebuild starts from an empty container — forget which receptor the
-    // cache believes is loaded, or applyMolecules would skip re-adding it.
+    // The rebuild starts from an empty container — forget which molecules
+    // the cache believes are loaded, or applyMolecules would skip re-adding
+    // them.
     loadedReceptorUrl = null
+    loadedLigandUrl = null
     recreate()
   }
+})
+
+// Adaptive AO is runtime-adjustable — toggle the kernel in place, no recreate.
+watch(() => settings.viewer.adaptiveAO, (on) => {
+  viewer.value?.setAdaptiveAO(on ?? false)
 })
 
 // ---------------------------------------------------------------------------
@@ -321,6 +351,10 @@ onBeforeUnmount(() => {
   window.removeEventListener('pointermove', onPointerMove, true)
   window.removeEventListener('pointerup', onPointerUp, true)
   removeWheelHandler()
+  if (highlightFrame !== null) {
+    cancelAnimationFrame(highlightFrame)
+    highlightFrame = null
+  }
 })
 
 // ---------------------------------------------------------------------------
@@ -415,7 +449,7 @@ function updateAxes(): void {
       toCap: 2,
     }))
   }
-  instance.raw.render()
+  instance.scheduleRender()
 }
 
 watch(ready, (isReady) => {
@@ -465,6 +499,88 @@ async function exportPng(): Promise<void> {
 
 const emptyTitle = computed(() => t('workbench.viewport.emptyTitle'))
 const emptyBody = computed(() => t('workbench.viewport.emptyBody'))
+
+// ---------------------------------------------------------------------------
+// residue highlighting (TASK-12 §6)
+// ---------------------------------------------------------------------------
+
+/** Keys re-applied after every molecule reload; null means the sequence view
+ * never asked, so ordinary canvases keep their own style path untouched. */
+let highlightKeys: string[] | null = null
+
+/** Mirror of MoleculeViewer's receptor base: a highlight reset must repaint
+ * exactly what the style system would. setStyle replaces atom styles but
+ * leaves shapes (box, axes, interaction annotations) alone — which is why
+ * clearing goes through here and never through removeAllStyles/removeAllShapes. */
+function receptorBaseStyle(style: ViewerStyle): Record<string, unknown> {
+  const colour =
+    style.receptorColour === 'spectrum'
+      ? { color: 'spectrum' }
+      : style.receptorColour === 'ss'
+        ? { colorscheme: 'ssPyMol' }
+        : style.receptorColour === 'element'
+          ? { colorscheme: 'default' }
+          : { colorscheme: 'chain' }
+  switch (style.receptor) {
+    case 'cartoon':
+      return { cartoon: { ...colour, tubes: false, opacity: 1.0 } }
+    case 'stick':
+      return { stick: { ...colour, radius: 0.12 } }
+    case 'sphere':
+      return { sphere: { ...colour, scale: 0.22 } }
+    case 'line':
+      return { line: { ...colour, linewidth: 1.5 } }
+    default:
+      return { [style.receptor]: colour }
+  }
+}
+
+function applyHighlight(): void {
+  const instance = viewer.value
+  if (!instance || !ready.value || highlightKeys === null) return
+  instance.raw.setStyle({}, receptorBaseStyle(effectiveStyle.value))
+  for (const key of highlightKeys) {
+    const sep = key.indexOf(':')
+    if (sep <= 0) continue
+    instance.raw.addStyle(
+      { chain: key.slice(0, sep), resi: Number(key.slice(sep + 1)) },
+      { stick: { colorscheme: 'greenCarbon', radius: 0.15 } },
+    )
+  }
+  instance.scheduleRender()
+}
+
+/**
+ * Coalesce highlight repaints to at most one per frame.  A fast sweep across
+ * sequence cells fires one event per cell; each one would otherwise redo a
+ * full receptor restyle.  ``applyHighlight`` itself is unchanged — this only
+ * batches when it runs; unmount cancels the pending frame (same convention as
+ * ``_cancelSurfaceTimer`` in use3Dmol).
+ */
+let highlightFrame: number | null = null
+function scheduleHighlight(): void {
+  if (highlightFrame !== null) return
+  highlightFrame = requestAnimationFrame(() => {
+    highlightFrame = null
+    applyHighlight()
+  })
+}
+
+/**
+ * Highlight receptor residues as green sticks (TASK-12 §6). ``null`` turns
+ * the feature off without touching styles — the next load paints its own
+ * base; an empty array clears by resetting the receptor base.
+ */
+function highlightResidues(keys: string[] | null): void {
+  if (keys === null) {
+    highlightKeys = null
+    return
+  }
+  highlightKeys = keys
+  scheduleHighlight()
+}
+
+defineExpose({ highlightResidues })
 </script>
 
 <template>

@@ -6,7 +6,7 @@ API surface can evolve independently of internal refactoring.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -100,6 +100,11 @@ class DockingJobResult(BaseModel):
     scoring: ScoringFunction
     elapsedMs: int
     artifacts: list[dict] = Field(default_factory=list)
+    #: The request the job actually ran with (the same dict persisted in
+    #: ``job.json``), minus the inline ligand string. The report's "Methods"
+    #: text is generated from these values, so they must be the real ones
+    #: rather than whatever the form currently shows.
+    params: dict[str, Any] | None = None
 
 
 class DockingJobSummary(BaseModel):
@@ -413,6 +418,72 @@ class ClusterResponse(BaseModel):
     nClusters: int
 
 
+# ── interaction fingerprints (TASK-16) ──────────────────────────────────────
+
+#: The three contact types, in fingerprint bit order (ionic=0, …).
+IfpType = Literal["ionic", "hydrogen_bond", "hydrophobic"]
+
+
+class IfpJobRequest(BaseModel):
+    """Body of ``POST /api/docking/jobs/{id}/ifp``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cutoff: float = Field(
+        default=0.5,
+        ge=0,
+        le=1,
+        description=(
+            "BUTINA distance cutoff on 1 − Tanimoto; 0.5 is the community "
+            "convention for fingerprint clustering."
+        ),
+    )
+
+
+class IfpResidue(BaseModel):
+    """One receptor-residue column of the fingerprint matrix."""
+
+    key: str
+    resname: str
+    chain: str
+    resSeq: int
+    icode: str
+
+
+class IfpFingerprint(BaseModel):
+    """One pose's fingerprint: bits as (residue index, type order) pairs."""
+
+    index: int
+    pairs: list[tuple[int, int]]
+    nContacts: int
+
+
+class IfpClusterRow(BaseModel):
+    """One BUTINA cluster over fingerprints (0-based fingerprint indices)."""
+
+    members: list[int]
+    centroid: int
+    size: int
+
+
+class IfpJobResponse(BaseModel):
+    """Response of ``POST /api/docking/jobs/{id}/ifp``.
+
+    Fingerprints are cached in the job's ``analysis.json`` (keyed by receptor
+    identity + poses text); clustering is recomputed per request because the
+    cutoff is a view parameter.
+    """
+
+    jobId: str
+    residues: list[IfpResidue]
+    types: list[IfpType]
+    fingerprints: list[IfpFingerprint]
+    clusters: list[IfpClusterRow]
+    nClusters: int
+    cutoff: float
+    cached: bool
+
+
 class VinaInfoResponse(BaseModel):
     """Vina library metadata."""
 
@@ -459,6 +530,14 @@ class BatchDockingRequest(BaseModel):
     energyRange: float = 3.0
     minRmsd: float = 1.0
     cpu: int = 0
+    parallelism: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Concurrent ligand workers for this batch (server caps at 4 and by "
+            "the memory budget). Omit to use max(1, cpu_count-1)."
+        ),
+    )
     seed: int = 0
     noRefine: bool = False
     engine: Literal["vina"] = Field(
@@ -480,6 +559,10 @@ class BatchLigandResult(BaseModel):
     elapsedMs: int | None = None
     outDir: str = ""
     error: str = ""
+    # TASK-10 移交（TASK-13 §4.6）: best-effort descriptors, null when the
+    # source did not parse — never gate the docking itself.
+    qed: float | None = None
+    lipinskiViolations: int | None = None
 
 
 class BatchJobCreated(BaseModel):
@@ -498,6 +581,9 @@ class BatchLigandProgress(BaseModel):
     status: str
     affinity: float | None = None
     error: str = ""
+    # TASK-10 移交（TASK-13 §4.6）: same best-effort pair as the result row.
+    qed: float | None = None
+    lipinskiViolations: int | None = None
 
 
 class BatchJobStatus(BaseModel):

@@ -22,6 +22,7 @@ from vinastudio.schemas.preparation import (
     LigandPreparationResponse,
     LigandPrepareRequest,
     LigandPreview,
+    LigandProperties,
     LigandReport,
 )
 from vinastudio.server.routers.artifacts import artifact, run_info
@@ -74,6 +75,10 @@ def _preview_response(preview) -> LigandPreview:  # type: ignore[no-untyped-def]
         smiles=preview.smiles,
         records=preview.records,
         notes=list(preview.notes),
+        properties=(
+            LigandProperties(**preview.properties) if preview.properties else None
+        ),
+        propertiesError=preview.properties_error,
     )
 
 

@@ -5,8 +5,10 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { api } from '@/api/http'
+import { RENDER_QUALITY_PRESETS } from '@/composables/use3Dmol'
 import { useDockingStore } from '@/stores/docking'
 import { useMoleculeStore } from '@/stores/molecules'
+import { useSettingsStore } from '@/stores/settings'
 import type { DepictData, InteractionData } from '@/types/api'
 
 import Interactions2D from './Interactions2D.vue'
@@ -20,6 +22,21 @@ const interactions = defineModel<InteractionData[]>({ required: true })
 const { t } = useI18n()
 const docking = useDockingStore()
 const molecules = useMoleculeStore()
+const settings = useSettingsStore()
+
+/**
+ * The viewport slices the annotation list to the quality preset's cap
+ * (drawInteractions); this panel lists every row, so say so when the 3D
+ * view is showing fewer than the table.
+ */
+const truncated = computed(
+  () =>
+    interactions.value.length >
+    RENDER_QUALITY_PRESETS[settings.viewer.renderQuality].maxInteractions,
+)
+const shownLimit = computed(
+  () => RENDER_QUALITY_PRESETS[settings.viewer.renderQuality].maxInteractions,
+)
 
 /**
  * Search radius handed to the interaction analysis. It must cover the widest
@@ -227,6 +244,9 @@ function clearInteractions(): void {
               </tr>
             </tbody>
           </table>
+        </div>
+        <div v-if="truncated" class="interactions__note">
+          {{ t('docking.interactions.truncated', { shown: shownLimit, total: interactions.length }) }}
         </div>
       </div>
     </div>

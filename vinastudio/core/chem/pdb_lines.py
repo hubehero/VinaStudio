@@ -52,6 +52,34 @@ def residue_key(line: str) -> str:
     return f"{line[_CHAIN].strip()}:{line[_RESIDUE_NUMBER].strip()}"
 
 
+def residue_name(line: str) -> str:
+    """Residue name of a record, e.g. ``ASP``."""
+    return line[_RESIDUE_NAME].strip()
+
+
+#: Atom names that start with two letters, so the element is not just the first.
+_TWO_LETTER_ELEMENTS: Final[frozenset[str]] = frozenset(
+    {"CL", "BR", "NA", "MG", "ZN", "FE", "MN", "CA", "CU", "NI", "CO", "SE", "MO"}
+)
+
+
+def element_record(line: str) -> str:
+    """Element symbol of a record.
+
+    The element column is authoritative when present. When a writer leaves it
+    blank the atom name is used — the same fallback :func:`is_hydrogen_record`
+    uses — with a small two-letter set so chlorine is not read as carbon.
+    """
+    element = line[76:78].strip().upper()
+    if element:
+        return element
+    name = line[12:16].strip().lstrip("0123456789")
+    pair = name[:2].upper()
+    if pair in _TWO_LETTER_ELEMENTS:
+        return pair
+    return name[:1].upper()
+
+
 def coordinates(line: str) -> tuple[float, float, float]:
     """Cartesian coordinates of an ``ATOM``/``HETATM`` record."""
     try:

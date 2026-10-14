@@ -35,6 +35,7 @@ from rdkit.Chem import AllChem, rdMolDescriptors
 
 from vinastudio.core.chem.formats import detect_format, is_supported
 from vinastudio.core.chem.pdbqt import PdbqtError, parse_pdbqt
+from vinastudio.core.chem.properties import compute_properties, lipinski_violations
 from vinastudio.core.errors import (
     InvalidInputError,
     PreparationError,
@@ -125,6 +126,8 @@ class LigandInspection:
     smiles: str | None
     records: int
     notes: list[str] = field(default_factory=list)
+    properties: dict[str, float | int] | None = None
+    properties_error: str | None = None
 
 
 @contextmanager
@@ -229,6 +232,22 @@ def _canonical_smiles(mol: Chem.Mol) -> str | None:
             return None
 
 
+def _panel_properties(mol: Chem.Mol) -> tuple[dict[str, float | int] | None, str | None]:
+    """Descriptors plus the violation count, or the reason they failed.
+
+    A failure must not look like missing data: the short reason travels to the
+    UI as ``propertiesError`` so an exotic structure says why, not nothing.
+    """
+    try:
+        props = compute_properties(mol)
+        props["lipinskiViolations"] = lipinski_violations(props)
+        return props, None
+    except Exception as exc:  # noqa: BLE001 - descriptors fail on exotic input
+        reason = brief_error(exc)
+        log.warning("drug-likeness descriptors failed: %s", reason)
+        return None, reason
+
+
 def inspect_ligand(path: str | Path) -> LigandInspection:
     """Describe a ligand file without parameterising it."""
     file_path = Path(path)
@@ -247,6 +266,17 @@ def inspect_ligand(path: str | Path) -> LigandInspection:
 
         document = read_pdbqt(file_path)
         pose = document.first_pose
+        # PDBQT carries no bond orders for RDKit; the Meeko header SMILES is
+        # the same molecule, so a prepared ligand still gets the panel.
+        properties: dict[str, float | int] | None = None
+        properties_error: str | None = None
+        if document.smiles:
+            with _captured_rdkit_messages() as messages:
+                smiles_mol = Chem.MolFromSmiles(document.smiles)
+            if smiles_mol is None:
+                properties_error = _explain(messages, "header SMILES could not be parsed")
+            else:
+                properties, properties_error = _panel_properties(smiles_mol)
         return LigandInspection(
             source=str(file_path),
             input_format=fmt,
@@ -263,6 +293,8 @@ def inspect_ligand(path: str | Path) -> LigandInspection:
                 "already in PDBQT (AutoDock's polar-hydrogen-only representation); "
                 "it is docked as-is, not re-parameterised"
             ],
+            properties=properties,
+            properties_error=properties_error,
         )
 
     mol, records = read_mol(file_path)
@@ -329,6 +361,8 @@ def inspect_ligand(path: str | Path) -> LigandInspection:
     if records > 1:
         notes.append(f"file holds {records} molecules; only the first is prepared")
 
+    properties, properties_error = _panel_properties(mol)
+
     return LigandInspection(
         source=str(file_path),
         input_format=fmt,
@@ -342,6 +376,8 @@ def inspect_ligand(path: str | Path) -> LigandInspection:
         smiles=_canonical_smiles(mol),
         records=records,
         notes=notes,
+        properties=properties,
+        properties_error=properties_error,
     )
 
 

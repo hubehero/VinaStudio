@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { Delete, Document, Download, Files } from '@element-plus/icons-vue'
 import { ElButton, ElInputNumber, ElMessage, ElOption, ElProgress, ElSelect, ElTable, ElTableColumn } from 'element-plus'
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { api } from '@/api/http'
 import MoleculeSelect from '@/components/common/MoleculeSelect.vue'
+import IfpGroupDialog from '@/components/docking/IfpGroupDialog.vue'
 import { useDockingStore } from '@/stores/docking'
 import { useMoleculeStore } from '@/stores/molecules'
 import { useBoxStore } from '@/stores/box'
@@ -33,8 +34,26 @@ const cpu = ref(0)
 const seed = ref(0)
 const noRefine = ref(false)
 
+const cpuCount = ref<number | null>(null) // vinaInfo 成功前置 null
+const parallelism = ref<number | null>(null)
+// UI 上限与任务书 §4.1 N 封顶一致：min(4, max(1, cpuCount-1))
+const parallelismMax = computed(() => Math.min(4, Math.max(1, (cpuCount.value ?? 1) - 1)))
+
+onMounted(async () => {
+  try {
+    cpuCount.value = (await api.vinaInfo()).cpuCount
+    parallelism.value = parallelismMax.value
+  } catch {
+    /* 保持 null：控件 disabled、payload 省略键、服务端默认生效 */
+  }
+})
+
 // Ligand list
-const ligands = ref<BatchLigandItem[]>([])
+/** Queue rows carry display-only drug-likeness stats; the request payload
+ *  strips them back to BatchLigandItem (the API forbids extra fields). */
+type QueueRow = BatchLigandItem & { qed?: number; lipinskiViolations?: number }
+
+const ligands = ref<QueueRow[]>([])
 const ligandInput = ref<string | null>(null)
 
 const hasReceptor = computed(() => molecules.hasReceptor)
@@ -51,6 +70,20 @@ const statusLabel = computed(() => {
   }
   return ''
 })
+
+// 乱序完成 → 表格恒按配体序（服务端排序属实现自由，前端无论如何兜底）
+const batchRows = computed(() =>
+  [...docking.batchLigands].sort((a, b) => a.ligandIndex - b.ligandIndex),
+)
+
+// IFP grouping needs completed rows with an artifact dir; fewer than two is a no-op.
+const groupableCount = computed(
+  () =>
+    (docking.batchResult?.results ?? []).filter(
+      (row) => row.status === 'completed' && row.outDir,
+    ).length,
+)
+const groupDialogOpen = ref(false)
 
 function addLigandFromInput(): void {
   if (!ligandInput.value) return
@@ -78,7 +111,30 @@ function addFromManager(id: string): void {
   const mol = molecules.usableLigands.find((m) => m.id === id)
   const path = mol ? molecules.rigidPdbqtPath(mol) : null
   if (!mol || !path) return
-  ligands.value.push({ ligandPath: path, ligandPdbqtString: null, label: mol.name })
+  const preview = mol.preview
+  const props = preview && 'properties' in preview ? preview.properties : null
+  ligands.value.push({
+    ligandPath: path,
+    ligandPdbqtString: null,
+    label: mol.name,
+    qed: props?.qed,
+    lipinskiViolations: props?.lipinskiViolations,
+  })
+}
+
+/** Badge tooltip: both stats or neither — a row carries one properties object. */
+function badgeTitle(lig: QueueRow): string | undefined {
+  if (lig.qed === undefined || lig.lipinskiViolations === undefined) return undefined
+  return t('docking.batch.badgeTooltip', {
+    qed: lig.qed.toFixed(2),
+    n: lig.lipinskiViolations,
+  })
+}
+
+/** Verdict colours per the design spec: 0 violations reads as pass. */
+function lipinskiClass(lig: { lipinskiViolations?: number | null }): string {
+  if (lig.lipinskiViolations == null) return ''
+  return lig.lipinskiViolations === 0 ? 'ligand-item__stat--pass' : 'ligand-item__stat--warn'
 }
 
 function clearLigands(): void {
@@ -101,7 +157,12 @@ async function startBatch(): Promise<void> {
     flexReceptorPath: molecules.flexReceptorPath,
     center: box.center as [number, number, number],
     size: box.size as [number, number, number],
-    ligands: ligands.value,
+    // The batch API forbids extra fields; qed/lipinskiViolations are queue-only.
+    ligands: ligands.value.map((row) => ({
+      ligandPath: row.ligandPath,
+      ligandPdbqtString: row.ligandPdbqtString,
+      label: row.label,
+    })),
     scoring: scoring.value,
     exhaustiveness: exhaustiveness.value,
     nPoses: nPoses.value,
@@ -110,6 +171,7 @@ async function startBatch(): Promise<void> {
     cpu: cpu.value,
     seed: seed.value,
     noRefine: noRefine.value,
+    ...(parallelism.value != null ? { parallelism: parallelism.value } : {}),
   })
 
   if (!result) {
@@ -203,6 +265,20 @@ function formatElapsed(ms: number | null): string {
               <div v-if="ligands.length > 0" class="ligand-list">
                 <div v-for="(lig, idx) in ligands" :key="idx" class="ligand-item">
                   <span class="ligand-item__name">{{ lig.label }}</span>
+                  <span class="ligand-item__stat" :title="badgeTitle(lig)">
+                    {{
+                      lig.qed !== undefined
+                        ? `${t('molecules.druglikeness.qed')} ${lig.qed.toFixed(2)}`
+                        : '—'
+                    }}
+                  </span>
+                  <span
+                    class="ligand-item__stat"
+                    :class="lipinskiClass(lig)"
+                    :title="badgeTitle(lig)"
+                  >
+                    {{ lig.lipinskiViolations !== undefined ? `Lip ${lig.lipinskiViolations}` : '—' }}
+                  </span>
                   <el-button text :icon="Delete" size="small" @click="ligands.splice(idx, 1)" />
                 </div>
               </div>
@@ -238,6 +314,22 @@ function formatElapsed(ms: number | null): string {
             <div class="form__field">
               <label class="form__label">{{ t('docking.energyRange') }}</label>
               <ElInputNumber v-model="energyRange" :min="1" :max="10" :step="0.5" size="small" style="width: 100%" />
+            </div>
+
+            <!-- Parallelism -->
+            <div class="form__field">
+              <label class="form__label">{{ t('docking.batch.parallelism') }}</label>
+              <ElInputNumber
+                v-model="parallelism"
+                :min="1"
+                :max="parallelismMax"
+                :disabled="cpuCount === null"
+                size="small"
+                style="width: 100%"
+              />
+              <div class="form__hint">
+                {{ cpuCount === null ? t('docking.batch.parallelismUnavailable') : t('docking.batch.parallelismNote') }}
+              </div>
             </div>
 
             <!-- Actions -->
@@ -293,7 +385,7 @@ function formatElapsed(ms: number | null): string {
 
             <!-- Results table -->
             <div class="results-table-wrap">
-              <ElTable :data="docking.batchLigands" size="small" max-height="400">
+              <ElTable :data="batchRows" size="small" max-height="400">
                 <ElTableColumn prop="ligandIndex" :label="'#'" width="50" />
                 <ElTableColumn prop="label" :label="t('docking.batch.tableLabel')" min-width="120" />
                 <ElTableColumn prop="status" :label="t('docking.batch.tableStatus')" width="100">
@@ -306,6 +398,18 @@ function formatElapsed(ms: number | null): string {
                 <ElTableColumn :label="t('docking.batch.tableAffinity')" width="120">
                   <template #default="{ row }">
                     {{ row.affinity !== null ? row.affinity.toFixed(2) : '-' }}
+                  </template>
+                </ElTableColumn>
+                <ElTableColumn :label="t('docking.batch.colQed')" width="96">
+                  <template #default="{ row }">
+                    {{ row.qed != null ? row.qed.toFixed(2) : '—' }}
+                  </template>
+                </ElTableColumn>
+                <ElTableColumn :label="t('docking.batch.colLipinski')" width="110">
+                  <template #default="{ row }">
+                    <span :class="lipinskiClass(row)">
+                      {{ row.lipinskiViolations != null ? String(row.lipinskiViolations) : '—' }}
+                    </span>
                   </template>
                 </ElTableColumn>
                 <ElTableColumn :label="t('docking.batch.tableError')" min-width="150">
@@ -323,7 +427,20 @@ function formatElapsed(ms: number | null): string {
               <ElButton :icon="Download" @click="downloadBatchCsv">
                 {{ t('docking.batch.exportCsv') }}
               </ElButton>
+              <ElButton
+                :disabled="groupableCount < 2"
+                :title="groupableCount < 2 ? t('ifp.groupNeed2') : undefined"
+                @click="groupDialogOpen = true"
+              >
+                {{ t('ifp.groupBtn') }}
+              </ElButton>
             </div>
+
+            <IfpGroupDialog
+              v-model="groupDialogOpen"
+              :job-id="docking.activeBatchId ?? ''"
+              :rows="docking.batchResult?.results ?? []"
+            />
           </div>
         </div>
       </div>
@@ -366,6 +483,12 @@ function formatElapsed(ms: number | null): string {
   color: var(--vs-text);
   text-transform: uppercase;
   letter-spacing: 0.03em;
+}
+
+.form__hint {
+  font-size: 11px;
+  color: var(--vs-text-faint);
+  line-height: 1.4;
 }
 
 .form__actions {
@@ -421,6 +544,26 @@ function formatElapsed(ms: number | null): string {
   text-overflow: ellipsis;
   white-space: nowrap;
   flex: 1;
+}
+
+.ligand-item__stat {
+  flex: none;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px solid var(--vs-border);
+  border-radius: var(--vs-radius-sm);
+  font-family: var(--vs-font-mono);
+  font-size: 11px;
+  color: var(--vs-text-muted);
+  white-space: nowrap;
+}
+
+.ligand-item__stat--pass {
+  color: var(--vs-success);
+}
+
+.ligand-item__stat--warn {
+  color: var(--vs-warning);
 }
 
 .ligand-actions {

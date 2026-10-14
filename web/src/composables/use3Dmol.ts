@@ -220,6 +220,8 @@ export class MoleculeViewer {
   private pendingBox: BoxGeometry | null = null
   /** ID of a pending requestAnimationFrame render, for batching. */
   private _renderFrame: number | null = null
+  /** Pending trailing debounce for the surface rebuild (500ms, last one wins). */
+  private _surfaceTimer: number | null = null
 
   /** Shapes drawn for the current interaction set, so only they are removed. */
   private interactionShapes: $3Dmol.GLShape[] = []
@@ -228,7 +230,29 @@ export class MoleculeViewer {
   /** Current rendering quality preset. */
   private currentQuality: RenderQuality = 'medium'
 
-  constructor(container: HTMLElement, options: { background?: string; quality?: RenderQuality } = {}) {
+  // -- adaptive AO kernel (no-op unless enabled; see setAdaptiveAO) -------
+  private adaptiveAOOn = false
+  private aoDegraded = false
+  private aoFrameTimes: number[] = []
+  private aoBaselineStrength = 0
+  private aoBaselineRadius = 0
+  /** Sliding window of recent render times for the AO state machine. */
+  private static readonly AO_WINDOW = 30
+  /** Window mean above this (≈30fps sustained) drops AO; below restores. */
+  private static readonly AO_SLOW_MS = 33
+  private static readonly AO_FAST_MS = 17
+
+  constructor(
+    container: HTMLElement,
+    options: {
+      background?: string
+      quality?: RenderQuality
+      /** Force antialias off at construction, overriding the preset. */
+      antialiasOff?: boolean
+      /** Enable the frame-time-driven AO downgrade kernel. */
+      adaptiveAO?: boolean
+    } = {},
+  ) {
     this.currentQuality = options.quality ?? 'medium'
     const preset = RENDER_QUALITY_PRESETS[this.currentQuality]
 
@@ -236,7 +260,7 @@ export class MoleculeViewer {
     // canvas at 100% of it, so no extra resize plumbing is needed here.
     this.raw = $3Dmol.createViewer(container, {
       backgroundColor: options.background ?? '#0d1526',
-      antialias: preset.antialias,
+      antialias: options.antialiasOff ? false : preset.antialias,
       cartoonQuality: preset.cartoonQuality,
       disableFog: true,
     })
@@ -244,6 +268,8 @@ export class MoleculeViewer {
     // Enable ambient occlusion for depth shading — makes crevices and pockets
     // visually deeper without any extra geometry.  Strength and radius are
     // controlled by the quality preset.
+    this.aoBaselineStrength = preset.aoStrength
+    this.aoBaselineRadius = preset.aoRadius
     if (preset.aoStrength > 0) {
       try {
         this.raw.setViewStyle({
@@ -255,16 +281,9 @@ export class MoleculeViewer {
         // AO may not be supported on all WebGL implementations; degrade gracefully.
       }
     }
+    this.adaptiveAOOn = options.adaptiveAO === true
 
     probeRenderer(this.raw)
-  }
-
-  resize(): void {
-    if (this.disposed) {
-      return
-    }
-    this.raw.resize()
-    this.raw.render()
   }
 
   /**
@@ -273,16 +292,94 @@ export class MoleculeViewer {
    * Many operations (loadReceptor, applyStyle, setBox) trigger a render, and
    * when they run in quick succession this avoids redundant draw calls.
    */
-  private scheduleRender(): void {
+  scheduleRender(): void {
     if (this._renderFrame !== null) {
       return
     }
     this._renderFrame = window.requestAnimationFrame(() => {
       this._renderFrame = null
       if (!this.disposed) {
-        this.raw.render()
+        this._renderWithAdaptiveAO()
       }
     })
+  }
+
+  /**
+   * Render, timing the frame when the adaptive-AO kernel is armed.
+   *
+   * Off (the default) this is a boolean check and a plain render — no
+   * ``performance.now()`` calls, zero overhead in the common path.  The
+   * preset's own strength is the baseline; the low preset has no AO, so the
+   * kernel stays a no-op there too.
+   *
+   * Honest scope: the downgrade only switches AO off. Slow frames caused by
+   * geometry or surface computation are outside this switch's reach — it
+   * cannot hold a frame rate, only shed the most expensive runtime style pass.
+   */
+  private _renderWithAdaptiveAO(): void {
+    if (this.adaptiveAOOn && this.aoBaselineStrength > 0) {
+      const start = performance.now()
+      this.raw.render()
+      this._pushAOSample(performance.now() - start)
+    } else {
+      this.raw.render()
+    }
+  }
+
+  /** Sliding-window AO state machine: >33ms mean drops AO, <17ms restores. */
+  private _pushAOSample(milliseconds: number): void {
+    this.aoFrameTimes.push(milliseconds)
+    if (this.aoFrameTimes.length > MoleculeViewer.AO_WINDOW) {
+      this.aoFrameTimes.shift()
+    }
+    if (this.aoFrameTimes.length < MoleculeViewer.AO_WINDOW) {
+      return // Warm-up: act on a full window only.
+    }
+    const mean = this.aoFrameTimes.reduce((sum, value) => sum + value, 0) / this.aoFrameTimes.length
+    if (!this.aoDegraded && mean > MoleculeViewer.AO_SLOW_MS) {
+      this.aoDegraded = true
+      this.aoFrameTimes = []
+      this._applyAO(false)
+    } else if (this.aoDegraded && mean < MoleculeViewer.AO_FAST_MS) {
+      // Hysteresis: between the two thresholds the state holds.
+      this.aoDegraded = false
+      this.aoFrameTimes = []
+      this._applyAO(true)
+    }
+  }
+
+  /**
+   * Set AO to the preset baseline or to strength/radius 0 (the low-preset
+   * look). Runtime-safe: ``setViewStyle`` only — never recreates the viewer
+   * and never touches cartoonQuality/antialias/surface.
+   */
+  private _applyAO(presetAO: boolean): void {
+    try {
+      this.raw.setViewStyle({
+        style: 'ambientOcclusion',
+        strength: presetAO ? this.aoBaselineStrength : 0,
+        radius: presetAO ? this.aoBaselineRadius : 0,
+      })
+    } catch {
+      // AO may not be supported; same graceful degradation as the constructor.
+    }
+  }
+
+  /**
+   * Toggle the adaptive-AO kernel at runtime (no recreate — AO is not bound
+   * at construction).  Disabling restores the preset AO immediately and
+   * clears all state; quality changes recreate the viewer, which starts the
+   * kernel fresh with the new preset as baseline.
+   */
+  setAdaptiveAO(on: boolean): void {
+    if (on === this.adaptiveAOOn) return
+    this.adaptiveAOOn = on
+    this.aoDegraded = false
+    this.aoFrameTimes = []
+    if (!on && this.aoBaselineStrength > 0) {
+      this._applyAO(true)
+      this.scheduleRender()
+    }
   }
 
   /**
@@ -299,47 +396,12 @@ export class MoleculeViewer {
   setBackground(color: string): void {
     // The type declares alpha as required even though the runtime defaults it.
     this.raw.setBackgroundColor(color, 1.0)
-    this.raw.render()
-  }
-
-  /**
-   * Change the rendering quality preset.
-   *
-   * This updates AO settings but does NOT recreate the viewer — cartoon quality
-   * and anti-aliasing are set at construction time and cannot be changed at runtime.
-   * For full effect, the viewer should be recreated with the new quality.
-   *
-   * This only affects visual rendering, NOT docking calculations.
-   */
-  setQuality(quality: RenderQuality): void {
-    this.currentQuality = quality
-    const preset = RENDER_QUALITY_PRESETS[quality]
-
-    // Update ambient occlusion
-    try {
-      if (preset.aoStrength > 0) {
-        this.raw.setViewStyle({
-          style: 'ambientOcclusion',
-          strength: preset.aoStrength,
-          radius: preset.aoRadius,
-        })
-      } else {
-        // Reset to default view style (no AO)
-        this.raw.setViewStyle({ style: 'default' })
-      }
-    } catch {
-      // AO may not be supported; degrade gracefully.
-    }
-
     this.scheduleRender()
   }
 
-  /** Get the current quality preset configuration. */
-  getQualityPreset(): RenderQualityPreset {
-    return RENDER_QUALITY_PRESETS[this.currentQuality]
-  }
-
   clear(): void {
+    // A pending rebuild would resurrect a surface on the now-cleared stage.
+    this._cancelSurfaceTimer()
     this.raw.removeAllModels()
     this.raw.removeAllSurfaces()
     this.raw.removeAllLabels()
@@ -421,7 +483,7 @@ export class MoleculeViewer {
         toCap: 2,
       })
     })
-    this.raw.render()
+    this.scheduleRender()
   }
 
   /**
@@ -440,7 +502,7 @@ export class MoleculeViewer {
         this.boxFrame = null
       }
       this.removeBox()
-      this.raw.render()
+      this.scheduleRender()
       return
     }
 
@@ -495,7 +557,20 @@ export class MoleculeViewer {
       this.applyLigandStyle()
     }
     if (surfaceChanged) {
-      await this.rebuildSurface()
+      // Trailing 500ms debounce (design §3): dragging the opacity slider fires
+      // one rebuild with the final values instead of a rebuild per step.  The
+      // current surface stays on stage while pending — only the rebuild is
+      // deferred, never the teardown, so nothing flickers.
+      this._cancelSurfaceTimer()
+      this._surfaceTimer = window.setTimeout(() => {
+        this._surfaceTimer = null
+        if (this.disposed) {
+          return
+        }
+        // Reads this.style at fire time (already the latest merged values —
+        // it was assigned above), so a burst of changes rebuilds once.
+        void this.rebuildSurface()
+      }, 500)
     }
     this.scheduleRender()
   }
@@ -539,6 +614,14 @@ export class MoleculeViewer {
       : ligandStyle(this.style.ligand))
   }
 
+  /** Drop any pending surface rebuild so its callback can never fire late. */
+  private _cancelSurfaceTimer(): void {
+    if (this._surfaceTimer !== null) {
+      window.clearTimeout(this._surfaceTimer)
+      this._surfaceTimer = null
+    }
+  }
+
   /**
    * Recompute the molecular surface, if one is selected.
    *
@@ -574,12 +657,12 @@ export class MoleculeViewer {
 
   setProjection(orthographic: boolean): void {
     this.raw.setProjection(orthographic ? 'orthographic' : 'perspective')
-    this.raw.render()
+    this.scheduleRender()
   }
 
   fit(): void {
     this.raw.zoomTo()
-    this.raw.render()
+    this.scheduleRender()
   }
 
   /** Base64 PNG of the current framebuffer, for the export action. */
@@ -852,7 +935,7 @@ export class MoleculeViewer {
     } else {
       this.raw.zoomTo()
     }
-    this.raw.render()
+    this.scheduleRender()
   }
 
   /** True once anything other than the empty-state box is on screen. */
@@ -865,6 +948,7 @@ export class MoleculeViewer {
       return
     }
     this.disposed = true
+    this._cancelSurfaceTimer()
     this.boxShapes = []
     this.surfaceId = null
     if (this.boxFrame !== null) {
@@ -930,13 +1014,43 @@ function receptorColourSpec(scheme: ReceptorColourScheme): Record<string, unknow
   return { colorscheme: 'chain' }
 }
 
+/**
+ * Content-level cache for molecule text fetches, keyed by URL.
+ *
+ * Stores the promise itself, so concurrent loads of the same URL share a
+ * single request.  A failed fetch deletes the key — failures are never
+ * cached, the next caller retries.  FIFO eviction past the cap; 64 entries
+ * covers every receptor and library preview a session realistically touches.
+ * This complements the viewer's URL-level skip (`loadedReceptorUrl`): that
+ * avoids re-applying a load, this avoids the network round-trip.
+ */
+const FETCH_CACHE_MAX = 64
+const moleculeTextCache = new Map<string, Promise<string>>()
+
 /** Fetch a molecule file, reporting the status when it fails. */
-async function fetchMolecule(url: string): Promise<string> {
-  const response = await fetch(url)
-  if (!response.ok) {
-    throw new Error(`could not load ${url}: ${response.status} ${response.statusText}`)
+export function fetchMolecule(url: string): Promise<string> {
+  const hit = moleculeTextCache.get(url)
+  if (hit) return hit
+  const promise = (async () => {
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error(`could not load ${url}: ${response.status} ${response.statusText}`)
+    }
+    return await response.text()
+  })()
+  moleculeTextCache.set(url, promise)
+  // Attach the failure handler to the cached promise itself so the key is
+  // gone before any later caller could hit it; the rejection still reaches
+  // whoever awaits the returned promise.
+  void promise.catch(() => {
+    moleculeTextCache.delete(url)
+  })
+  while (moleculeTextCache.size > FETCH_CACHE_MAX) {
+    const oldest = moleculeTextCache.keys().next().value
+    if (oldest === undefined) break
+    moleculeTextCache.delete(oldest)
   }
-  return await response.text()
+  return promise
 }
 
 /**
@@ -953,6 +1067,10 @@ export function useMoleculeViewer(
     autoReferenceFrame?: boolean
     /** Preset, or a getter so a rebuild picks up the latest selection. */
     quality?: RenderQuality | (() => RenderQuality)
+    /** Force antialias off at construction; getter so rebuilds re-read it. */
+    antialiasOff?: boolean | (() => boolean)
+    /** Adaptive-AO kernel; getter so rebuilds re-read the latest value. */
+    adaptiveAO?: boolean | (() => boolean)
   } = {},
 ) {
   const viewer = shallowRef<MoleculeViewer | null>(null)
@@ -963,9 +1081,25 @@ export function useMoleculeViewer(
   let lastHeight = 0
   let rafId: number | null = null
 
-  function resolvedOptions(): { background?: string; autoReferenceFrame?: boolean; quality?: RenderQuality } {
+  function resolvedOptions(): {
+    background?: string
+    autoReferenceFrame?: boolean
+    quality?: RenderQuality
+    antialiasOff?: boolean
+    adaptiveAO?: boolean
+  } {
     const quality = typeof options.quality === 'function' ? options.quality() : options.quality
-    return { background: options.background, autoReferenceFrame: options.autoReferenceFrame, quality }
+    const antialiasOff =
+      typeof options.antialiasOff === 'function' ? options.antialiasOff() : options.antialiasOff
+    const adaptiveAO =
+      typeof options.adaptiveAO === 'function' ? options.adaptiveAO() : options.adaptiveAO
+    return {
+      background: options.background,
+      autoReferenceFrame: options.autoReferenceFrame,
+      quality,
+      antialiasOff,
+      adaptiveAO,
+    }
   }
 
   function create(): void {
@@ -1011,9 +1145,9 @@ export function useMoleculeViewer(
    * Rebuild the viewer with the current options.
    *
    * Antialiasing and cartoon quality bind at construction time, so this is
-   * the only way a quality-preset change takes full effect (setQuality alone
-   * re-applies ambient occlusion). Callers re-assert theme, molecules and
-   * annotations when `ready` flips back to true.
+   * the only way a quality-preset change takes full effect (a runtime AO-only
+   * tweak cannot retarget those bindings). Callers re-assert theme, molecules
+   * and annotations when `ready` flips back to true.
    */
   function recreate(): void {
     if (rafId !== null) {

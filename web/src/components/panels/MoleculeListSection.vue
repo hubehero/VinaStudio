@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+
 import type { MoleculeItem } from '@/types/molecule'
 
 import MoleculeListItem from './MoleculeListItem.vue'
@@ -13,15 +15,24 @@ const emit = defineEmits<{
   select: [id: string]
   remove: [id: string]
 }>()
+
+/** Sections start expanded; collapsing is how a long ligand list is tamed. */
+const collapsed = ref(false)
 </script>
 
 <template>
   <section v-if="items.length > 0" class="mol-section">
-    <h3 class="mol-section__title">
-      {{ title }}
+    <button
+      type="button"
+      class="mol-section__header"
+      :aria-expanded="!collapsed"
+      @click="collapsed = !collapsed"
+    >
+      <span class="mol-section__arrow">{{ collapsed ? '▸' : '▾' }}</span>
+      <span class="mol-section__title">{{ title }}</span>
       <span class="mol-section__count">{{ items.length }}</span>
-    </h3>
-    <ul class="mol-section__list">
+    </button>
+    <ul v-show="!collapsed" class="mol-section__list">
       <MoleculeListItem
         v-for="item in items"
         :key="item.id"
@@ -39,12 +50,37 @@ const emit = defineEmits<{
   margin-top: 10px;
 }
 
-.mol-section__title {
+.mol-section__header {
   display: flex;
   align-items: center;
   gap: 6px;
+  width: 100%;
   margin: 0;
   padding: 6px 10px;
+  border: none;
+  border-radius: var(--vs-radius-sm);
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mol-section__header:hover {
+  background: var(--vs-bg-sunken);
+}
+
+.mol-section__header:focus-visible {
+  outline: 2px solid var(--vs-accent);
+  outline-offset: -2px;
+}
+
+.mol-section__arrow {
+  width: 10px;
+  font-size: 10px;
+  color: var(--vs-text-faint);
+}
+
+.mol-section__title {
   font-size: 11px;
   font-weight: 600;
   color: var(--vs-text-faint);

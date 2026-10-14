@@ -11,6 +11,7 @@ from vinastudio.core.chem.receptor_prep import (
     inspect_receptor,
     prepare_receptor,
 )
+from vinastudio.core.chem.sequence import extract_sequence
 from vinastudio.core.paths import create_workspace
 from vinastudio.schemas.preparation import (
     FileRef,
@@ -18,6 +19,7 @@ from vinastudio.schemas.preparation import (
     ReceptorPrepareRequest,
     ReceptorPreview,
     ReceptorReport,
+    ReceptorSequence,
 )
 from vinastudio.server.routers.artifacts import artifact, run_info
 
@@ -45,6 +47,14 @@ def _to_report(report) -> ReceptorReport:  # type: ignore[no-untyped-def]
     )
 
 
+def _sequence(path: str) -> ReceptorSequence | None:
+    """Extract the sequence payload; ``None`` drives the view's missing state."""
+    payload = extract_sequence(path)
+    if payload is None:
+        return None
+    return ReceptorSequence.model_validate(payload)
+
+
 @router.post("/inspect", response_model=ReceptorPreview)
 def inspect(request: FileRef) -> ReceptorPreview:
     """Describe a receptor file, including what would be stripped."""
@@ -60,6 +70,7 @@ def inspect(request: FileRef) -> ReceptorPreview:
         hetero=list(preview.hetero),
         residueNames=list(preview.residue_names),
         notes=list(preview.notes),
+        sequence=_sequence(request.path),
     )
 
 

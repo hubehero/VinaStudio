@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { Download, RefreshRight, VideoPause, VideoPlay } from '@element-plus/icons-vue'
+import { DataAnalysis, Download, RefreshRight, VideoPause, VideoPlay } from '@element-plus/icons-vue'
 import { ElButton, ElInput, ElInputNumber, ElMessage, ElOption, ElProgress, ElSelect, ElSlider, ElSwitch } from 'element-plus'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 
 import MoleculeSelect from '@/components/common/MoleculeSelect.vue'
-import JobHistory from '@/components/docking/JobHistory.vue'
 import { downloadTextFile } from '@/utils/download'
 import { useBoxStore } from '@/stores/box'
 import { useDockingStore } from '@/stores/docking'
@@ -13,6 +13,7 @@ import { useMoleculeStore } from '@/stores/molecules'
 import type { ScoringFunction } from '@/types/api'
 
 const { t } = useI18n()
+const router = useRouter()
 const docking = useDockingStore()
 const molecules = useMoleculeStore()
 const box = useBoxStore()
@@ -114,6 +115,12 @@ function downloadPdbqt(): void {
 function downloadSdf(): void {
   const sdf = docking.jobResult?.posesSdf
   if (sdf) downloadTextFile(sdf, 'docking_poses.sdf', 'chemical/x-mdl-sdfile')
+}
+
+function openReport(): void {
+  // The full report (metrics, ranked poses, validation, IFP) is the report
+  // page's material; this view keeps to running and inspecting the run.
+  void router.push('/report')
 }
 </script>
 
@@ -250,12 +257,12 @@ function downloadSdf(): void {
           <ElButton size="small" :icon="Download" @click="downloadSdf">{{ t('docking.exportSdf') }}</ElButton>
           <ElButton size="small" :icon="RefreshRight" @click="docking.reset()">{{ t('docking.resetButton') }}</ElButton>
         </div>
+        <ElButton class="completed__report" text type="primary" :icon="DataAnalysis" @click="openReport">
+          {{ t('docking.openReport') }}
+        </ElButton>
       </div>
     </div>
   </div>
-
-  <!-- Second root: the workspace job history (TASK-07). -->
-  <JobHistory />
 </template>
 
 <style scoped>
@@ -395,5 +402,9 @@ function downloadSdf(): void {
 .completed__actions {
   display: flex;
   gap: 8px;
+}
+
+.completed__report {
+  align-self: flex-start;
 }
 </style>

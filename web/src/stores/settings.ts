@@ -31,10 +31,29 @@ export interface ViewerSettings {
   surfaceOpacity: number
   /** Rendering quality preset: 'low' | 'medium' | 'high'. */
   renderQuality: RenderQuality
+  /**
+   * Force construction-time antialiasing off, overriding the preset.
+   * ``false`` (the default) follows the preset — the pixel-identical status quo.
+   */
+  antialiasOff: boolean
+  /**
+   * Frame-time-driven ambient-occlusion downgrade (3Dmol has no geometric
+   * LOD; AO is the most expensive runtime-adjustable style pass). Off by
+   * default: preset AO, zero timing overhead.
+   */
+  adaptiveAO: boolean
+}
+
+export type MoleculeViewMode = 'type' | 'source'
+
+export interface MoleculeSettings {
+  /** Molecule manager list organisation: by type, or by provenance group. */
+  viewMode: MoleculeViewMode
 }
 
 interface StoredSettings {
   viewer?: Partial<ViewerSettings>
+  molecules?: Partial<MoleculeSettings>
 }
 
 const DEFAULT_VIEWER: ViewerSettings = {
@@ -46,9 +65,15 @@ const DEFAULT_VIEWER: ViewerSettings = {
   surfaceKind: null,
   surfaceOpacity: 0.75,
   renderQuality: 'medium',
+  antialiasOff: false,
+  adaptiveAO: false,
 }
 
-function loadFromStorage(): ViewerSettings {
+const DEFAULT_MOLECULES: MoleculeSettings = {
+  viewMode: 'type',
+}
+
+function loadFromStorage(): { viewer: ViewerSettings; molecules: MoleculeSettings } {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
@@ -74,30 +99,44 @@ function loadFromStorage(): ViewerSettings {
           stored.renderQuality === 'low' || stored.renderQuality === 'high'
             ? stored.renderQuality
             : defaults.renderQuality,
+        // Old payloads lack the keys entirely → false; anything non-boolean
+        // also lands on false (the pixel-identical default).
+        antialiasOff: stored.antialiasOff === true,
+        adaptiveAO: stored.adaptiveAO === true,
       }
-      return migrated
+      return { viewer: migrated, molecules: migrateMolecules(parsed.molecules) }
     }
   } catch {
     // Ignore storage failures; fall back to the defaults.
   }
-  return { ...DEFAULT_VIEWER }
+  return { viewer: { ...DEFAULT_VIEWER }, molecules: { ...DEFAULT_MOLECULES } }
 }
 
-function saveToStorage(viewer: ViewerSettings): void {
+/** Anything but a stored 'source' falls back to 'type' (older payloads lack it). */
+function migrateMolecules(stored: Partial<MoleculeSettings> | undefined): MoleculeSettings {
+  return { viewMode: stored?.viewMode === 'source' ? 'source' : 'type' }
+}
+
+function saveToStorage(viewer: ViewerSettings, molecules: MoleculeSettings): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ viewer }))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ viewer, molecules }))
   } catch {
     // Best-effort only.
   }
 }
 
 export const useSettingsStore = defineStore('settings', () => {
-  const viewer = ref<ViewerSettings>(loadFromStorage())
+  const stored = loadFromStorage()
+  const viewer = ref<ViewerSettings>(stored.viewer)
+  const molecules = ref<MoleculeSettings>(stored.molecules)
 
-  // Persist on change
-  watch(viewer, () => {
-    saveToStorage(viewer.value)
-  }, { deep: true })
+  // Persist on change: both sections share one storage key, so either one
+  // changing must write the whole payload (the other would otherwise be lost).
+  watch(
+    [viewer, molecules],
+    () => saveToStorage(viewer.value, molecules.value),
+    { deep: true },
+  )
 
   function resetViewer(): void {
     viewer.value = { ...DEFAULT_VIEWER }
@@ -105,6 +144,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   return {
     viewer,
+    molecules,
     resetViewer,
   }
 })

@@ -1,16 +1,21 @@
-"""Molecule library — search and fetch from RCSB PDB."""
+"""Molecule library — search and fetch from RCSB PDB and PubChem."""
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import re
+import time
+from collections import deque
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 from fastapi import APIRouter
 from pydantic import BaseModel, Field, field_validator
 
 from vinastudio.core.errors import ExternalServiceError, InvalidInputError
-from vinastudio.core.paths import create_workspace
+from vinastudio.core.paths import create_workspace, slugify
 
 router = APIRouter(prefix="/library", tags=["library"])
 log = logging.getLogger(__name__)
@@ -640,3 +645,182 @@ async def fetch_all_from_library(req: LibraryFetchAllRequest) -> LibraryFetchAll
                 skipped.append(lig_id.upper())
 
     return LibraryFetchAllResponse(receptor=receptor, ligands=ligands, skipped=skipped)
+
+
+# ---------------------------------------------------------------------------
+# PubChem PUG-REST provider — one precise small-molecule query at a time
+# (TASK-11). User-triggered only, results are not cached: PubChem usage terms.
+# ---------------------------------------------------------------------------
+
+_PUG_COMPOUND_URL = "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound"
+
+# PubChem caps anonymous clients at ~5 requests/second; a sliding window keeps
+# a burst of user clicks inside that budget (task §8).
+_PUG_RATE_LIMIT = 5
+_PUG_RATE_WINDOW = 1.0
+_PUG_TIMES: deque[float] = deque()
+
+# Single-compound SDFs are a few kB; anything near this cap is a runaway answer.
+_PUG_MAX_FILE_SIZE = 5 * 1024 * 1024
+
+# Test seam: tests inject httpx.MockTransport here so the suite never dials out.
+_PUG_TRANSPORT: httpx.AsyncBaseTransport | None = None
+
+# InChIKey is 14-10-1 uppercase blocks; a compound name never matches this shape.
+_INCHIKEY_RE = re.compile(r"^[A-Z]{14}-[A-Z]{10}-[A-Z]$")
+
+
+class PubChemFetchRequest(BaseModel):
+    query: str = Field(
+        ...,
+        min_length=1,
+        max_length=200,
+        description="Compound name, SMILES, CID (digits) or InChIKey",
+    )
+
+
+class PubChemFetchResponse(BaseModel):
+    path: str
+    name: str
+    bytes: int
+    cid: int
+
+
+async def _pug_throttle() -> None:
+    """Take one token from the 5 req/s window, sleeping past the budget."""
+    while True:
+        now = time.monotonic()
+        while _PUG_TIMES and now - _PUG_TIMES[0] >= _PUG_RATE_WINDOW:
+            _PUG_TIMES.popleft()
+        if len(_PUG_TIMES) < _PUG_RATE_LIMIT:
+            _PUG_TIMES.append(now)
+            return
+        await asyncio.sleep(max(_PUG_RATE_WINDOW - (now - _PUG_TIMES[0]), 0.001))
+
+
+def _pug_client() -> httpx.AsyncClient:
+    kwargs: dict[str, Any] = {"timeout": _TIMEOUT, "follow_redirects": True}
+    if _PUG_TRANSPORT is not None:
+        kwargs["transport"] = _PUG_TRANSPORT
+    return httpx.AsyncClient(**kwargs)
+
+
+async def _pug_get(client: httpx.AsyncClient, url: str) -> httpx.Response:
+    """GET a PUG-REST URL with throttling and offline/service error mapping."""
+    await _pug_throttle()
+    try:
+        return await client.get(url)
+    except httpx.RequestError as exc:
+        # Timeouts subclass RequestError; either way the client can retry later.
+        raise ExternalServiceError("无网络或 PubChem 不可达") from exc
+
+
+async def _pug_resolve(client: httpx.AsyncClient, namespace: str, value: str) -> list[int]:
+    """Map an identifier to PubChem CIDs.
+
+    404 (name unknown) and 400 (value not valid for this namespace, e.g. text
+    that is not SMILES) both mean "this namespace cannot answer" → empty list;
+    only rate limits and upstream faults raise.
+    """
+    url = f"{_PUG_COMPOUND_URL}/{namespace}/{quote(value, safe='')}/cids/JSON"
+    resp = await _pug_get(client, url)
+    if resp.status_code in (400, 404):
+        return []
+    if resp.status_code == 429:
+        raise ExternalServiceError("PubChem 请求过于频繁，请稍后重试")
+    if resp.status_code != 200:
+        raise ExternalServiceError(f"PubChem 服务异常 (HTTP {resp.status_code})")
+    try:
+        identifier_list = resp.json()["IdentifierList"]
+        # The live API spells the key "CID" (verified against the name, smiles
+        # and cid namespaces on 2026-09-28); "cid" stays as a fallback so a
+        # spelling drift parses instead of becoming a misleading 502.
+        raw = identifier_list.get("CID") or identifier_list.get("cid")
+    except (ValueError, KeyError, TypeError, AttributeError) as exc:
+        raise ExternalServiceError("PubChem 返回了非预期的内容") from exc
+    if raw is None:
+        raise ExternalServiceError("PubChem 返回了非预期的内容")
+    return [int(c) for c in raw]
+
+
+async def _pug_fetch_3d(client: httpx.AsyncClient, cid: int) -> bytes:
+    """Download the 3D SDF for one CID; never silently fall back to 2D (task §4.2)."""
+    url = f"{_PUG_COMPOUND_URL}/cid/{cid}/SDF?record_type=3d"
+    resp = await _pug_get(client, url)
+    if resp.status_code == 404:
+        raise InvalidInputError("该条目无 3D 构象")
+    if resp.status_code == 429:
+        raise ExternalServiceError("PubChem 请求过于频繁，请稍后重试")
+    if resp.status_code != 200:
+        raise ExternalServiceError(f"PubChem 服务异常 (HTTP {resp.status_code})")
+    content = resp.content
+    if len(content) > _PUG_MAX_FILE_SIZE:
+        raise ExternalServiceError(
+            f"下载文件过大（超过 {(_PUG_MAX_FILE_SIZE + 1024 * 1024 - 1) // (1024 * 1024)} MB）"
+        )
+    # A 200 HTML error page parses as text but is not a mol block.
+    if b"M  END" not in content:
+        raise ExternalServiceError("PubChem 返回了非预期的内容（不是 SDF）")
+    return content
+
+
+@router.post("/pubchem/fetch", response_model=PubChemFetchResponse)
+async def fetch_from_pubchem(req: PubChemFetchRequest) -> PubChemFetchResponse:
+    """Fetch one compound's 3D SDF from PubChem into ``ligands/``.
+
+    The stored SDF is not parameterised here: the client feeds it through the
+    regular file-ligand inspect path. Identifier routing — digits are a CID,
+    an InChIKey shape is exact; anything else is tried as a name first and as
+    SMILES second, so arbitrary text ends as "not found" rather than an error.
+    """
+    query = req.query.strip()
+    if not query:
+        raise InvalidInputError("查询不能为空")
+
+    if query.isdigit():
+        attempts = [("cid", query)]
+    elif _INCHIKEY_RE.match(query.upper()):
+        attempts = [("inchikey", query.upper())]
+    else:
+        attempts = [("name", query), ("smiles", query)]
+
+    async with _pug_client() as client:
+        cids: list[int] = []
+        for namespace, value in attempts:
+            cids = await _pug_resolve(client, namespace, value)
+            if cids:
+                break
+        if not cids:
+            raise InvalidInputError("PubChem 未找到该条目")
+        # Ambiguous names resolve to many CIDs; take the first exact match
+        # and surface it in the response (task §8).
+        cid = cids[0]
+        content = await _pug_fetch_3d(client, cid)
+
+    from vinastudio.core.workspace import ligands_dir
+    from vinastudio.server.routers.ligand import _unique_sdf_path
+    from vinastudio.server.routers.workspace import get_active_workspace
+
+    ws = get_active_workspace()
+    # No active workspace (tests / first launch): fall back to an ephemeral run
+    # directory so the endpoint still returns a readable path (ligand.py pattern).
+    dest_dir = ligands_dir(ws) if ws is not None else create_workspace("pubchem").path
+    stem = f"pubchem-{cid}" if query.isdigit() else f"{slugify(query, fallback='pubchem')}-{cid}"
+    target = _unique_sdf_path(dest_dir, stem)
+    try:
+        target.write_bytes(content)
+    except OSError as exc:
+        raise ExternalServiceError(f"保存到工作区失败: {exc}") from exc
+
+    # The SDF's first line is PubChem's compound title — show that, not the
+    # query.  But PubChem often emits a bare CID as the title (imatinib is
+    # "5291"), and an empty line names nothing: echo the query instead so the
+    # toast and the stored name never show a naked number (MANUAL §13.1a).
+    title = content.split(b"\n", 1)[0].decode("utf-8", errors="replace").strip()
+    name = query if not title or title.isdigit() else title
+    return PubChemFetchResponse(
+        path=str(target),
+        name=name,
+        bytes=len(content),
+        cid=cid,
+    )

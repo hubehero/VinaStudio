@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import DockingForm from '@/components/docking/DockingForm.vue'
 import DockingInteractions from '@/components/docking/DockingInteractions.vue'
 import DockingLog from '@/components/docking/DockingLog.vue'
-import DockingReport from '@/components/docking/DockingReport.vue'
 import DockingResults from '@/components/docking/DockingResults.vue'
 import DockingWorkbench from '@/components/docking/DockingWorkbench.vue'
 import ViewportCanvas from '@/components/viewer/ViewportCanvas.vue'
@@ -19,6 +18,19 @@ const box = useBoxStore()
 
 /** Held here because the viewport draws these as annotations. */
 const interactions = ref<InteractionData[]>([])
+
+/**
+ * Mirror every beat of the local ref into the store for the sequence view
+ * (TASK-12): immediate on mount the ref is empty, so a remount re-states the
+ * ref's cleared start rather than resurrecting a previous visit's rows.
+ */
+watch(
+  interactions,
+  (rows) => {
+    docking.setInteractionSnapshot(rows, molecules.pipelineReceptor?.path ?? null)
+  },
+  { immediate: true },
+)
 
 /**
  * Pose and input ligand share the ligand slot, so the stage shows one or the
@@ -48,11 +60,10 @@ onMounted(() => {
 
     <aside class="docking-view__side">
       <DockingForm />
-      <DockingWorkbench />
       <DockingLog />
       <DockingResults />
       <DockingInteractions v-model="interactions" />
-      <DockingReport />
+      <DockingWorkbench />
     </aside>
   </div>
 </template>
@@ -60,7 +71,10 @@ onMounted(() => {
 <style scoped>
 .docking-view {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
+  /* The stage keeps the majority of the width; the operating panel scales with
+     the window instead of a fixed 380px, which left its five cards cramped on
+     wide screens. */
+  grid-template-columns: minmax(0, 1fr) clamp(380px, 30vw, 520px);
   gap: 16px;
   padding: 16px 18px;
   height: 100%;

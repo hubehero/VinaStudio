@@ -90,6 +90,20 @@ class RenderableRequest(BaseModel):
 # --------------------------------------------------------------------------
 
 
+class LigandProperties(BaseModel):
+    """Rule-of-Five panel values; field names are the wire contract."""
+
+    molWt: float
+    molLogP: float
+    tpsa: float
+    numHDonors: int
+    numHAcceptors: int
+    numRotatableBonds: int
+    ringCount: int
+    qed: float
+    lipinskiViolations: int
+
+
 class LigandPreview(BaseModel):
     source: str
     inputFormat: str
@@ -103,6 +117,8 @@ class LigandPreview(BaseModel):
     smiles: str | None = None
     records: int
     notes: list[str] = Field(default_factory=list)
+    properties: LigandProperties | None = None
+    propertiesError: str | None = None
 
 
 class LigandOptions(BaseModel):
@@ -189,6 +205,24 @@ class LigandFromSmilesItem(BaseModel):
 # --------------------------------------------------------------------------
 
 
+class SequenceResidue(BaseModel):
+    """One residue cell of the sequence view (TASK-12 design §3 contract)."""
+
+    seqId: int
+    name: str
+    het: bool
+    ss: str = ""
+
+
+class SequenceChain(BaseModel):
+    id: str
+    residues: list[SequenceResidue]
+
+
+class ReceptorSequence(BaseModel):
+    chains: list[SequenceChain]
+
+
 class ReceptorPreview(BaseModel):
     source: str
     inputFormat: str
@@ -200,6 +234,9 @@ class ReceptorPreview(BaseModel):
     hetero: list[str] = Field(default_factory=list)
     residueNames: list[str] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
+    #: ``None`` for formats without a polymer sequence (PDBQT) or unreadable
+    #: structure — the view renders its "no sequence data" state.
+    sequence: ReceptorSequence | None = None
 
 
 class ReceptorOptions(BaseModel):

@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ElButton, ElMessage } from 'element-plus'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
+import GlossaryDialog from '@/components/common/GlossaryDialog.vue'
 import ViewportCanvas from '@/components/viewer/ViewportCanvas.vue'
+import { useExampleSetup } from '@/composables/useExampleSetup'
 import { useBoxStore } from '@/stores/box'
 import { useDockingStore } from '@/stores/docking'
 import { useMoleculeStore } from '@/stores/molecules'
@@ -13,6 +16,28 @@ const router = useRouter()
 const molecules = useMoleculeStore()
 const box = useBoxStore()
 const docking = useDockingStore()
+
+const glossaryOpen = ref(false)
+const { available: exampleAvailable, running: exampleRunning, setupExample } = useExampleSetup()
+
+/** The example card retires once the setup chain is done — the steps take over. */
+const showExample = computed(
+  () => exampleAvailable.value && !(molecules.hasReceptor && molecules.hasLigand && box.metrics),
+)
+
+async function runExample(): Promise<void> {
+  const result = await setupExample()
+  if (!result.ok) {
+    ElMessage.error(
+      result.reason === 'missing-samples'
+        ? t('workbench.example.missing')
+        : t('workbench.example.failed'),
+    )
+    return
+  }
+  ElMessage.success(t('workbench.example.done'))
+  void router.push('/docking')
+}
 
 /**
  * Pose and input ligand share the ligand slot, so the stage shows one or the
@@ -108,6 +133,9 @@ const steps = computed<PipelineStep[]>(() => [
 function goToStep(step: PipelineStep): void {
   void router.push(step.route)
 }
+
+/** The first step not done yet — the only one worth pointing at. */
+const nextKey = computed(() => steps.value.find((step) => !step.ready)?.key ?? null)
 </script>
 
 <template>
@@ -124,12 +152,30 @@ function goToStep(step: PipelineStep): void {
     </section>
 
     <aside class="workbench__side">
+      <div v-if="showExample" class="vs-card">
+        <div class="vs-card__header">
+          <div>
+            <div class="vs-card__title">{{ t('workbench.example.title') }}</div>
+            <div class="vs-card__subtitle">{{ t('workbench.example.subtitle') }}</div>
+          </div>
+        </div>
+        <div class="vs-card__body">
+          <p class="example__desc">{{ t('workbench.example.desc') }}</p>
+          <ElButton type="primary" size="small" :loading="exampleRunning" @click="runExample">
+            {{ t('workbench.example.button') }}
+          </ElButton>
+        </div>
+      </div>
+
       <div class="vs-card">
         <div class="vs-card__header">
           <div>
             <div class="vs-card__title">{{ t('workbench.pipeline.title') }}</div>
             <div class="vs-card__subtitle">{{ t('workbench.pipeline.subtitle') }}</div>
           </div>
+          <ElButton text size="small" @click="glossaryOpen = true">
+            {{ t('glossary.button') }}
+          </ElButton>
         </div>
         <div class="vs-card__body">
           <ol class="steps">
@@ -137,7 +183,10 @@ function goToStep(step: PipelineStep): void {
               v-for="(step, index) in steps"
               :key="step.key"
               class="steps__item"
-              :class="{ 'steps__item--ready': step.ready }"
+              :class="{
+                'steps__item--ready': step.ready,
+                'steps__item--next': step.key === nextKey,
+              }"
               @click="goToStep(step)"
             >
               <span class="steps__index" :class="{ 'is-ready': step.ready }">
@@ -147,8 +196,17 @@ function goToStep(step: PipelineStep): void {
               <div class="steps__content">
                 <div class="steps__title">
                   {{ step.title }}
-                  <span class="steps__tag" :class="{ 'is-ready': step.ready }">
-                    {{ step.ready ? t('workbench.stage.ready') : t('workbench.stage.planned') }}
+                  <span
+                    class="steps__tag"
+                    :class="{ 'is-ready': step.ready, 'is-next': step.key === nextKey }"
+                  >
+                    {{
+                      step.ready
+                        ? t('workbench.stage.ready')
+                        : step.key === nextKey
+                          ? t('workbench.stage.next')
+                          : t('workbench.stage.planned')
+                    }}
                   </span>
                 </div>
                 <div class="steps__desc">{{ step.description }}</div>
@@ -161,6 +219,8 @@ function goToStep(step: PipelineStep): void {
         </div>
       </div>
     </aside>
+
+    <GlossaryDialog v-model="glossaryOpen" />
   </div>
 </template>
 
@@ -182,6 +242,16 @@ function goToStep(step: PipelineStep): void {
 .workbench__side {
   min-height: 0;
   overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.example__desc {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--vs-text-muted);
 }
 
 .steps {
@@ -208,6 +278,12 @@ function goToStep(step: PipelineStep): void {
 
 .steps__item--ready {
   opacity: 1;
+}
+
+/* The one step worth doing next: a quiet accent frame, not a second CTA. */
+.steps__item--next {
+  background: var(--vs-bg-sunken);
+  box-shadow: inset 2px 0 0 var(--vs-accent);
 }
 
 .steps__index {
@@ -257,6 +333,13 @@ function goToStep(step: PipelineStep): void {
   background: var(--vs-accent-soft);
   border-color: transparent;
   color: var(--vs-accent);
+}
+
+.steps__tag.is-next {
+  background: var(--vs-accent-soft);
+  border-color: transparent;
+  color: var(--vs-accent);
+  font-weight: 600;
 }
 
 .steps__desc {

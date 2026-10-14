@@ -16,6 +16,7 @@ import type {
   DockingJobSummary,
   DockingRequest,
   DockingStatus,
+  InteractionData,
   PoseInfo,
   PoseValidationItem,
   RmsdResponse,
@@ -70,6 +71,33 @@ export const useDockingStore = defineStore('docking', () => {
   const activeBatchId = ref<string | null>(null)
   const batchStatus = ref<BatchJobStatus | null>(null)
   const batchResult = ref<BatchJobResult | null>(null)
+
+  // -- interaction analysis snapshot (TASK-12) ------------------------------
+  // DockView keeps the live analysis rows in a local ref (viewport draws
+  // them). The snapshot copies each beat of that ref so the sequence view in
+  // Molecules can still highlight contact residues after this route
+  // unmounts; `sourcePath` is the pipeline receptor's source file at the
+  // time of the write, gating consumers to the molecule the rows describe.
+  const interactionRows = ref<InteractionData[]>([])
+  const interactionSourcePath = ref<string | null>(null)
+
+  /** Unique ``CHAIN:SEQ`` contact keys of the last analysis beat. */
+  const contactResidueKeys = computed<string[]>(() => {
+    const keys = new Set<string>()
+    for (const row of interactionRows.value) {
+      // Rows without chain or sequence number cannot name a sequence cell.
+      if (row.receptorChain && row.receptorResSeq) {
+        keys.add(`${row.receptorChain}:${row.receptorResSeq}`)
+      }
+    }
+    return [...keys]
+  })
+
+  /** Single writer; DockView's watcher calls it with every local-ref beat. */
+  function setInteractionSnapshot(rows: InteractionData[], sourcePath: string | null): void {
+    interactionRows.value = [...rows]
+    interactionSourcePath.value = sourcePath
+  }
 
   // -- HTTP polling fallback ------------------------------------------------
   // WebSocket events are the primary channel, but if an event is missed
@@ -605,5 +633,10 @@ export const useDockingStore = defineStore('docking', () => {
     cancelBatch,
     resetBatch,
     handleWsEvent,
+    // interaction analysis snapshot (TASK-12)
+    interactionRows,
+    interactionSourcePath,
+    contactResidueKeys,
+    setInteractionSnapshot,
   }
 })

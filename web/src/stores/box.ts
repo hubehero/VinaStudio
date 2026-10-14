@@ -3,7 +3,7 @@ import { computed, reactive, ref, watch, type Ref } from 'vue'
 
 import { ApiError, api } from '@/api/http'
 import { DEFAULT_VIEWER_STYLE, type BoxGeometry, type ViewerStyle } from '@/composables/use3Dmol'
-import type { BoxMetrics } from '@/types/api'
+import type { BoxMetrics, PocketCandidate } from '@/types/api'
 
 /** Defaults mirror the upstream tutorial's 1iep box. */
 const DEFAULT_CENTER: [number, number, number] = [15.19, 53.903, 16.917]
@@ -174,6 +174,43 @@ export const useBoxStore = defineStore('box', () => {
     forceEvenVoxels.value = next.forceEvenVoxels
   }
 
+  // -- candidate sites ------------------------------------------------------
+  // Geometric cavity candidates for a receptor with no known ligand; picking one
+  // goes through `applyMetrics`, the same exit every other way of setting the
+  // box uses.
+  const pockets = ref<PocketCandidate[]>([])
+  const pocketsLoading = ref(false)
+  const pocketsError = ref<string | null>(null)
+  const pocketsAtoms = ref<number | null>(null)
+
+  async function detectPockets(path: string, topK = 5): Promise<boolean> {
+    pocketsLoading.value = true
+    pocketsError.value = null
+    try {
+      const result = await api.pockets({ path, topK })
+      pockets.value = result.pockets
+      pocketsAtoms.value = result.atoms
+      return true
+    } catch (cause) {
+      pockets.value = []
+      pocketsAtoms.value = null
+      pocketsError.value = cause instanceof ApiError ? cause.message : String(cause)
+      return false
+    } finally {
+      pocketsLoading.value = false
+    }
+  }
+
+  function applyPocket(candidate: PocketCandidate): void {
+    applyMetrics(candidate.box)
+  }
+
+  function clearPockets(): void {
+    pockets.value = []
+    pocketsAtoms.value = null
+    pocketsError.value = null
+  }
+
   async function exportConfig(): Promise<string> {
     const result = await api.boxToConfig(payload())
     return result.text
@@ -225,6 +262,14 @@ export const useBoxStore = defineStore('box', () => {
     reset,
     autoboxFromLigand,
     autoboxFromResidues,
+    // candidate sites
+    pockets,
+    pocketsLoading,
+    pocketsError,
+    pocketsAtoms,
+    detectPockets,
+    applyPocket,
+    clearPockets,
     exportConfig,
     importConfig,
   }

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
+import os
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -11,8 +14,22 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 
 from vinastudio.config import NATIVE_MAP_SCORING
-from vinastudio.core.errors import InvalidInputError, JobNotFoundError
-from vinastudio.core.paths import BATCH_RESULTS_CSV_FILENAME, job_dir, workspace_root
+from vinastudio.core.chem.ifp import (
+    CONTACT_TYPES,
+    butina_clustering,
+    fingerprint,
+    parse_ligand_sdf,
+    parse_receptor_atoms,
+    residue_columns,
+    tanimoto,
+)
+from vinastudio.core.errors import InvalidInputError, JobNotFoundError, brief_error
+from vinastudio.core.paths import (
+    ANALYSIS_CACHE_FILENAME,
+    BATCH_RESULTS_CSV_FILENAME,
+    job_dir,
+    workspace_root,
+)
 from vinastudio.core.report import render_report, svg_is_safe
 from vinastudio.schemas.docking import (
     BatchDockingRequest,
@@ -34,6 +51,11 @@ from vinastudio.schemas.docking import (
     ExportBundleRequest,
     ExportPoseRequest,
     ExportPoseResponse,
+    IfpClusterRow,
+    IfpFingerprint,
+    IfpJobRequest,
+    IfpJobResponse,
+    IfpResidue,
     OptimizeRequest,
     OptimizeResponse,
     PoseFindingModel,
@@ -192,6 +214,10 @@ def batch_docking(request: BatchDockingRequest) -> BatchJobCreated:
         "no_refine": request.noRefine,
         "engine": request.engine,
     }
+    # `extra="forbid"` rejected the key up here; the worker pool picks it up
+    # only when the client sent it (absent = server default, TASK-14 §4.2).
+    if request.parallelism is not None:
+        params["parallelism"] = request.parallelism
 
     job_id = job_manager.start_batch_job(params)
     return BatchJobCreated(jobId=job_id, status="queued", total=len(request.ligands))
@@ -263,6 +289,14 @@ def get_job_result(job_id: str) -> DockingJobResult:
     if state.status != "completed":
         raise HTTPException(status_code=409, detail=f"job is {state.status}, not completed")
 
+    # The inline ligand string is dropped on the way out: it is the only large
+    # field and it is already reflected by the poses. Everything else is the
+    # request the job actually ran with (report "Methods" reads these).
+    params = {
+        key: value
+        for key, value in (state.params or {}).items()
+        if key != "ligand_pdbqt_string"
+    }
     return DockingJobResult(
         jobId=state.job_id,
         status="completed",
@@ -274,6 +308,7 @@ def get_job_result(job_id: str) -> DockingJobResult:
         scoring=state.scoring,
         elapsedMs=state.elapsed_ms or 0,
         artifacts=state.artifacts,
+        params=params,
     )
 
 
@@ -486,6 +521,170 @@ def cluster_job_poses(job_id: str, request: ClusterRequest) -> ClusterResponse:
     )
 
 
+# ── interaction fingerprints (TASK-16) ──────────────────────────────────────
+
+
+@router.post("/jobs/{job_id}/ifp", response_model=IfpJobResponse)
+def job_interaction_fingerprints(job_id: str, request: IfpJobRequest) -> IfpJobResponse:
+    """Interaction fingerprints of this job's poses, BUTINA-clustered by similarity.
+
+    Fingerprints (residue columns + bits) are cached in the job's
+    ``analysis.json`` keyed by receptor identity + poses text; clustering is
+    recomputed per request because the cutoff is a view parameter
+    (task book勘误 ④).  The receptor comes from the job's own params — the
+    caller never passes a path (勘误 ⑦).
+    """
+    state = job_manager.get_job(job_id)
+    if state is None:
+        raise JobNotFoundError(f"job {job_id} not found")
+    if state.status != "completed":
+        raise HTTPException(status_code=409, detail=f"job is {state.status}, not completed")
+    if not state.poses_sdf:
+        # Design §3: a completed job with no pose SDF is "not ready", same
+        # family as a non-completed job — 409, not a bad-request 422.
+        raise HTTPException(status_code=409, detail="job has no pose SDF")
+
+    receptor_path = (state.params or {}).get("receptor_path", "")
+    if (
+        not isinstance(receptor_path, str)
+        or not receptor_path
+        or not Path(receptor_path).is_file()
+    ):
+        raise InvalidInputError("job has no usable receptor path for fingerprints")
+
+    try:
+        payload, cached = _ifp_payload_cached(job_id, receptor_path, state.poses_sdf)
+    except (ValueError, OSError, RuntimeError) as exc:
+        raise InvalidInputError(f"fingerprint computation failed: {brief_error(exc)}") from exc
+
+    residues = [IfpResidue(**row) for row in payload["residues"]]
+    fingerprints = [IfpFingerprint(**row) for row in payload["fingerprints"]]
+
+    bit_sets = [frozenset(tuple(pair) for pair in fp.pairs) for fp in fingerprints]
+    distances = [
+        [1.0 - tanimoto(a, b) for b in bit_sets] for a in bit_sets
+    ]
+    clusters = [
+        IfpClusterRow(members=members, centroid=centroid, size=len(members))
+        for members, centroid in butina_clustering(distances, request.cutoff)
+    ]
+
+    return IfpJobResponse(
+        jobId=job_id,
+        residues=residues,
+        types=list(payload["types"]),
+        fingerprints=fingerprints,
+        clusters=clusters,
+        nClusters=len(clusters),
+        cutoff=request.cutoff,
+        cached=cached,
+    )
+
+
+def _ifp_payload_cached(
+    job_id: str, receptor_path: str, poses_sdf: str
+) -> tuple[dict[str, Any], bool]:
+    """Cached fingerprint payload, or a fresh compute written to the cache.
+
+    A corrupt or missing ``analysis.json`` is a miss, never an error — the
+    cache exists to save work, not to gate it (task book勘误 ④).
+    """
+    params_hash = _ifp_params_hash(receptor_path, poses_sdf)
+    cached_payload = _read_ifp_cache(job_id, params_hash)
+    if cached_payload is not None:
+        return cached_payload, True
+
+    receptor_atoms = parse_receptor_atoms(receptor_path)
+    bit_sets = [
+        fingerprint(receptor_atoms, parse_ligand_sdf(record))
+        for record in _split_pose_records(poses_sdf)
+    ]
+
+    residues, index_of = residue_columns(receptor_atoms, bit_sets)
+    fingerprints = []
+    for index, bits in enumerate(bit_sets):
+        pairs = sorted((index_of[key], order) for key, order in bits)
+        fingerprints.append({"index": index, "pairs": pairs, "nContacts": len(pairs)})
+
+    payload = {
+        "residues": residues,
+        "types": list(CONTACT_TYPES),
+        "fingerprints": fingerprints,
+    }
+    try:
+        _write_ifp_cache(job_id, params_hash, payload)
+    except OSError as exc:
+        # The compute already succeeded; a cache that cannot be written is a
+        # slower next request, not a failed one.
+        log.warning("ifp cache write failed for %s: %s", job_id, exc)
+    return payload, False
+
+
+def _ifp_params_hash(receptor_path: str, poses_sdf: str) -> str:
+    """Identity of the (receptor file, poses text) pair a fingerprint depends on."""
+    stat = Path(receptor_path).stat()
+    poses_digest = hashlib.sha256(poses_sdf.encode("utf-8")).hexdigest()
+    material = "｜".join(
+        ["ifp-v1", receptor_path, str(stat.st_size), str(stat.st_mtime_ns), poses_digest]
+    )
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+
+
+def _read_ifp_cache(job_id: str, params_hash: str) -> dict[str, Any] | None:
+    """The kind="ifp" entry when its hash still matches; anything else is a miss."""
+    path = job_dir(job_id) / ANALYSIS_CACHE_FILENAME
+    try:
+        entries = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(entries, list):
+        return None
+    for entry in entries:
+        if (
+            isinstance(entry, dict)
+            and entry.get("kind") == "ifp"
+            and entry.get("paramsHash") == params_hash
+            and isinstance(entry.get("payload"), dict)
+        ):
+            return entry["payload"]
+    return None
+
+
+def _write_ifp_cache(job_id: str, params_hash: str, payload: dict[str, Any]) -> None:
+    """Replace the kind="ifp" entry in analysis.json (tmp file + os.replace)."""
+    path = job_dir(job_id) / ANALYSIS_CACHE_FILENAME
+    try:
+        entries = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(entries, list):
+            entries = []
+    except (OSError, json.JSONDecodeError):
+        entries = []
+    entries = [
+        entry
+        for entry in entries
+        if not (isinstance(entry, dict) and entry.get("kind") == "ifp")
+    ]
+    entries.append({"kind": "ifp", "paramsHash": params_hash, "payload": payload})
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.parent / f"{path.name}.tmp"
+    tmp.write_text(json.dumps(entries, ensure_ascii=False), encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def _split_pose_records(poses_sdf: str) -> list[str]:
+    """Split a multi-record SDF into per-pose records (``$$$$``-terminated)."""
+    records: list[str] = []
+    current: list[str] = []
+    for line in poses_sdf.split("\n"):
+        current.append(line)
+        if line.startswith("$$$$"):
+            records.append("\n".join(current))
+            current = []
+    if any(line.strip() for line in current):
+        records.append("\n".join(current))
+    return records
+
+
 @router.get("/batch/{job_id}", response_model=BatchJobStatus)
 def get_batch_status(job_id: str) -> BatchJobStatus:
     """Return the current state of a batch docking job."""
@@ -508,6 +707,8 @@ def get_batch_status(job_id: str) -> BatchJobStatus:
                 status=r.get("status", ""),
                 affinity=r.get("bestAffinity"),
                 error=r.get("error", ""),
+                qed=r.get("qed"),
+                lipinskiViolations=r.get("lipinskiViolations"),
             )
             for r in state.batch_results
         ],
@@ -540,6 +741,8 @@ def get_batch_result(job_id: str) -> BatchJobResult:
                 elapsedMs=r.get("elapsedMs"),
                 outDir=r.get("outDir", ""),
                 error=r.get("error", ""),
+                qed=r.get("qed"),
+                lipinskiViolations=r.get("lipinskiViolations"),
             )
             for r in state.batch_results
         ],

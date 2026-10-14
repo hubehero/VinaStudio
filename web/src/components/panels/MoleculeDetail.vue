@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { ArrowRight, Delete, InfoFilled, MagicStick, RefreshRight, View, WarningFilled } from '@element-plus/icons-vue'
 import { ElAlert, ElButton, ElMessage, ElInput, ElTag, ElSelect, ElOption } from 'element-plus'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import DruglikenessPanel from '@/components/panels/DruglikenessPanel.vue'
 import MoleculeOptions from '@/components/panels/MoleculeOptions.vue'
+import SequenceView from '@/components/panels/SequenceView.vue'
 import ViewportCanvas from '@/components/viewer/ViewportCanvas.vue'
 import { DEFAULT_VIEWER_STYLE } from '@/composables/use3Dmol'
+import { useDockingStore } from '@/stores/docking'
 import { isUsable, useMoleculeStore } from '@/stores/molecules'
 import { getEffectiveType } from '@/types/molecule'
 
@@ -72,6 +75,74 @@ const nextStep = computed(() => {
 
 /** Preparation options and the flexible-residue picker, once the file is understood. */
 const showOptions = computed(() => preparable.value && mol.value?.preview != null)
+
+// -- sequence view (TASK-12) ------------------------------------------------
+
+const docking = useDockingStore()
+const viewport = ref<InstanceType<typeof ViewportCanvas> | null>(null)
+const hoveredResidue = ref<string | null>(null)
+
+/** Receptor sequences only; ligands never render the section (§3). An empty
+ * array is a receptor whose file carried no sequence — the view says so. */
+const sequenceChains = computed(() => {
+  const preview = mol.value?.preview
+  if (type.value !== 'receptor' || !preview || !('sequence' in preview)) return null
+  return preview.sequence?.chains ?? []
+})
+
+const flexibleSelected = computed(
+  () => new Set(mol.value?.receptorOptions.flexibleResidues ?? []),
+)
+
+/** Contact rows are only trusted while they describe the molecule on screen —
+ * a snapshot from another receptor's analysis must not colour this one. */
+const contactResidues = computed(() => {
+  const molecule = mol.value
+  if (!molecule || docking.interactionSourcePath !== molecule.path) return undefined
+  return new Set(docking.contactResidueKeys)
+})
+
+// A hover can outlive its molecule: the cell never fires a leave event once
+// the section unmounts, so switching molecules drops it explicitly.
+watch(
+  () => mol.value?.id,
+  () => {
+    hoveredResidue.value = null
+  },
+)
+
+// Post-flush so the ViewportCanvas ref exists once hasPreview flips the
+// canvas into the template; the viewport re-applies keys after its own
+// async molecule load.
+function syncResidueHighlight(): void {
+  if (!viewport.value || sequenceChains.value === null) {
+    viewport.value?.highlightResidues(null)
+    return
+  }
+  const keys = new Set(flexibleSelected.value)
+  if (hoveredResidue.value) keys.add(hoveredResidue.value)
+  viewport.value?.highlightResidues([...keys])
+}
+
+watch(
+  [hoveredResidue, flexibleSelected, sequenceChains, hasPreview],
+  () => syncResidueHighlight(),
+  { flush: 'post' },
+)
+
+// On first mount no dependency has changed yet, so the saved flexible set
+// would stay unhighlighted until the first hover without this.
+onMounted(() => syncResidueHighlight())
+
+/** Rule-of-Five data for the drug-likeness panel; null hides the block. */
+const druglikeness = computed(() => {
+  const preview = mol.value?.preview
+  if (type.value !== 'ligand' || !preview || !('properties' in preview)) return null
+  const properties = preview.properties ?? null
+  const propertiesError = preview.propertiesError ?? undefined
+  if (properties === null && propertiesError === undefined) return null
+  return { properties, propertiesError }
+})
 
 /** Whether this molecule can claim the docking role of its kind. */
 const usable = computed(() => (mol.value ? isUsable(mol.value) : false))
@@ -420,6 +491,7 @@ function handleSetCategory(cat: string | null): void {
     <div class="detail__viewport">
       <ViewportCanvas
         v-if="hasPreview"
+        ref="viewport"
         :receptor-url="type === 'receptor' ? previewUrl : null"
         :ligand-url="type === 'ligand' ? previewUrl : null"
         :style="MOLECULE_STYLE"
@@ -466,9 +538,29 @@ function handleSetCategory(cat: string | null): void {
       </dl>
     </section>
 
+    <DruglikenessPanel
+      v-if="druglikeness"
+      :properties="druglikeness.properties"
+      :properties-error="druglikeness.propertiesError"
+    />
+
     <section v-if="smiles" class="detail__section">
       <h3 class="detail__section-title">{{ t('molecules.smiles') }}</h3>
       <p class="detail__smiles vs-mono" :title="smiles">{{ smiles }}</p>
+    </section>
+
+    <section v-if="sequenceChains" class="detail__section">
+      <div class="detail__section-head">
+        <h3 class="detail__section-title">{{ t('molecules.sequence.title') }}</h3>
+        <span class="detail__section-note">{{ t('molecules.sequence.readonlyHint') }}</span>
+      </div>
+      <SequenceView
+        :chains="sequenceChains"
+        :selected="flexibleSelected"
+        :contact-residues="contactResidues"
+        readonly
+        @hover="hoveredResidue = $event"
+      />
     </section>
 
     <MoleculeOptions v-if="showOptions" :mol="mol" />
@@ -675,6 +767,27 @@ function handleSetCategory(cat: string | null): void {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--vs-text-faint);
+}
+
+.detail__section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.detail__section-head .detail__section-title {
+  margin: 0;
+}
+
+.detail__section-note {
+  font-size: 11px;
+  color: var(--vs-text-faint);
+}
+
+.detail__section .sequence-view {
+  max-height: 320px;
 }
 
 .facts {

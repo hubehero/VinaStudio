@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { Check } from '@element-plus/icons-vue'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import SequenceView from '@/components/panels/SequenceView.vue'
 import { useMoleculeStore } from '@/stores/molecules'
 import type { MoleculeItem } from '@/types/molecule'
 import { getEffectiveType } from '@/types/molecule'
@@ -36,6 +37,52 @@ function selectAll(): void {
 
 function clearSelection(): void {
   store.setFlexibleResidues(props.mol.id, [])
+}
+
+// -- sequence picker (TASK-12) ---------------------------------------------
+
+const sequenceOpen = ref(false)
+
+/** Chains for the drawer; an empty list makes the view report "no sequence". */
+const sequenceChains = computed(() => {
+  const preview = props.mol.preview
+  if (!preview || !('sequence' in preview)) return []
+  return preview.sequence?.chains ?? []
+})
+
+function parseKey(key: string): [chainId: string, seqId: number] | null {
+  const sep = key.indexOf(':')
+  if (sep <= 0) return null
+  return [key.slice(0, sep), Number(key.slice(sep + 1))]
+}
+
+/**
+ * Row-major closed interval unioned into the flexible set (§4: every cell in
+ * the range becomes selected, never inverted). A cross-chain Shift click
+ * takes each chain's own segment of the path; HETATM cells are never keys.
+ */
+function applySequenceRange(from: string, to: string): void {
+  const chains = sequenceChains.value
+  const start = parseKey(from)
+  const end = parseKey(to)
+  if (!start || !end) return
+  const flat: { chainId: string; seqId: number; het: boolean }[] = []
+  for (const chain of chains) {
+    for (const residue of chain.residues) {
+      flat.push({ chainId: chain.id, seqId: residue.seqId, het: residue.het })
+    }
+  }
+  const fromIndex = flat.findIndex((e) => e.chainId === start[0] && e.seqId === start[1])
+  const toIndex = flat.findIndex((e) => e.chainId === end[0] && e.seqId === end[1])
+  if (fromIndex < 0 || toIndex < 0) return
+  const lo = Math.min(fromIndex, toIndex)
+  const hi = Math.max(fromIndex, toIndex)
+  const next = new Set(props.mol.receptorOptions.flexibleResidues)
+  for (let i = lo; i <= hi; i++) {
+    const entry = flat[i]!
+    if (!entry.het) next.add(`${entry.chainId}:${entry.seqId}`)
+  }
+  store.setFlexibleResidues(props.mol.id, [...next])
 }
 </script>
 
@@ -98,6 +145,9 @@ function clearSelection(): void {
       <div class="flexible-header">
         <span class="flexible-label">{{ t('molecules.flexibleResidues') }}</span>
         <div class="flexible-actions">
+          <el-button size="small" text @click="sequenceOpen = true">
+            {{ t('molecules.sequence.pickFromSequence') }}
+          </el-button>
           <el-button size="small" text @click="selectAll">{{ t('common.selectAll') }}</el-button>
           <el-button size="small" text @click="clearSelection">{{ t('common.clear') }}</el-button>
           <span class="flexible-count">{{ selectedCount }} {{ t('common.selected') }}</span>
@@ -116,6 +166,23 @@ function clearSelection(): void {
         </label>
       </div>
     </div>
+
+    <el-drawer v-model="sequenceOpen" direction="rtl" size="60%">
+      <template #header>
+        <div class="sequence-drawer__head">
+          <span>{{ t('molecules.sequence.pickFromSequence') }}</span>
+          <span class="sequence-drawer__count">
+            {{ t('molecules.sequence.selectedCount', { n: selectedCount }) }}
+          </span>
+        </div>
+      </template>
+      <SequenceView
+        :chains="sequenceChains"
+        :selected="selected"
+        @toggle="toggleResidue"
+        @toggle-range="applySequenceRange"
+      />
+    </el-drawer>
   </section>
 </template>
 
@@ -232,5 +299,24 @@ function clearSelection(): void {
 
 .residue-check {
   flex: none;
+}
+
+.sequence-drawer__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.sequence-drawer__count {
+  font-size: 12px;
+  color: var(--vs-text-faint);
+}
+
+/* The drawer body gives the component a real height so its own overflow
+ * (both axes, per the design) scrolls instead of the drawer. */
+.el-drawer__body .sequence-view {
+  height: 100%;
 }
 </style>

@@ -8,12 +8,15 @@ import {
   ElMessage,
   ElTable,
   ElTableColumn,
+  ElTabPane,
+  ElTabs,
   ElTag,
 } from 'element-plus'
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { api } from '@/api/http'
+import { fetchMolecule } from '@/composables/use3Dmol'
 import { useMoleculeStore } from '@/stores/molecules'
 import type { LibraryEntry, LibraryLigand } from '@/types/api'
 
@@ -42,6 +45,8 @@ function open(): void {
   totalCount.value = 0
   query.value = ''
   selected.value = null
+  activeTab.value = 'rcsb'
+  pubchemQuery.value = ''
 }
 
 async function doSearch(): Promise<void> {
@@ -111,11 +116,10 @@ async function loadPreview(pdbId: string): Promise<void> {
     }
     const viewer = previewViewer
 
-    // Fetch CIF from RCSB (inline URL, CORS-friendly)
+    // Fetch CIF from RCSB (inline URL, CORS-friendly) through the shared
+    // text cache — repeat previews of the same entry skip the network.
     const cifUrl = `https://files.rcsb.org/view/${pdbId}.cif`
-    const resp = await fetch(cifUrl)
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-    const cifData = await resp.text()
+    const cifData = await fetchMolecule(cifUrl)
 
     viewer.addModel(cifData, 'cif')
     viewer.setStyle({}, { cartoon: { color: 'spectrum' } })
@@ -217,6 +221,36 @@ function isFetching(pdbId: string, ligandId?: string): boolean {
   return fetchedId.value === pdbId
 }
 
+// -- PubChem fetch -----------------------------------------------------------
+
+const activeTab = ref<'rcsb' | 'pubchem'>('rcsb')
+const pubchemQuery = ref('')
+const pubchemFetching = ref(false)
+
+function handlePubChemKeydown(e: Event): void {
+  if ((e as KeyboardEvent).key === 'Enter') {
+    void fetchPubChem()
+  }
+}
+
+async function fetchPubChem(): Promise<void> {
+  const q = pubchemQuery.value.trim()
+  if (!q || pubchemFetching.value) return
+  pubchemFetching.value = true
+  try {
+    const result = await api.pubchemFetch({ query: q })
+    await store.loadFromLibrary(result.path, result.name, result.bytes, 'ligand')
+    ElMessage.success(t('library.pubchemFetched', { name: result.name, cid: result.cid }))
+    visible.value = false
+  } catch (error) {
+    ElMessage.error(
+      `${t('library.pubchemFetchFailed')}: ${error instanceof Error ? error.message : String(error)}`,
+    )
+  } finally {
+    pubchemFetching.value = false
+  }
+}
+
 function formatResolution(r: number | null): string {
   if (r === null || r === undefined) return '—'
   return `${r.toFixed(2)} Å`
@@ -238,191 +272,214 @@ defineExpose({ open })
     :close-on-click-modal="false"
     destroy-on-close
   >
-    <div class="library">
-      <!-- Left: search + results -->
-      <div class="library__left">
-        <ElInput
-          v-model="query"
-          :placeholder="t('library.placeholder')"
-          clearable
-          :prefix-icon="Search"
-          @keydown="handleSearchKeydown"
-        >
-          <template #append>
-            <ElButton :icon="Search" :loading="searching" @click="doSearch">
-              {{ t('library.search') }}
-            </ElButton>
-          </template>
-        </ElInput>
-
-        <p v-if="totalCount > 0" class="library__count">
-          {{ t('library.resultCount', { n: totalCount }) }}
-        </p>
-
-        <div v-if="entries.length > 0" class="library__results">
-          <ElTable
-            :data="entries"
-            stripe
-            size="small"
-            max-height="420"
-            row-key="pdbId"
-            highlight-current-row
-            :current-row-key="selected?.pdbId"
-            @row-click="selectEntry"
-          >
-            <ElTableColumn prop="pdbId" :label="t('library.pdbId')" width="75">
-              <template #default="{ row }">
-                <span class="mono">{{ row.pdbId }}</span>
+    <ElTabs v-model="activeTab">
+      <ElTabPane label="RCSB PDB" name="rcsb">
+        <div class="library">
+          <!-- Left: search + results -->
+          <div class="library__left">
+            <ElInput
+              v-model="query"
+              :placeholder="t('library.placeholder')"
+              clearable
+              :prefix-icon="Search"
+              @keydown="handleSearchKeydown"
+            >
+              <template #append>
+                <ElButton :icon="Search" :loading="searching" @click="doSearch">
+                  {{ t('library.search') }}
+                </ElButton>
               </template>
-            </ElTableColumn>
-            <ElTableColumn prop="title" :label="t('library.title_')" min-width="180" show-overflow-tooltip />
-            <ElTableColumn :label="t('library.method')" width="90" show-overflow-tooltip>
-              <template #default="{ row }">
-                <ElTag v-if="row.method" size="small" type="info" disable-transitions>
-                  {{ row.method.replace('X-RAY DIFFRACTION', 'X-ray').replace('ELECTRON MICROSCOPY', 'EM') }}
-                </ElTag>
-              </template>
-            </ElTableColumn>
-            <ElTableColumn :label="t('library.resolution')" width="70" align="right">
-              <template #default="{ row }">
-                <span class="mono">{{ formatResolution(row.resolution) }}</span>
-              </template>
-            </ElTableColumn>
-          </ElTable>
-        </div>
+            </ElInput>
 
-        <ElEmpty
-          v-else-if="!searching && query.trim().length > 0"
-          :description="t('library.noResults')"
-        />
-      </div>
+            <p v-if="totalCount > 0" class="library__count">
+              {{ t('library.resultCount', { n: totalCount }) }}
+            </p>
 
-      <!-- Right: detail + preview -->
-      <div v-if="selected" class="library__right">
-        <div class="detail">
-          <div class="detail__header">
-            <span class="detail__pdbid mono">{{ selected.pdbId }}</span>
-            <div class="detail__actions">
-              <ElButton
+            <div v-if="entries.length > 0" class="library__results">
+              <ElTable
+                :data="entries"
+                stripe
                 size="small"
-                :icon="Download"
-                :loading="isFetching(selected.pdbId)"
-                @click="fetchReceptor(selected)"
+                max-height="420"
+                row-key="pdbId"
+                highlight-current-row
+                :current-row-key="selected?.pdbId"
+                @row-click="selectEntry"
               >
-                {{ t('library.downloadReceptor') }}
-              </ElButton>
-              <ElButton
-                type="primary"
-                size="small"
-                :icon="Download"
-                :loading="fetchingAll"
-                @click="fetchAll(selected)"
-              >
-                {{ t('library.downloadAll') }}
-              </ElButton>
+                <ElTableColumn prop="pdbId" :label="t('library.pdbId')" width="75">
+                  <template #default="{ row }">
+                    <span class="mono">{{ row.pdbId }}</span>
+                  </template>
+                </ElTableColumn>
+                <ElTableColumn prop="title" :label="t('library.title_')" min-width="180" show-overflow-tooltip />
+                <ElTableColumn :label="t('library.method')" width="90" show-overflow-tooltip>
+                  <template #default="{ row }">
+                    <ElTag v-if="row.method" size="small" type="info" disable-transitions>
+                      {{ row.method.replace('X-RAY DIFFRACTION', 'X-ray').replace('ELECTRON MICROSCOPY', 'EM') }}
+                    </ElTag>
+                  </template>
+                </ElTableColumn>
+                <ElTableColumn :label="t('library.resolution')" width="70" align="right">
+                  <template #default="{ row }">
+                    <span class="mono">{{ formatResolution(row.resolution) }}</span>
+                  </template>
+                </ElTableColumn>
+              </ElTable>
             </div>
+
+            <ElEmpty
+              v-else-if="!searching && query.trim().length > 0"
+              :description="t('library.noResults')"
+            />
           </div>
 
-          <h4 class="detail__title">{{ selected.title }}</h4>
-
-          <!-- Warning for non-protein structures -->
-          <div v-if="selected.moleculeType !== 'protein' && selected.moleculeType !== 'unknown'" class="detail__warning">
-            <el-icon><WarningFilled /></el-icon>
-            <span v-if="selected.moleculeType === 'rna'">{{ t('library.warningRNA') }}</span>
-            <span v-else-if="selected.moleculeType === 'dna'">{{ t('library.warningDNA') }}</span>
-            <span v-else-if="selected.moleculeType === 'hybrid'">{{ t('library.warningHybrid') }}</span>
-          </div>
-
-          <div class="detail__meta">
-            <div v-if="selected.method" class="detail__row">
-              <span class="detail__label">{{ t('library.method') }}</span>
-              <span>{{ selected.method }}</span>
-            </div>
-            <div v-if="selected.resolution !== null" class="detail__row">
-              <span class="detail__label">{{ t('library.resolution') }}</span>
-              <span class="mono">{{ formatResolution(selected.resolution) }}</span>
-            </div>
-            <div v-if="selected.year" class="detail__row">
-              <span class="detail__label">{{ t('library.year') }}</span>
-              <span>{{ selected.year }}</span>
-            </div>
-            <div v-if="selected.journal" class="detail__row">
-              <span class="detail__label">{{ t('library.journal') }}</span>
-              <span>{{ selected.journal }}</span>
-            </div>
-            <div v-if="selected.organism" class="detail__row">
-              <span class="detail__label">{{ t('library.organism') }}</span>
-              <span>{{ selected.organism }}</span>
-            </div>
-            <div v-if="selected.atomCount" class="detail__row">
-              <span class="detail__label">{{ t('library.atoms') }}</span>
-              <span class="mono">{{ selected.atomCount.toLocaleString() }}</span>
-            </div>
-            <div v-if="selected.molecularWeight" class="detail__row">
-              <span class="detail__label">{{ t('library.mw') }}</span>
-              <span>{{ formatWeight(selected.molecularWeight) }}</span>
-            </div>
-          </div>
-
-          <!-- Chains -->
-          <div v-if="selected.chains.length > 0" class="detail__section">
-            <h5 class="detail__section-title">{{ t('library.chains') }}</h5>
-            <div v-for="chain in selected.chains" :key="chain.entityId" class="chain-item">
-              <span class="chain-item__desc">{{ chain.description || t('library.polymer') }}</span>
-              <span v-if="chain.organism" class="chain-item__org">{{ chain.organism }}</span>
-              <span v-if="chain.sequenceLength" class="chain-item__len mono">
-                {{ chain.sequenceLength }} {{ t('library.residues') }}
-              </span>
-            </div>
-          </div>
-
-          <!-- Ligands -->
-          <div v-if="selected.ligands.length > 0" class="detail__section">
-            <h5 class="detail__section-title">{{ t('library.ligands') }}</h5>
-            <div v-for="lig in selected.ligands" :key="lig.id" class="ligand-item">
-              <div class="ligand-item__info">
-                <span class="ligand-item__id mono">{{ lig.id }}</span>
-                <span class="ligand-item__name">{{ lig.name }}</span>
-                <span v-if="lig.formula" class="ligand-item__formula mono">{{ lig.formula }}</span>
-                <span v-if="lig.molecularWeight" class="ligand-item__mw">
-                  {{ formatWeight(lig.molecularWeight) }}
-                </span>
+          <!-- Right: detail + preview -->
+          <div v-if="selected" class="library__right">
+            <div class="detail">
+              <div class="detail__header">
+                <span class="detail__pdbid mono">{{ selected.pdbId }}</span>
+                <div class="detail__actions">
+                  <ElButton
+                    size="small"
+                    :icon="Download"
+                    :loading="isFetching(selected.pdbId)"
+                    @click="fetchReceptor(selected)"
+                  >
+                    {{ t('library.downloadReceptor') }}
+                  </ElButton>
+                  <ElButton
+                    type="primary"
+                    size="small"
+                    :icon="Download"
+                    :loading="fetchingAll"
+                    @click="fetchAll(selected)"
+                  >
+                    {{ t('library.downloadAll') }}
+                  </ElButton>
+                </div>
               </div>
-              <ElButton
-                size="small"
-                :icon="Download"
-                :loading="isFetching(selected.pdbId, lig.id)"
-                @click="fetchLigand(selected, lig)"
-              >
-                {{ t('library.downloadLigand') }}
+
+              <h4 class="detail__title">{{ selected.title }}</h4>
+
+              <!-- Warning for non-protein structures -->
+              <div v-if="selected.moleculeType !== 'protein' && selected.moleculeType !== 'unknown'" class="detail__warning">
+                <el-icon><WarningFilled /></el-icon>
+                <span v-if="selected.moleculeType === 'rna'">{{ t('library.warningRNA') }}</span>
+                <span v-else-if="selected.moleculeType === 'dna'">{{ t('library.warningDNA') }}</span>
+                <span v-else-if="selected.moleculeType === 'hybrid'">{{ t('library.warningHybrid') }}</span>
+              </div>
+
+              <div class="detail__meta">
+                <div v-if="selected.method" class="detail__row">
+                  <span class="detail__label">{{ t('library.method') }}</span>
+                  <span>{{ selected.method }}</span>
+                </div>
+                <div v-if="selected.resolution !== null" class="detail__row">
+                  <span class="detail__label">{{ t('library.resolution') }}</span>
+                  <span class="mono">{{ formatResolution(selected.resolution) }}</span>
+                </div>
+                <div v-if="selected.year" class="detail__row">
+                  <span class="detail__label">{{ t('library.year') }}</span>
+                  <span>{{ selected.year }}</span>
+                </div>
+                <div v-if="selected.journal" class="detail__row">
+                  <span class="detail__label">{{ t('library.journal') }}</span>
+                  <span>{{ selected.journal }}</span>
+                </div>
+                <div v-if="selected.organism" class="detail__row">
+                  <span class="detail__label">{{ t('library.organism') }}</span>
+                  <span>{{ selected.organism }}</span>
+                </div>
+                <div v-if="selected.atomCount" class="detail__row">
+                  <span class="detail__label">{{ t('library.atoms') }}</span>
+                  <span class="mono">{{ selected.atomCount.toLocaleString() }}</span>
+                </div>
+                <div v-if="selected.molecularWeight" class="detail__row">
+                  <span class="detail__label">{{ t('library.mw') }}</span>
+                  <span>{{ formatWeight(selected.molecularWeight) }}</span>
+                </div>
+              </div>
+
+              <!-- Chains -->
+              <div v-if="selected.chains.length > 0" class="detail__section">
+                <h5 class="detail__section-title">{{ t('library.chains') }}</h5>
+                <div v-for="chain in selected.chains" :key="chain.entityId" class="chain-item">
+                  <span class="chain-item__desc">{{ chain.description || t('library.polymer') }}</span>
+                  <span v-if="chain.organism" class="chain-item__org">{{ chain.organism }}</span>
+                  <span v-if="chain.sequenceLength" class="chain-item__len mono">
+                    {{ chain.sequenceLength }} {{ t('library.residues') }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Ligands -->
+              <div v-if="selected.ligands.length > 0" class="detail__section">
+                <h5 class="detail__section-title">{{ t('library.ligands') }}</h5>
+                <div v-for="lig in selected.ligands" :key="lig.id" class="ligand-item">
+                  <div class="ligand-item__info">
+                    <span class="ligand-item__id mono">{{ lig.id }}</span>
+                    <span class="ligand-item__name">{{ lig.name }}</span>
+                    <span v-if="lig.formula" class="ligand-item__formula mono">{{ lig.formula }}</span>
+                    <span v-if="lig.molecularWeight" class="ligand-item__mw">
+                      {{ formatWeight(lig.molecularWeight) }}
+                    </span>
+                  </div>
+                  <ElButton
+                    size="small"
+                    :icon="Download"
+                    :loading="isFetching(selected.pdbId, lig.id)"
+                    @click="fetchLigand(selected, lig)"
+                  >
+                    {{ t('library.downloadLigand') }}
+                  </ElButton>
+                </div>
+              </div>
+
+              <!-- Authors -->
+              <div v-if="selected.authors.length > 0" class="detail__section">
+                <h5 class="detail__section-title">{{ t('library.authors') }}</h5>
+                <p class="detail__authors">{{ selected.authors.join(', ') }}</p>
+              </div>
+            </div>
+
+            <!-- 3D Preview -->
+            <div class="preview">
+              <div class="preview__header">
+                <span>{{ t('library.preview') }}</span>
+              </div>
+              <div ref="previewContainer" class="preview__viewer">
+                <div v-if="previewLoading" class="preview__loading">
+                  {{ t('library.previewLoading') }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="library__right library__right--empty">
+            <ElEmpty :description="t('library.selectEntry')" :image-size="60" />
+          </div>
+        </div>
+      </ElTabPane>
+
+      <ElTabPane label="PubChem" name="pubchem">
+        <div class="pubchem">
+          <ElInput
+            v-model="pubchemQuery"
+            :placeholder="t('library.pubchemPlaceholder')"
+            clearable
+            :prefix-icon="Search"
+            @keydown="handlePubChemKeydown"
+          >
+            <template #append>
+              <ElButton :icon="Download" :loading="pubchemFetching" @click="fetchPubChem">
+                {{ pubchemFetching ? t('library.pubchemFetching') : t('library.pubchemFetch') }}
               </ElButton>
-            </div>
-          </div>
-
-          <!-- Authors -->
-          <div v-if="selected.authors.length > 0" class="detail__section">
-            <h5 class="detail__section-title">{{ t('library.authors') }}</h5>
-            <p class="detail__authors">{{ selected.authors.join(', ') }}</p>
-          </div>
+            </template>
+          </ElInput>
+          <p class="pubchem__help">{{ t('library.pubchemHelp') }}</p>
         </div>
-
-        <!-- 3D Preview -->
-        <div class="preview">
-          <div class="preview__header">
-            <span>{{ t('library.preview') }}</span>
-          </div>
-          <div ref="previewContainer" class="preview__viewer">
-            <div v-if="previewLoading" class="preview__loading">
-              {{ t('library.previewLoading') }}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div v-else class="library__right library__right--empty">
-        <ElEmpty :description="t('library.selectEntry')" :image-size="60" />
-      </div>
-    </div>
+      </ElTabPane>
+    </ElTabs>
 
     <template #footer>
       <ElButton @click="visible = false">{{ t('common.done') }}</ElButton>
@@ -653,5 +710,21 @@ defineExpose({ open })
   justify-content: center;
   color: var(--vs-text-faint);
   font-size: 12px;
+}
+
+/* -- PubChem pane ----------------------------------------------------------- */
+
+.pubchem {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.pubchem__help {
+  margin: 0;
+  font-size: 12px;
+  color: var(--vs-text-faint);
+  line-height: 1.5;
 }
 </style>

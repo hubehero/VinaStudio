@@ -211,6 +211,18 @@ export const useMoleculeStore = defineStore('molecules', () => {
     return result
   })
 
+  /**
+   * Real provenance groups only (a library entry that brought its own receptor
+   * and ligands). `groupedMolecules` also synthesises `single-<id>` entries for
+   * ungrouped receptors and a `_ungrouped` catch-all for ungrouped ligands —
+   * those belong to the "Ungrouped" section, not to the source view's groups.
+   */
+  const sourceGroups = computed(() =>
+    groupedMolecules.value.filter(
+      (group) => group.id !== '_ungrouped' && !group.id.startsWith('single-'),
+    ),
+  )
+
   // -- pipeline handoff ----------------------------------------------------
   // The docking and box steps act on one chosen molecule of each kind, picked
   // from the usable ones. The choice is explicit — every view offers it — and
@@ -922,6 +934,7 @@ export const useMoleculeStore = defineStore('molecules', () => {
     loadFromLibrary,
     loadFromLibraryGroup,
     groupedMolecules,
+    sourceGroups,
     inspectMolecule,
     prepareMolecule,
     allowRejectedResiduesAndRetry,

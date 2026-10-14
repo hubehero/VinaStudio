@@ -5,8 +5,11 @@ import BatchDockingView from '@/views/BatchDockingView.vue'
 import BoxView from '@/views/BoxView.vue'
 import DockView from '@/views/DockView.vue'
 import EnvironmentView from '@/views/EnvironmentView.vue'
+import HelpView from '@/views/HelpView.vue'
 import MoleculeManagerView from '@/views/MoleculeManagerView.vue'
 import ReportView from '@/views/ReportView.vue'
+import ResultsSearchView from '@/views/ResultsSearchView.vue'
+import ScreeningView from '@/views/ScreeningView.vue'
 import WorkbenchView from '@/views/WorkbenchView.vue'
 
 /**
@@ -26,7 +29,10 @@ const routes: RouteRecordRaw[] = [
   // summary card, this route deep-links straight to the analysis.
   { path: '/report', name: 'report', component: ReportView },
   { path: '/batch', name: 'batch', component: BatchDockingView },
+  { path: '/screening', name: 'screening', component: ScreeningView },
+  { path: '/results', name: 'results', component: ResultsSearchView },
   { path: '/environment', name: 'environment', component: EnvironmentView },
+  { path: '/help', name: 'help', component: HelpView },
   { path: '/about', name: 'about', component: AboutView },
   { path: '/:pathMatch(.*)*', redirect: '/workbench' },
 ]
