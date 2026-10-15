@@ -38,6 +38,9 @@ build/
 dist/
 .venv-build/
 *.whl
+# Generated icons — `python packaging/ci/generate_icons.py` writes these.
+packaging/linux/vinastudio.png
+packaging/windows/icon.ico
 
 # Editors / OS
 .idea/
