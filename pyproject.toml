@@ -32,7 +32,10 @@ dependencies = [
     "pydantic>=2.9",
     "python-multipart>=0.0.12",
     # Docking engine + molecular toolkit
-    "vina>=1.2.7",
+    # No `vina` wheel exists for Windows, and there is nothing to build: the
+    # packaged command-line backend covers that platform, so the module is only
+    # required where it can actually be installed.
+    "vina>=1.2.7; sys_platform != 'win32'",
     "meeko>=0.7.1",
     "rdkit>=2024.3.1",
     "numpy>=1.26",

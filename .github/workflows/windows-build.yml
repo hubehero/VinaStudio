@@ -1,0 +1,99 @@
+name: Windows build
+
+# M4: build the Windows desktop package — PyInstaller bundle plus Inno Setup
+# installer — and keep it as a downloadable artifact.
+#
+# Nothing here is published. The Windows installer goes out only after somebody
+# has installed it on a real machine and walked through the application; until
+# then this job exists to produce the artifact that makes that walkthrough
+# possible, and to catch a broken Windows build early.
+#
+# Manual dispatch on purpose: an artifact nobody looks at is not worth burning
+# runner minutes on every push.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
+
+      - name: Install dependencies
+        run: |
+          # hatchling's force-include names vinastudio/server/static, so the
+          # directory has to exist before the project can be installed; the
+          # frontend build fills it afterwards.
+          New-Item -ItemType Directory -Force -Path vinastudio/server/static | Out-Null
+          New-Item -ItemType File -Force -Path vinastudio/server/static/.gitkeep | Out-Null
+          python -m pip install --upgrade pip setuptools wheel
+          # Resolves on Windows: `vina` carries a `sys.platform != "win32"` marker
+          # because no wheel exists for it — the command-line backend, which the
+          # bundle below carries, covers docking instead.
+          python -m pip install -e ".[dev]" pyinstaller cairosvg pillow
+
+      - name: Build frontend
+        run: |
+          pnpm -C web install --frozen-lockfile
+          python scripts/build_web.py --skip-install
+
+      - name: Generate icons
+        run: python packaging/ci/generate_icons.py
+
+      - name: Fetch the Vina binary
+        run: python scripts/fetch_vina_cli.py
+
+      - name: Build with PyInstaller
+        run: pyinstaller packaging/pyinstaller/vinastudio.spec --noconfirm
+
+      # The bundle is only useful on Windows if the engine actually travelled with
+      # it and still runs there, so this is checked rather than assumed.
+      - name: Check the bundle carries a working engine
+        run: |
+          $binary = "dist/vinastudio/_internal/vinastudio/resources/vina/vina.exe"
+          if (-not (Test-Path $binary)) { throw "the engine binary is not in the bundle" }
+          & $binary --version
+          if ($LASTEXITCODE -ne 0) { throw "the bundled engine does not run" }
+
+      - name: Compile the installer
+        run: |
+          # Inno Setup ships on the runner image; only fetch it if it is missing.
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) {
+            choco install innosetup --no-progress -y
+          }
+          $version = (python -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) {
+            $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          } else {
+            $iscc = "iscc"
+          }
+          & $iscc "/DVERSION=$version" "packaging/windows/vinastudio.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed" }
+
+      - name: Report the artifact
+        run: |
+          Get-ChildItem dist/vinastudio-*-setup.exe |
+            Select-Object Name, @{N="MB";E={[math]::Round($_.Length / 1MB, 1)}}
+
+      - name: Upload the installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: dist/vinastudio-*-setup.exe
+          if-no-files-found: error

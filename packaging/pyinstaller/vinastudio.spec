@@ -82,8 +82,6 @@ hiddenimports = [
     "meeko.preparation",
     "meeko.gridset",
 
-    "vina",
-
     "gemmi",
 
     # --- FastAPI / Uvicorn ---
@@ -119,6 +117,12 @@ hiddenimports = [
     # --- Misc ---
     "json",
 ]
+
+# No `vina` module exists on Windows — there is no wheel to install — so only ask
+# PyInstaller for it where it can be imported. The packaged command-line backend
+# covers that platform instead, which is the reason the Windows build works at all.
+if sys.platform != "win32":
+    hiddenimports.append("vina")
 
 # ---------------------------------------------------------------------------
 # Collect sub-packages

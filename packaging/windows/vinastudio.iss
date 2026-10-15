@@ -14,7 +14,11 @@
 #define MyAppPublisher "hubehero"
 #define MyAppURL "https://github.com/hubehero/VinaStudio"
 #define MyAppExeName "vinastudio.exe"
-#define MyAppSource "..\dist\vinastudio"
+; Inno resolves relative paths against this script's own directory, which is why
+; LicenseFile below reaches the repository root with two `..`. The bundle and the
+; output directory have to match that depth; they used to be one level short, so
+; the installer could not have built from `dist/vinastudio` at all.
+#define MyAppSource "..\..\dist\vinastudio"
 
 ; VC++ Redistributable 2015-2022 (x64)
 #define VcRedistUrl "https://aka.ms/vs/17/release/vc_redist.x64.exe"
@@ -31,7 +35,7 @@ AppUpdatesURL={#MyAppURL}/releases
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 LicenseFile=..\..\LICENSE
-OutputDir=..\dist
+OutputDir=..\..\dist
 OutputBaseFilename=vinastudio-{#VERSION}-setup
 Compression=lzma2/ultra64
 SolidCompression=yes
