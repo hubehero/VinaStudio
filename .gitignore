@@ -62,3 +62,8 @@ AGENTS.md
 
 # Session exports
 command-code-session-*.html
+
+# Vina command-line binary (scripts/fetch_vina_cli.py) — a build input, never
+# committed; the packaged builds bundle their own verified copy.
+vinastudio/resources/vina/vina
+vinastudio/resources/vina/vina.exe

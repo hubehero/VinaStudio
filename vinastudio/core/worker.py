@@ -21,19 +21,13 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
-import re
-import time
 from multiprocessing.connection import Connection
 from pathlib import Path
 from typing import Any
 
-log = logging.getLogger(__name__)
+from vinastudio.core.engines.common import events_for_line
 
-# Regex patterns for parsing Vina stdout
-_GRID_RE = re.compile(r"Computing Vina grid")
-_DOCKING_RE = re.compile(r"Performing docking")
-_PROGRESS_RE = re.compile(r"(\d+)%")
-_RESULTS_RE = re.compile(r"mode\s*\|\s*affinity")
+log = logging.getLogger(__name__)
 
 
 def _emit(pipe: Connection, kind: str, data: dict[str, Any] | None = None) -> None:
@@ -46,40 +40,32 @@ def _emit(pipe: Connection, kind: str, data: dict[str, Any] | None = None) -> No
 
 
 def _read_and_parse(pipe: Connection, fd: int) -> None:
-    """Read from a file descriptor line-by-line and emit progress events."""
-    import fcntl
+    """Read Vina's stdout line-by-line and emit progress events.
 
-    flags = fcntl.fcntl(fd, fcntl.F_GETFL)
-    fcntl.fcntl(fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
-
+    Blocking reads, in the thread that exists for exactly this: the write end is
+    closed when the worker restores stdout, so the loop ends at EOF. The previous
+    version flipped the descriptor to non-blocking mode with ``fcntl`` — a
+    POSIX-only module, which made this worker unimportable on Windows — and the
+    only thing that bought was a 50 ms poll loop. A worker that wedges anyway is
+    killed by the parent, and this thread dies with the process.
+    """
     buffer = b""
     while True:
         try:
             chunk = os.read(fd, 4096)
-            if not chunk:
-                break
-            buffer += chunk
-            while b"\n" in buffer:
-                line_bytes, buffer = buffer.split(b"\n", 1)
-                line = line_bytes.decode("utf-8", errors="replace").rstrip()
-                if not line:
-                    continue
-
-                if _GRID_RE.search(line):
-                    _emit(pipe, "stage", {"stage": "computing_grid"})
-                elif _DOCKING_RE.search(line):
-                    _emit(pipe, "stage", {"stage": "docking"})
-                elif _RESULTS_RE.search(line):
-                    _emit(pipe, "stage", {"stage": "exporting"})
-                else:
-                    match = _PROGRESS_RE.search(line)
-                    if match:
-                        _emit(pipe, "progress", {"percent": int(match.group(1))})
-                    _emit(pipe, "log", {"line": line})
-        except BlockingIOError:
-            time.sleep(0.05)
         except (OSError, ValueError):
             break
+        if not chunk:
+            break
+
+        buffer += chunk
+        while b"\n" in buffer:
+            line_bytes, buffer = buffer.split(b"\n", 1)
+            line = line_bytes.decode("utf-8", errors="replace").rstrip()
+            if not line:
+                continue
+            for kind, data in events_for_line(line):
+                _emit(pipe, kind, data)
 
 
 def docking_worker(params: dict[str, Any], pipe: Connection) -> None:

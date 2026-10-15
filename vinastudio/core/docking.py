@@ -129,15 +129,25 @@ def run_docking(params: DockingParams, output_dir: str) -> DockingResult:
         overwrite=True,
     )
 
-    # Parse the written PDBQT to extract affinities and RMSD values from
-    # REMARK VINA RESULT lines.  The Vina.energies() API does not return RMSD.
+    return result_from_poses(out_pdbqt, elapsed_ms)
+
+
+def result_from_poses(out_pdbqt: Path, elapsed_ms: int) -> DockingResult:
+    """Assemble a :class:`DockingResult` from a written poses file.
+
+    Shared by both backends deliberately: the Python API and the CLI write the
+    same PDBQT, and a second copy of this assembly is exactly how the two would
+    start disagreeing about affinities, pose counts or the SDF conversion.
+    """
+    # Affinities and RMSD come from the ``REMARK VINA RESULT`` lines; the
+    # ``Vina.energies()`` API does not return RMSD at all.
     from vinastudio.core.chem.pdbqt import parse_pdbqt
 
+    text = out_pdbqt.read_text(encoding="utf-8", errors="replace") if out_pdbqt.exists() else ""
+
     poses: list[PoseResult] = []
-    if out_pdbqt.exists():
-        pdbqt_text = out_pdbqt.read_text(encoding="utf-8", errors="replace")
-        doc = parse_pdbqt(pdbqt_text)
-        for pose in doc.poses:
+    if text:
+        for pose in parse_pdbqt(text).poses:
             poses.append(PoseResult(
                 index=pose.index,
                 affinity=pose.energy or 0.0,
@@ -145,21 +155,18 @@ def run_docking(params: DockingParams, output_dir: str) -> DockingResult:
                 rmsd_upper=pose.rmsd_upper_bound or 0.0,
             ))
 
-    best = min((p.affinity for p in poses), default=0.0) if poses else 0.0
-
     result = DockingResult(
         poses=poses,
-        best_affinity=best,
+        best_affinity=min((p.affinity for p in poses), default=0.0) if poses else 0.0,
         n_poses=len(poses),
         elapsed_ms=elapsed_ms,
-        poses_pdbqt=out_pdbqt.read_text(encoding="utf-8", errors="replace") if out_pdbqt.exists() else "",
+        poses_pdbqt=text,
     )
 
-    # Convert to SDF via Meeko
     try:
         from vinastudio.core.chem.export import poses_to_sdf
-        sdf_result = poses_to_sdf(result.poses_pdbqt, title_prefix="pose")
-        result.poses_sdf = sdf_result.sdf
+
+        result.poses_sdf = poses_to_sdf(result.poses_pdbqt, title_prefix="pose").sdf
     except (ImportError, RuntimeError, ValueError) as exc:
         log.warning("SDF export failed: %s", exc)
 
