@@ -176,7 +176,14 @@ export const api = {
     const form = new FormData()
     form.append('file', file)
     // No JSON content type here: the browser must set the multipart boundary.
-    const response = await fetch('/api/files/upload', { method: 'POST', body: form })
+    // The custom header is required by the endpoint: it makes the request
+    // non-simple, so a page the user is merely visiting cannot post a file to
+    // this server without a preflight, which the server never grants.
+    const response = await fetch('/api/files/upload', {
+      method: 'POST',
+      headers: { 'X-Requested-With': 'VinaStudio' },
+      body: form,
+    })
     if (!response.ok) {
       const detail = await response.text().catch(() => '')
       throw new ApiError(detail || `upload failed (${response.status})`, response.status)

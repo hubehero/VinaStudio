@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, Header, HTTPException, UploadFile
 
 from vinastudio.config import SAMPLE_DIR, max_upload_bytes
 from vinastudio.core.chem import preview
@@ -82,13 +83,26 @@ def renderable(request: RenderableRequest) -> list[Artifact]:
 
 
 @router.post("/upload", response_model=SavedUpload)
-async def upload(file: UploadFile = File(...)) -> SavedUpload:
+async def upload(
+    # Required, and first: a parameter without a default cannot follow one that
+    # has it. No default (`= ...` would be read as the value) — the header must
+    # be sent, not defaulted.
+    x_requested_with: Annotated[str, Header()],
+    file: UploadFile = File(...),
+) -> SavedUpload:
     """Accept a dropped file.
 
     Native drag-and-drop into QWebEngine hands the page a File object with no
     filesystem path, so the bytes have to come through HTTP instead of being
     read in place. Files land in a workspace directory and are then treated
     exactly like a path picked through the native dialog.
+
+    This is the one endpoint whose body is not JSON, so it is the one a hostile
+    page could post to *without* a CORS preflight — which is why it also demands
+    a custom header. A browser will not attach one cross-origin without asking
+    permission first, and without CORS headers the preflight fails, so the
+    request never arrives; the ``Origin`` guard in ``server/origin.py`` covers
+    the same ground for clients that do send an origin.
     """
     name = Path(file.filename or "upload").name
     suffix = Path(name).suffix.lower()

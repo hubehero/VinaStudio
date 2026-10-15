@@ -254,6 +254,35 @@ def alert_summary() -> dict[str, int] | None:
     return counts
 
 
+def missing_internal_imports() -> list[str]:
+    """Package modules this tree imports but does not contain.
+
+    The sync tool works from each repository's *tracked* file list, so a new
+    module that was not `git add`ed yet is silently left behind — and the shipped
+    app then fails at startup, after the tag is pushed. This is the check that
+    notices, and it has already earned its place twice (`CONTRIBUTORS.md`,
+    `server/origin.py`).
+    """
+    import_pattern = re.compile(
+        r"^\s*(?:from\s+(vinastudio[\w.]*)\s+import|import\s+(vinastudio[\w.]*))"
+    )
+    problems: set[str] = set()
+    for path in sorted(REPO_ROOT.rglob("*.py")):
+        relative = path.relative_to(REPO_ROOT)
+        # `tests/` is not shipped (gitignored here), and static/ is generated.
+        if relative.parts[0] in {"tests", "static", ".venv"} or "node_modules" in relative.parts:
+            continue
+        for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+            match = import_pattern.match(line)
+            if match is None:
+                continue
+            module = match.group(1) or match.group(2)
+            target = REPO_ROOT.joinpath(*module.split("."))
+            if not target.with_suffix(".py").exists() and not (target / "__init__.py").exists():
+                problems.add(f"{relative}: {module}")
+    return sorted(problems)
+
+
 def main() -> int:
     allow_published = "--allow-published" in sys.argv[1:]
     version = project_version()
@@ -349,6 +378,11 @@ def main() -> int:
     scanned: list[tuple[str, str]] = []
     if section:
         scanned.append(("CHANGELOG section", section))
+    # Pending entries are checked too: they become a release section at the next
+    # prep, and catching the wording once it is already published is too late.
+    unreleased = changelog_section("Unreleased")
+    if unreleased:
+        scanned.append(("CHANGELOG [Unreleased]", unreleased))
     messages = commits_since_last_release(parsed)
     if messages.strip():
         scanned.append(("new commit messages", messages))
@@ -463,6 +497,19 @@ def main() -> int:
             )
         else:
             ok("nothing high or critical open", listed)
+
+    # 10. The tree is self-contained. A sync that left a new file behind — the
+    #     failure mode seen twice — produces a tree whose imports resolve nowhere.
+    print("\n[10] Tree completeness")
+    missing = missing_internal_imports()
+    if missing:
+        bad(
+            "internal imports",
+            f"{len(missing)} module(s) missing (a sync step probably missed a new file): "
+            + "; ".join(missing[:3]),
+        )
+    else:
+        ok("every vinastudio import resolves inside this tree")
 
     print()
     if failures:

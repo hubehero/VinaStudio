@@ -31,7 +31,9 @@ python packaging/ci/bump-version.py --version 0.4.0
 
 ### 2. Write the changelog section
 
-Add a `## [0.4.0] - YYYY-MM-DD` section to `CHANGELOG.md` with the usual
+Move the entries under `## [Unreleased]` into a new `## [0.4.0] - YYYY-MM-DD`
+section (Keep a Changelog's flow), leaving `[Unreleased]` empty behind them, and
+add anything the section is still missing. Use the usual
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) headings: `Added`,
 `Changed`, `Fixed`, and an explicit `Out of scope` when something was
 deliberately left out. Both languages are welcome; the project ships Chinese and

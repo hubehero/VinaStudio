@@ -10,6 +10,7 @@ import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from os import PathLike
+from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,6 +23,11 @@ from vinastudio.config import APP_NAME, STATIC_DIR, dev_server_url
 from vinastudio.core.errors import ReceptorTemplateError, VinaStudioError
 from vinastudio.core.paths import resolve_artifact
 from vinastudio.server.job_manager import manager as job_manager
+from vinastudio.server.origin import (
+    DEV_ORIGINS,
+    STATE_CHANGING_METHODS,
+    origin_is_trusted,
+)
 from vinastudio.server.routers import (
     box,
     chem,
@@ -44,9 +50,9 @@ from vinastudio.server.ws import router as ws_router
 
 log = logging.getLogger(__name__)
 
-#: Origins allowed to call the API. Production is same-origin; the Vite dev
-#: server needs to be listed explicitly so hot reload keeps working.
-DEV_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
+# The origin policy (which callers may drive the API, and why a missing Origin is
+# allowed) lives in `server/origin.py`; `DEV_ORIGINS` comes from there so `ws.py`
+# can share it without a circular import.
 
 
 @asynccontextmanager
@@ -85,6 +91,21 @@ def create_app() -> FastAPI:
             allow_methods=["*"],
             allow_headers=["*"],
         )
+
+    # A page the user is merely visiting must not be able to drive this API. The
+    # desktop shell is the only client and it is same-origin, so anything that
+    # announces a foreign origin is refused; see `server/origin.py` for why a
+    # missing origin is allowed. Added last, so it runs before CORS.
+    @app.middleware("http")
+    async def _reject_foreign_origins(request: Request, call_next: Any) -> Any:
+        if request.method in STATE_CHANGING_METHODS and not origin_is_trusted(
+            request.headers.get("origin"), DEV_ORIGINS
+        ):
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "this API is local: a request from another origin is refused"},
+            )
+        return await call_next(request)
 
     # WebSocket channel sits at the root so the frontend has a stable URL.
     app.include_router(ws_router)

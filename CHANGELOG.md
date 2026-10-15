@@ -10,6 +10,23 @@ and [Semantic Versioning](https://semver.org/spec/v2.0.0.html) (during 0.y.z any
 may change). **Release notes are generated from the matching section below**, so keep
 entries about the product — no internal task ids or workflow narration.
 
+## [Unreleased]
+
+### 修复
+
+- 加固本机 API 的来源策略：状态变更请求若声明了**外来 `Origin`**（含 `Origin: null`）
+  一律拒绝，WebSocket 握手同样检查；上传端点（唯一的非 JSON 请求体，也是浏览器唯一
+  会**免预检**发出的请求）额外要求一个自定义头。不带 `Origin` 的请求（curl、脚本、
+  测试客户端）照旧放行——功能与命令行用法不变。
+
+### Fixed
+
+- Hardened the local API's origin policy: a state-changing request that announces a
+  foreign `Origin` (including `Origin: null`) is refused, the WebSocket handshake is
+  checked the same way, and the upload endpoint — the only non-JSON body, and therefore
+  the only request a browser sends without a preflight — additionally requires a custom
+  header. Requests without an `Origin` (curl, scripts, tests) behave exactly as before.
+
 ## [0.3.0] - 2026-10-14
 
 自 v0.2.0（2026-09-27）以来的全部交付。质量基线：pytest 627 全绿 / ruff 0 /

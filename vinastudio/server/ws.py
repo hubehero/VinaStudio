@@ -9,6 +9,8 @@ from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
+from vinastudio.server.origin import DEV_ORIGINS, origin_is_trusted
+
 log = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -69,7 +71,16 @@ class EventHub:
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket) -> None:
-    """Keep a duplex channel open; job events flow server to client."""
+    """Keep a duplex channel open; job events flow server to client.
+
+    A WebSocket handshake is not covered by CORS, so a page the user is visiting
+    could otherwise open this channel and read the job event stream. The same
+    origin rule as the HTTP guard applies (``server/origin.py``).
+    """
+    if not origin_is_trusted(websocket.headers.get("origin"), DEV_ORIGINS):
+        await websocket.close(code=1008)  # policy violation, before accept()
+        return
+
     hub: EventHub = websocket.app.state.events
     await hub.connect(websocket)
     try:
