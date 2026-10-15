@@ -45,8 +45,8 @@ python packaging/ci/release-preflight.py
 
 It lists the published releases, then checks the version sequence, the changelog
 section, the public wording, the tracked tree, the release metadata, the commit
-identity and the workflow. Fix everything it reports — **do not tag** while it
-fails.
+identity, the workflow, and the open security alerts. Fix everything it reports —
+**do not tag** while it fails.
 
 ### 4. Build before tagging
 
@@ -75,6 +75,25 @@ git push origin v0.4.0
 - The release body is the changelog section (not a bare compare link).
 - The assets carry the new version number.
 - The `preflight` and `build-linux` jobs are green.
+
+## Security alerts
+
+The repository is scanned by Dependabot and CodeQL. The pre-flight refuses to
+release while a high or critical alert is open, and "handle it" means one of two
+things — never switching the scanner off:
+
+- **Fix it.** CodeQL re-scans on push, so a fix is confirmed by the next run and
+  the alert closes itself.
+- **Dismiss it with a reason.** The reason is the audit trail: the Security tab
+  keeps the alert, the dismissal and the argument, so the next reader sees why it
+  is not a bug instead of a bare number. `.github/codeql/codeql-config.yml`
+  documents the triage of the `py/path-injection` family — the desktop UI hands
+  the backend absolute paths the user picked in a file dialog, which is the API's
+  contract, and containment where it is required goes through
+  `core/paths.resolve_within`.
+
+The configuration is `.github/codeql/codeql-config.yml` (advanced setup);
+`workflow_dispatch` on the CodeQL workflow re-scans on demand.
 
 ## What CI does
 

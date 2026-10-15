@@ -205,6 +205,55 @@ def commits_since_last_release(candidate: tuple[int, int, int]) -> str:
     return run("git", "log", f"{previous}..HEAD", "--format=%B").stdout
 
 
+def slug() -> str | None:
+    """``owner/name`` of the origin remote, for the alert APIs."""
+    url = run("git", "remote", "get-url", "origin").stdout.strip()
+    if not url:
+        return None
+    tail = url.removesuffix(".git").split("://")[-1]
+    parts = tail.split("/")
+    if len(parts) < 3:
+        return None
+    return "/".join(parts[-2:])
+
+
+#: Severity values the two alert APIs can report. Anything else means the query
+#: went wrong (a jq error still exits 0), and the check must say "unreadable"
+#: rather than invent a green.
+KNOWN_SEVERITIES = frozenset(
+    {"critical", "high", "medium", "low", "warning", "error", "note", "unknown"}
+)
+
+
+def alert_summary() -> dict[str, int] | None:
+    """Open alerts per scanner and severity, or None when unreadable."""
+    repo = slug()
+    if repo is None:
+        return None
+    counts: dict[str, int] = {}
+    sources = (
+        ("dependabot", "dependabot/alerts", ".security_advisory.severity"),
+        ("code scanning", "code-scanning/alerts", ".rule.security_severity_level"),
+    )
+    for label, path, severity in sources:
+        result = run(
+            "gh",
+            "api",
+            f"repos/{repo}/{path}?state=open&per_page=100",
+            "--paginate",
+            "-q",
+            f'.[] | ({severity} // "unknown")',
+        )
+        if result.returncode != 0:
+            return None
+        levels = result.stdout.split()
+        if any(level not in KNOWN_SEVERITIES for level in levels):
+            return None
+        for level in levels:
+            counts[f"{label}: {level}"] = counts.get(f"{label}: {level}", 0) + 1
+    return counts
+
+
 def main() -> int:
     allow_published = "--allow-published" in sys.argv[1:]
     version = project_version()
@@ -393,6 +442,27 @@ def main() -> int:
         bad("release body", "release.yml has no body_path — the notes would be empty")
     else:
         ok("release body comes from CHANGELOG.md")
+
+    # 9. GitHub's scanners. A release ships either a fixed tree or a triaged one:
+    #    an open high-severity finding is a reason to stop and look, and a
+    #    dismissed alert carries its reason to the Security tab.
+    print("\n[9] Security alerts")
+    summary = alert_summary()
+    if summary is None:
+        note("could not read the alert APIs (no gh/network) — check the Security tab by hand")
+    elif not summary:
+        ok("no open alerts from Dependabot or CodeQL")
+    else:
+        listed = ", ".join(f"{key} ×{count}" for key, count in sorted(summary.items()))
+        blocking = [key for key in summary if key.rsplit(": ", 1)[-1] in {"critical", "high"}]
+        if blocking:
+            bad(
+                "open security alerts",
+                f"{listed} — fix or dismiss each one with a reason before tagging; the "
+                "dismissal reason is the audit trail the Security tab keeps",
+            )
+        else:
+            ok("nothing high or critical open", listed)
 
     print()
     if failures:
