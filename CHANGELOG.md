@@ -14,6 +14,10 @@ entries about the product — no internal task ids or workflow narration.
 
 ### 新增
 
+- **安装包内附带官方 Vina 二进制**：桌面包（deb / tar.gz）把它放在
+  `vinastudio/resources/vina/`，因此 `vina` Python 模块缺失或损坏的机器**仍能对接**——这正是
+  命令行后端存在的意义。二进制为 Apache-2.0，署名随包同行；它不进 wheel（wheel 面向该平台
+  必有模块的 `pip` 用户）。
 - **对接后端自动选择**：装不上 `vina` Python 模块的机器（典型是 Windows）会自动改用**官方
   命令行二进制**——同一个 1.2.7 引擎、同一套参数（固定种子下两者结果逐构象一致）。「环境
   自检」页新增一行，显示当前后端**以及为什么**（是模块还是二进制、是否被环境变量指定），
@@ -32,6 +36,11 @@ entries about the product — no internal task ids or workflow narration.
 
 ### Added
 
+- **The official Vina binary now ships inside the desktop packages**: the deb and the
+  tarball carry it at `vinastudio/resources/vina/`, so a machine whose `vina` Python
+  module is missing or broken can still dock — the whole reason the command-line
+  backend exists. It is Apache-2.0 with its attribution alongside, and it stays out
+  of the wheel, which serves `pip` users on platforms where the module exists.
 - **Automatic docking backend**: a machine without the `vina` Python module (Windows,
   typically) falls back to the **official command-line binary** — the same 1.2.7 engine
   with the same parameters (with a fixed seed the two agree pose for pose). The

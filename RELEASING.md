@@ -106,6 +106,12 @@ path containing metacharacters is only a filename. Look at the Security tab, or
 run `gh api repos/hubehero/VinaStudio/code-scanning/alerts?state=open`, *before*
 starting a release rather than during it.
 
+The same goes for `engine-check.yml`: check that both its jobs are green. The
+Windows one is the evidence behind any Windows claim — it docks the 1iep gold
+standard through the command-line backend and asserts the same regime the Linux
+tests use (2026-10-15: 23.1 s, best affinity −13.239 kcal/mol on Windows against
+−13.228 on Linux).
+
 ## What CI does
 
 On `v*` tags, `.github/workflows/release.yml` runs three jobs:

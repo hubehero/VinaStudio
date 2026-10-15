@@ -192,6 +192,9 @@ coll = COLLECT(
     a.datas,
     strip=True,
     upx=True,
-    upx_exclude=[],
+    # Not the engine binary: UPX-compressed executables are a long-standing
+    # antivirus false-positive trigger, and this one runs on students' Windows
+    # machines. Its size (4 MB) is not worth that risk.
+    upx_exclude=["vina", "vina.exe"],
     name="vinastudio",
 )
