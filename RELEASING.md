@@ -97,6 +97,15 @@ things — never switching the scanner off:
 The configuration is `.github/codeql/codeql-config.yml` (advanced setup);
 `workflow_dispatch` on the CodeQL workflow re-scans on demand.
 
+Every push to `main` triggers a scan, so a release can inherit alerts that did not
+exist at the last one: the interactive-operations work added five (2026-10-15 —
+one critical `py/command-line-injection`, three `py/path-injection`, one
+`py/stack-trace-exposure`), each triaged by hand. The critical one was a genuine
+false positive: `subprocess.run()` gets an argv list with no `shell=True`, so a
+path containing metacharacters is only a filename. Look at the Security tab, or
+run `gh api repos/hubehero/VinaStudio/code-scanning/alerts?state=open`, *before*
+starting a release rather than during it.
+
 ## What CI does
 
 On `v*` tags, `.github/workflows/release.yml` runs three jobs:
