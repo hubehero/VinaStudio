@@ -25,6 +25,7 @@ from vinastudio.config import (
     app_home,
     max_upload_bytes,
 )
+from vinastudio.core.engines import backend_report
 
 log = logging.getLogger(__name__)
 router = APIRouter(tags=["system"])
@@ -79,6 +80,10 @@ def info() -> dict[str, Any]:
         "rendering": {
             "softwareRenderRequested": os.environ.get("VINASTUDIO_SOFTWARE_RENDER") == "1"
         },
+        # Which door the next docking run will use, and why. The two backends
+        # share the engine but not the packaging, so "which one am I running" is
+        # worth answering before a user wonders why a platform behaves oddly.
+        "docking": backend_report(),
     }
 
 

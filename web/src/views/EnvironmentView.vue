@@ -16,6 +16,23 @@ onMounted(() => {
   }
 })
 
+/**
+ * Which backend docking will use, in the form the user can act on: the door, and
+ * the reason it was chosen (`reasonCode` is translated; the server's English
+ * `reason` stays in the API for logs).
+ */
+function dockingBackendText(): string {
+  const docking = system.info?.docking
+  if (!docking?.backend) {
+    return t('environment.dockingNone')
+  }
+  const door =
+    docking.backend === 'vina-cli'
+      ? t('environment.dockingCli')
+      : t('environment.dockingApi')
+  return `${door} · ${t(`environment.dockingReason.${docking.reasonCode}`)}`
+}
+
 const runtimeRows = computed(() => {
   const runtime = system.info?.runtime
   return [
@@ -32,6 +49,7 @@ const runtimeRows = computed(() => {
         ? t('environment.softwareRenderOn')
         : t('environment.softwareRenderOff'),
     },
+    { label: t('environment.dockingBackend'), value: dockingBackendText() },
   ]
 })
 

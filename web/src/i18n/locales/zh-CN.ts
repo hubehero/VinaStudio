@@ -724,6 +724,17 @@ export default {
     renderMode: '渲染模式',
     softwareRenderOn: '软件渲染已启用（VINASTUDIO_SOFTWARE_RENDER=1）',
     softwareRenderOff: 'GPU 渲染（未启用软件渲染）',
+    dockingBackend: '对接后端',
+    dockingApi: 'vina Python 模块',
+    dockingCli: 'vina 命令行二进制',
+    dockingNone: '不可用（既无 vina 模块，也没有二进制）',
+    dockingReason: {
+      'module-installed': '本机已安装 vina 模块',
+      'module-missing': '本机缺少 vina 模块，改用官方二进制',
+      'forced-cli': '由环境变量指定使用二进制',
+      'forced-api': '由环境变量指定使用模块',
+      unavailable: '两条路径都不可用',
+    },
   },
   about: {
     title: '关于',

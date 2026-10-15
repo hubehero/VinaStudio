@@ -42,7 +42,10 @@ class DockingParams:
     map_prefix: str | None = None
     """Pre-computed map prefix (from ``precompute_vina_maps``). Overrides ``map_paths``."""
     engine: str = "vina"
-    """Docking engine: ``"vina"`` (default CPU), or ``"unidock"`` (GPU, future)."""
+    """Which engine, and optionally which door: ``"vina"`` is the default and means
+    "the Vina engine, whichever backend this machine can run"; ``"vina-cli"`` asks
+    for the command-line binary explicitly. Resolved by
+    ``core/engines.resolve_backend``, never assumed here."""
 
 
 @dataclass(slots=True)
@@ -68,7 +71,23 @@ def run_docking(params: DockingParams, output_dir: str) -> DockingResult:
 
     This function runs inside a **spawned child process** so that killing the
     process is the only cancellation mechanism — Vina has no interruption API.
+
+    It is also the single entry point for both backends: `core/engines` decides
+    whether this machine docks through the Python API or the command-line binary,
+    so every caller (the workers included) asks for a run and not for a door.
     """
+    # Both backends write into this directory, and Vina refuses to create it. The
+    # API path used to assume the caller had made it while the CLI made its own —
+    # the same run succeeded or failed depending on which door was used.
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+    from vinastudio.core.engines import CLI_BACKEND, resolve_backend
+
+    if resolve_backend(params.engine) == CLI_BACKEND:
+        from vinastudio.core.engines.vina_cli import run_docking_cli
+
+        return run_docking_cli(params, output_dir)
+
     from vina import Vina  # type: ignore[import-untyped]
 
     t0 = time.monotonic()

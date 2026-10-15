@@ -53,9 +53,13 @@ class DockingRequest(BaseModel):
         default=None,
         description="AutoGrid4 map prefix (required for ad4 scoring).",
     )
-    engine: Literal["vina"] = Field(
+    engine: Literal["vina", "vina-cli"] = Field(
         default="vina",
-        description="Docking engine. 'vina' is the only current option; 'unidock' reserved for GPU acceleration.",
+        description=(
+            "Docking backend. 'vina' means the Vina engine, running whichever way "
+            "this machine can (Python module if installed, otherwise the official "
+            "command-line binary); 'vina-cli' asks for the binary explicitly."
+        ),
     )
 
 
@@ -540,9 +544,13 @@ class BatchDockingRequest(BaseModel):
     )
     seed: int = 0
     noRefine: bool = False
-    engine: Literal["vina"] = Field(
+    engine: Literal["vina", "vina-cli"] = Field(
         default="vina",
-        description="Docking engine. 'vina' is the only current option; 'unidock' reserved for GPU acceleration.",
+        description=(
+            "Docking backend. 'vina' means the Vina engine, running whichever way "
+            "this machine can (Python module if installed, otherwise the official "
+            "command-line binary); 'vina-cli' asks for the binary explicitly."
+        ),
     )
 
 

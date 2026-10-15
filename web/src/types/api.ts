@@ -24,6 +24,16 @@ export interface SystemInfo {
     /** VINASTUDIO_SOFTWARE_RENDER=1 was set when the server started. */
     softwareRenderRequested: boolean
   }
+  docking?: {
+    /** Which door the next run uses: the Python module or the CLI binary. */
+    backend: 'vina' | 'vina-cli' | null
+    reason: string
+    /** Machine-readable form of ``reason``, so the interface can translate it. */
+    reasonCode: 'module-installed' | 'module-missing' | 'forced-cli' | 'forced-api' | 'unavailable'
+    apiAvailable: boolean
+    cliAvailable: boolean
+    override: string
+  }
 }
 
 export interface PackageCheck {
@@ -1173,7 +1183,9 @@ export interface ScreeningStartRequest {
   noRefine?: boolean
   /** Concurrent ligand workers; omitted = server default. */
   parallelism?: number
-  engine?: 'vina'
+  /** Which backend to dock with. 'vina' lets this machine choose (Python module
+   *  when installed, otherwise the official binary); 'vina-cli' forces the binary. */
+  engine?: 'vina' | 'vina-cli'
 }
 
 export interface LibrarySummary {

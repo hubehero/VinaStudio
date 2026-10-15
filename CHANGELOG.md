@@ -12,12 +12,27 @@ entries about the product — no internal task ids or workflow narration.
 
 ## [Unreleased]
 
+### 新增
+
+- **对接后端自动选择**：装不上 `vina` Python 模块的机器（典型是 Windows）会自动改用**官方
+  命令行二进制**——同一个 1.2.7 引擎、同一套参数（固定种子下两者结果逐构象一致）。「环境
+  自检」页新增一行，显示当前后端**以及为什么**（是模块还是二进制、是否被环境变量指定），
+  出问题时能一眼看出谁在跑。
+
 ### 修复
 
 - 加固本机 API 的来源策略：状态变更请求若声明了**外来 `Origin`**（含 `Origin: null`）
   一律拒绝，WebSocket 握手同样检查；上传端点（唯一的非 JSON 请求体，也是浏览器唯一
   会**免预检**发出的请求）额外要求一个自定义头。不带 `Origin` 的请求（curl、脚本、
   测试客户端）照旧放行——功能与命令行用法不变。
+
+### Added
+
+- **Automatic docking backend**: a machine without the `vina` Python module (Windows,
+  typically) falls back to the **official command-line binary** — the same 1.2.7 engine
+  with the same parameters (with a fixed seed the two agree pose for pose). The
+  environment page now names the backend **and why** (module or binary, and whether the
+  environment forced it), so a surprising run can be traced to the door it used.
 
 ### Fixed
 

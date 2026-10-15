@@ -725,6 +725,17 @@ export default {
     renderMode: 'Render mode',
     softwareRenderOn: 'Software rendering enabled (VINASTUDIO_SOFTWARE_RENDER=1)',
     softwareRenderOff: 'GPU rendering (software override not enabled)',
+    dockingBackend: 'Docking backend',
+    dockingApi: 'vina Python module',
+    dockingCli: 'vina command-line binary',
+    dockingNone: 'unavailable (no vina module and no binary)',
+    dockingReason: {
+      'module-installed': 'the vina module is installed here',
+      'module-missing': 'no vina module here, so the official binary is used',
+      'forced-cli': 'the environment forces the binary',
+      'forced-api': 'the environment forces the module',
+      unavailable: 'neither path is usable',
+    },
   },
   about: {
     title: 'About',
