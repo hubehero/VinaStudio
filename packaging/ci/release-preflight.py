@@ -41,8 +41,11 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 CHANGELOG = REPO_ROOT / "CHANGELOG.md"
 
 PROJECT_NAME = "VinaStudio"
-PROJECT_IDENTITY_EMAIL = "vinastudio@example.com"
-PROJECT_IDENTITY_NAME = "VinaStudio"
+#: The identity commits and tags must carry: the maintainer's GitHub *noreply*
+#: address.  It is attributable to their account (so the repository's
+#: contributors list is correct) while publishing no personal contact address.
+PROJECT_IDENTITY_EMAIL = "251275216+hubehero@users.noreply.github.com"
+PROJECT_IDENTITY_NAME = "hubehero"
 
 #: Workflow vocabulary that must never reach a public release page or changelog.
 INTERNAL_MARKERS = (

@@ -38,14 +38,22 @@ _COLUMNS: Final = {
     "atom_type": slice(76, 79),
 }
 
+#: ``-?\d+`` and ``\.\d*`` can never match the same character, so a run of digits
+#: has exactly one reading. The previous ``-?\d+\.?\d*`` had two (``12.`` could be
+#: ``\d+``+``.`` or ``\d+``+`\d*`), which is quadratic on a crafted REMARK line
+#: (CodeQL py/polynomial-redos). ``12.`` still parses, as it did before.
+_NUMBER: Final = r"-?\d+(?:\.\d*)?"
+
 _VINA_RESULT_RE: Final = re.compile(
-    r"^REMARK\s+VINA\s+RESULT:\s*(-?\d+\.?\d*)\s+(-?\d+\.?\d*)\s+(-?\d+\.?\d*)"
+    rf"^REMARK\s+VINA\s+RESULT:\s*({_NUMBER})\s+({_NUMBER})\s+({_NUMBER})"
 )
 #: `REMARK SMILES <smiles>` carries exactly one token, which is what separates it
-#: from the multi-token `REMARK SMILES IDX ...` line.
-_SMILES_RE: Final = re.compile(r"^REMARK\s+SMILES\s+(\S+)\s*$")
+#: from the multi-token `REMARK SMILES IDX ...` line. Each captured group starts
+#: with a non-space, so it cannot overlap the `\s+` in front of it — a trailing
+#: `(.+)$` gave the engine a second way to split a long run of spaces.
+_SMILES_RE: Final = re.compile(r"^REMARK\s+SMILES\s+(\S+)$")
 _SMILES_IDX_RE: Final = re.compile(r"^REMARK\s+SMILES\s+IDX\s+(.+)$")
-_H_PARENT_RE: Final = re.compile(r"^REMARK\s+H\s+PARENT\s+(.+)$")
+_H_PARENT_RE: Final = re.compile(r"^REMARK\s+H\s+PARENT\s+(\S.*)$")
 _TORSDOF_RE: Final = re.compile(r"^TORSDOF\s+(\d+)")
 _BRANCH_RE: Final = re.compile(r"^BRANCH\s+(\d+)\s+(\d+)")
 

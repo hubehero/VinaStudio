@@ -51,7 +51,10 @@ CONFIG_KEYS: Final[tuple[str, ...]] = (
     "force_even_voxels",
 )
 
-_CONFIG_LINE_RE = re.compile(r"^\s*([a-z_]+)\s*=\s*(.+?)\s*$", re.IGNORECASE)
+#: ``(\S.*)`` starts on a non-space, so it cannot overlap the ``\s*`` before it;
+#: the previous ``(.+?)\s*$`` gave the engine two ways to split a long run of
+#: trailing spaces (CodeQL py/polynomial-redos). The caller strips the value.
+_CONFIG_LINE_RE = re.compile(r"^\s*([a-z_]+)\s*=\s*(\S.*)$", re.IGNORECASE)
 
 
 @dataclass(frozen=True, slots=True)
@@ -199,7 +202,7 @@ class Box:
                 continue
             match = _CONFIG_LINE_RE.match(line)
             if match:
-                values[match.group(1).lower()] = match.group(2)
+                values[match.group(1).lower()] = match.group(2).strip()
 
         missing = [key for key in CONFIG_KEYS[:6] if key not in values]
         if missing:

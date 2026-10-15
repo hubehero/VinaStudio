@@ -1,0 +1,20 @@
+# CodeQL configuration — advanced setup.
+#
+# The repository previously used CodeQL's *default* setup, which runs with no
+# configuration and reported 100 `py/path-injection` alerts on this codebase.
+# Those reflect the API's contract rather than 100 bugs: the desktop UI hands
+# the backend absolute paths the user picked in a native file dialog, so a
+# request path is *supposed* to point anywhere on disk. Where containment is
+# required, the code enforces it (`vinastudio/core/paths.resolve_within`, used by
+# the artifact endpoint, project and results routes).
+#
+# The query therefore stays enabled — a path built from untrusted data in a
+# *new* place is worth seeing — and each existing alert is triaged with a reason
+# instead of being switched off here. This file only narrows the scan to source
+# we own.
+name: "VinaStudio CodeQL"
+
+paths-ignore:
+  - vinastudio/server/static # built frontend bundle
+  - web/dist
+  - "**/node_modules"
