@@ -52,7 +52,7 @@ _VINA_RESULT_RE: Final = re.compile(
 #: with a non-space, so it cannot overlap the `\s+` in front of it — a trailing
 #: `(.+)$` gave the engine a second way to split a long run of spaces.
 _SMILES_RE: Final = re.compile(r"^REMARK\s+SMILES\s+(\S+)$")
-_SMILES_IDX_RE: Final = re.compile(r"^REMARK\s+SMILES\s+IDX\s+(.+)$")
+_SMILES_IDX_RE: Final = re.compile(r"^REMARK\s+SMILES\s+IDX\s+(\S.*)$")
 _H_PARENT_RE: Final = re.compile(r"^REMARK\s+H\s+PARENT\s+(\S.*)$")
 _TORSDOF_RE: Final = re.compile(r"^TORSDOF\s+(\d+)")
 _BRANCH_RE: Final = re.compile(r"^BRANCH\s+(\d+)\s+(\d+)")
