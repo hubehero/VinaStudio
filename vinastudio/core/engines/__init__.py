@@ -84,34 +84,6 @@ def resolve_backend(engine: str | None = None) -> str:
     )
 
 
-def interactive_pose_backend() -> str:
-    """Which backend can export a conformation for ``optimize`` / ``randomize``.
-
-    Inverted on purpose compared with :func:`resolve_backend`: the Python API
-    cannot produce a pose here — ``Vina.poses()`` and ``write_poses()`` read the
-    *docking* pose store, which ``optimize()`` and ``randomize()`` never fill,
-    while the binary writes the conformation with ``--out``. So whenever the
-    binary is available it is used, even where the module is installed; without
-    it the caller gets an explicit error instead of an empty pose. The
-    environment override still wins, which is how the API path's behaviour can be
-    inspected deliberately.
-    """
-    override = os.environ.get(ENV_BACKEND, "").strip().lower()
-    if override not in _ENV_CHOICES:
-        raise ValueError(f"{ENV_BACKEND} must be auto, api or cli — got {override!r}")
-    if override == "api":
-        return API_BACKEND
-    if override == "cli" or cli_available():
-        return CLI_BACKEND
-    if api_available():
-        return API_BACKEND
-    raise RuntimeError(
-        "no docking backend is usable: the `vina` Python module is not installed "
-        "and no command-line binary was found — run "
-        "`uv run python scripts/fetch_vina_cli.py`"
-    )
-
-
 def backend_report() -> dict[str, object]:
     """What ``/api/system/info`` shows: the door this machine would use, and why.
 

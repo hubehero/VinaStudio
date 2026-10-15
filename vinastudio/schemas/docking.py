@@ -225,7 +225,9 @@ class RandomizeRequest(BaseModel):
     spacing: float = 0.375
     forceEvenVoxels: bool = False
     maxSteps: int = 10000
-    #: Vina RNG seed; 0 lets Vina seed itself.  Set it to replay a randomisation.
+    #: Kept for shape compatibility with the docking request, and **ignored**:
+    #: Vina's randomisation seeds itself, so no value here can replay a run —
+    #: measured on both backends (2026-10-15).
     seed: int = Field(default=0, ge=0)
 
 

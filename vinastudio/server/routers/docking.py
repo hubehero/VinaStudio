@@ -25,11 +25,7 @@ from vinastudio.core.chem.ifp import (
     tanimoto,
 )
 from vinastudio.core.docking import DockingParams
-from vinastudio.core.engines import (
-    CLI_BACKEND,
-    interactive_pose_backend,
-    resolve_backend,
-)
+from vinastudio.core.engines import CLI_BACKEND, resolve_backend
 from vinastudio.core.engines.vina_cli import optimize_cli, randomize_cli, score_cli
 from vinastudio.core.errors import (
     EngineCapabilityError,
@@ -917,22 +913,23 @@ def _interactive_params(
 
 
 def _exported_pose(v: Any, operation: str) -> str:
-    """The conformation Vina is holding, or an actionable error.
+    """The conformation Vina is holding after ``operation``.
 
-    ``Vina.poses()`` reads the *docking* pose store, which ``optimize()`` and
-    ``randomize()`` never fill — this used to return an empty string, which the
-    interface showed as "nothing happened". Write the pose out and read it back
-    (the pattern ``run_docking`` uses) and, if even that yields nothing, say so
-    rather than returning silence.
+    ``write_pose`` (singular) is the writer for this: it documents itself as
+    "write pose (after randomize or optimize)". The plural ``write_poses`` reads
+    the *docking* pose store, which neither of those calls fills — using it here
+    is what made these endpoints return an empty conformation for as long as they
+    did. The guard stays because silence is worse than an error: a response must
+    never claim to carry a conformation that was not written.
     """
     with tempfile.TemporaryDirectory(prefix="vinastudio-pose-") as scratch:
         path = Path(scratch) / "pose.pdbqt"
-        v.write_poses(str(path), n_poses=1, overwrite=True)
+        v.write_pose(str(path), overwrite=True)
         if not path.is_file():
             raise EngineCapabilityError(
-                f"the Python API cannot export a conformation after {operation}: its "
-                "pose store is only filled by docking. Fetch the command-line binary "
-                "(`uv run python scripts/fetch_vina_cli.py`) to enable this operation."
+                f"this engine produced no conformation for {operation}. Fetch the "
+                "command-line binary (`uv run python scripts/fetch_vina_cli.py`) and it "
+                "will be used instead."
             )
         return path.read_text(encoding="utf-8", errors="replace")
 
@@ -967,7 +964,7 @@ def optimize_pose(request: OptimizeRequest) -> OptimizeResponse:
     if not receptor.exists():
         raise InvalidInputError(f"receptor file not found: {request.receptorPath}")
 
-    if interactive_pose_backend() == CLI_BACKEND:
+    if resolve_backend() == CLI_BACKEND:
         with tempfile.TemporaryDirectory(prefix="vinastudio-optimize-") as scratch:
             energy, pose = optimize_cli(_interactive_params(request), request.maxSteps, scratch)
         return OptimizeResponse(energy=energy, ligandPdbqt=pose)
@@ -997,7 +994,7 @@ def randomize_pose(request: RandomizeRequest) -> RandomizeResponse:
     if not receptor.exists():
         raise InvalidInputError(f"receptor file not found: {request.receptorPath}")
 
-    if interactive_pose_backend() == CLI_BACKEND:
+    if resolve_backend() == CLI_BACKEND:
         with tempfile.TemporaryDirectory(prefix="vinastudio-randomize-") as scratch:
             pose = randomize_cli(_interactive_params(request), request.maxSteps, scratch)
         return RandomizeResponse(ligandPdbqt=pose)

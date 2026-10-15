@@ -21,10 +21,10 @@ entries about the product — no internal task ids or workflow narration.
 
 ### 修复
 
-- **交互式「优化」与「随机化」修好**：这两个操作此前拿不到构象（「优化」更是直接失败）。
-  现在两者都返回真实构象，「优化」另返回能量；当本机无法导出构象时，界面给出**可行动**的
-  提示（说明怎样启用），而不是静默返回空。随机化的种子输入框补了一句如实说明：该种子
-  不被随机化使用（引擎自己取种，两条后端皆然）。
+- **交互式「优化」与「随机化」修好**：这两个操作此前拿不到构象（「优化」更是直接失败），
+  根因是调用了写**对接**构象的那个接口。现在两条路径都返回真实构象，「优化」另返回能量。
+  随机化的种子输入框已移除：引擎的随机化不接受种子、结果无法复现（两条路径皆然），
+  留着输入框等于假承诺，现在改为一句如实说明。
 - 加固本机 API 的来源策略：状态变更请求若声明了**外来 `Origin`**（含 `Origin: null`）
   一律拒绝，WebSocket 握手同样检查；上传端点（唯一的非 JSON 请求体，也是浏览器唯一
   会**免预检**发出的请求）额外要求一个自定义头。不带 `Origin` 的请求（curl、脚本、
@@ -41,11 +41,10 @@ entries about the product — no internal task ids or workflow narration.
 ### Fixed
 
 - **Interactive "optimise" and "randomise" work again**: neither could return a
-  conformation and optimise failed outright. Both now hand back the real pose —
-  optimise with its energy — and when the machine cannot export one at all the
-  interface says what would fix it instead of quietly returning nothing. The
-  randomise seed field also states plainly that Vina ignores it (the engine seeds
-  itself, on both backends).
+  conformation (optimise failed outright) because both asked the writer that serves
+  **docking** poses. Both doors now hand back the real pose, optimise with its energy,
+  and the randomise seed field is gone: the engine takes no seed for randomisation and
+  no run can be reproduced, so the field was a promise it could not keep.
 - Hardened the local API's origin policy: a state-changing request that announces a
   foreign `Origin` (including `Origin: null`) is refused, the WebSocket handshake is
   checked the same way, and the upload endpoint — the only non-JSON body, and therefore

@@ -639,7 +639,9 @@ export interface RandomizeRequest {
   spacing: number
   forceEvenVoxels: boolean
   maxSteps: number
-  seed: number
+  /** Accepted for shape compatibility with docking and ignored by the engine:
+   *  Vina's randomisation seeds itself, so a value here cannot replay a run. */
+  seed?: number
 }
 
 export interface RandomizeResponse {

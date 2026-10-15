@@ -25,7 +25,6 @@ const box = useBoxStore()
 const scoring = ref<ScoringFunction>('vina')
 const optimizeMaxSteps = ref(0)
 const randomizeMaxSteps = ref(10000)
-const randomizeSeed = ref(0)
 
 const loading = ref<'score' | 'optimize' | 'randomize' | null>(null)
 const scoreResult = ref<ScoreResponse | null>(null)
@@ -94,7 +93,6 @@ async function handleRandomize(): Promise<void> {
     randomizeResult.value = await api.randomizePose({
       ...baseBody(),
       maxSteps: randomizeMaxSteps.value,
-      seed: randomizeSeed.value,
     })
   } catch {
     ElMessage.error(t('docking.workbench.error'))
@@ -158,16 +156,13 @@ function downloadRandomized(): void {
       </div>
 
       <div class="workbench__params">
-        <div class="form__field form__field--half">
-          <label class="form__label">{{ t('docking.workbench.seed') }}</label>
-          <ElInputNumber v-model="randomizeSeed" :min="0" size="small" style="width: 100%" />
-        </div>
-        <div class="form__field form__field--half">
+        <div class="form__field">
           <label class="form__label">{{ t('docking.workbench.maxSteps') }}</label>
           <ElInputNumber v-model="randomizeMaxSteps" :min="1" size="small" style="width: 100%" />
         </div>
       </div>
-      <p class="vs-faint workbench__note">{{ t('docking.workbench.seedIgnored') }}</p>
+      <!-- No seed field: this operation ignores one, on both backends. -->
+      <p class="vs-faint workbench__note">{{ t('docking.workbench.randomizeNote') }}</p>
 
       <!-- Score result -->
       <div v-if="scoreResult" class="workbench__result">
