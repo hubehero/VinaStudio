@@ -21,8 +21,9 @@
 #define MyAppSource "..\..\dist\vinastudio"
 
 ; VC++ Redistributable 2015-2022 (x64)
+; Only the URL is used: the installer detects the runtime and points the user at
+; this download rather than shipping a 25 MB redistributable inside the package.
 #define VcRedistUrl "https://aka.ms/vs/17/release/vc_redist.x64.exe"
-#define VcRedistFileName "vc_redist.x64.exe"
 
 [Setup]
 AppId={{B7A3E4F2-91D6-4C8A-A5F3-2E8B7C6D1F0A}
@@ -53,8 +54,12 @@ CloseApplications=force
 RestartApplications=no
 
 [Languages]
+; English only, deliberately. Chinese is not among Inno Setup's bundled languages,
+; and the unofficial set upstream (Files/Languages/Unofficial) has no
+; ChineseSimplified.isl either — referencing it aborted the compile on a file that
+; does not exist anywhere Inno looks. The application's own interface is bilingual
+; regardless; only this installer's few screens are English.
 Name: "english"; MessagesFile: "compiler:Default.isl"
-Name: "chinese"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: checkedonce
