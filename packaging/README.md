@@ -89,6 +89,24 @@ This will:
 Output:
 - `dist\vinastudio-X.Y.Z-setup.exe`
 
+## What the bundle carries
+
+The desktop packages ship the **official Vina binary** alongside the Python
+application, at `vinastudio/resources/vina/`. `packaging/pyinstaller/vinastudio.spec`
+already copies the whole `resources/` tree, so the build just has to fetch it first
+(`scripts/fetch_vina_cli.py`, checksum-verified) — the Linux release job does that
+before running PyInstaller.
+
+Why it is there on Linux too, where the `vina` Python module normally works: a
+machine whose module is missing or broken can still dock, which is the whole point
+of the command-line backend. On Windows there is no module to fall back on at all.
+
+The binary is Apache-2.0 and its attribution travels with it
+(`vinastudio/resources/vina/README.md`). It is **not** in the wheel: that is for
+`pip` users on platforms where the module exists. The Windows installer additionally
+needs the Microsoft Visual C++ runtime, which `packaging/windows/vinastudio.iss`
+declares.
+
 ## Creating a Release
 
 ### 1. Bump the version
@@ -158,3 +176,14 @@ The build scripts are designed to run in GitHub Actions. See
 - Read version from `pyproject.toml` (no manual intervention needed)
 - Create isolated virtual environments (no pollution of CI runner)
 - Produce self-contained artifacts ready for release upload
+
+Two workflows matter beyond the tag build:
+
+- **`release.yml`** — runs `packaging/ci/release-preflight.py` before anything is
+  built, so a release that breaks the project's own rules cannot ship. See
+  `RELEASING.md` for the rules themselves.
+- **`engine-check.yml`** — because this tree ships no test suite, it docks the 1iep
+  gold standard on **both** `ubuntu-latest` and `windows-latest`. The Windows job is
+  the standing evidence that the engine works there (and that `vinastudio.core`
+  imports without Qt or FastAPI), which is the claim the CLI backend exists to make
+  possible.

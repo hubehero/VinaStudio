@@ -103,6 +103,15 @@ jobs:
           . .venv/bin/activate
           python packaging/ci/generate_icons.py
 
+      - name: Fetch the Vina binary
+        run: |
+          # The desktop package carries the engine binary: a machine whose Python
+          # module is missing or broken can still dock, and that redundancy is the
+          # whole point of the command-line backend. `vinastudio/resources/**` is
+          # already in the PyInstaller spec's datas, so fetching it is enough.
+          . .venv/bin/activate
+          python scripts/fetch_vina_cli.py
+
       - name: Build with PyInstaller
         run: |
           . .venv/bin/activate

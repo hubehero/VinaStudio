@@ -1,0 +1,41 @@
+name: Engine check
+
+# This tree ships no test suite (`.gitignore` excludes `tests/`), so this workflow
+# stands in for it: one real docking per platform, asserted against the same
+# gold-standard regime the Linux tests use.
+#
+# The Windows job is the standing evidence that the engine works there. It matters
+# because the `vina` Python module cannot be installed on Windows at all — the
+# command-line backend is what makes Windows possible, and it needs no GUI, so the
+# scientific claim can be checked on a runner instead of a person's desk.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  engine:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Deliberately just the engine side: no PySide6, no FastAPI. The check
+      # imports `vinastudio.core` only, which must stay importable without Qt or
+      # the web stack — if that ever stops being true, this job says so.
+      - name: Install the engine-side dependencies
+        run: python -m pip install --upgrade pip numpy scipy rdkit meeko gemmi
+
+      # Fetches the official binary (checksum-verified) and the 1iep samples when
+      # the checkout lacks them, docks, and asserts the result.
+      - name: Dock the 1iep gold standard
+        run: python packaging/ci/vina_engine_check.py
