@@ -603,6 +603,7 @@ export default {
       optimizeDesc: '局部最小化构象能量',
       randomize: '随机化',
       randomizeDesc: '随机生成候选构象并保留能量最低者',
+      seedIgnored: 'Vina 的随机化不使用该种子：同一个种子两次运行结果也不同（引擎自己取种）。',
       seed: '随机种子',
       maxSteps: '最大步数',
       result: '结果',

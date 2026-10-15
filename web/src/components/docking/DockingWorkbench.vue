@@ -167,6 +167,7 @@ function downloadRandomized(): void {
           <ElInputNumber v-model="randomizeMaxSteps" :min="1" size="small" style="width: 100%" />
         </div>
       </div>
+      <p class="vs-faint workbench__note">{{ t('docking.workbench.seedIgnored') }}</p>
 
       <!-- Score result -->
       <div v-if="scoreResult" class="workbench__result">
@@ -234,6 +235,11 @@ function downloadRandomized(): void {
   font-size: 12.5px;
   font-weight: 600;
   color: var(--vs-text-muted);
+}
+
+.workbench__note {
+  margin: 6px 0 0;
+  line-height: 1.5;
 }
 
 .workbench__result {

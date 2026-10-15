@@ -67,8 +67,19 @@ def brief_error(exc: BaseException | str) -> str:
     return summary
 
 
+class EngineCapabilityError(VinaStudioError):
+    """The configured backend cannot perform this operation at all.
+
+    Distinct from invalid input (422): nothing the caller can send would help.
+    Distinct from a 500 bug: the server is behaving as designed, it just cannot do
+    this here — so the message says what would make it possible.
+    """
+
+    status_code = 409
+
+
 class ExternalServiceError(VinaStudioError):
-    """An upstream HTTP service (e.g. RCSB) returned an error or was unreachable."""
+    """An upstream service (RCSB, PubChem) failed or refused us."""
 
     status_code = 502
 

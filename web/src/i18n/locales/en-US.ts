@@ -603,6 +603,7 @@ export default {
       optimizeDesc: 'Locally minimise the ligand conformation energy',
       randomize: 'Randomise',
       randomizeDesc: 'Generate random candidate conformers, keep the best',
+      seedIgnored: "Vina's randomisation does not use this seed: two runs with the same value differ (the engine seeds itself).",
       seed: 'Random seed',
       maxSteps: 'Max steps',
       result: 'Result',

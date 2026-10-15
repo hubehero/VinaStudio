@@ -6,6 +6,7 @@ import hashlib
 import json
 import logging
 import os
+import tempfile
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -23,7 +24,19 @@ from vinastudio.core.chem.ifp import (
     residue_columns,
     tanimoto,
 )
-from vinastudio.core.errors import InvalidInputError, JobNotFoundError, brief_error
+from vinastudio.core.docking import DockingParams
+from vinastudio.core.engines import (
+    CLI_BACKEND,
+    interactive_pose_backend,
+    resolve_backend,
+)
+from vinastudio.core.engines.vina_cli import optimize_cli, randomize_cli, score_cli
+from vinastudio.core.errors import (
+    EngineCapabilityError,
+    InvalidInputError,
+    JobNotFoundError,
+    brief_error,
+)
 from vinastudio.core.paths import (
     ANALYSIS_CACHE_FILENAME,
     BATCH_RESULTS_CSV_FILENAME,
@@ -885,12 +898,55 @@ def _configure_vina(
     return v
 
 
+def _interactive_params(
+    request: ScoreRequest | OptimizeRequest | RandomizeRequest,
+) -> DockingParams:
+    """The interactive request as the backend-neutral parameter object."""
+    return DockingParams(
+        receptor_path=request.receptorPath,
+        flex_pdbqt_path=request.flexReceptorPath,
+        ligand_path=request.ligandPath,
+        ligand_pdbqt_string=request.ligandPdbqtString,
+        center=request.center,
+        size=request.size,
+        scoring=request.scoring,
+        spacing=request.spacing,
+        force_even_voxels=request.forceEvenVoxels,
+        verbosity=0,
+    )
+
+
+def _exported_pose(v: Any, operation: str) -> str:
+    """The conformation Vina is holding, or an actionable error.
+
+    ``Vina.poses()`` reads the *docking* pose store, which ``optimize()`` and
+    ``randomize()`` never fill — this used to return an empty string, which the
+    interface showed as "nothing happened". Write the pose out and read it back
+    (the pattern ``run_docking`` uses) and, if even that yields nothing, say so
+    rather than returning silence.
+    """
+    with tempfile.TemporaryDirectory(prefix="vinastudio-pose-") as scratch:
+        path = Path(scratch) / "pose.pdbqt"
+        v.write_poses(str(path), n_poses=1, overwrite=True)
+        if not path.is_file():
+            raise EngineCapabilityError(
+                f"the Python API cannot export a conformation after {operation}: its "
+                "pose store is only filled by docking. Fetch the command-line binary "
+                "(`uv run python scripts/fetch_vina_cli.py`) to enable this operation."
+            )
+        return path.read_text(encoding="utf-8", errors="replace")
+
+
 @router.post("/score", response_model=ScoreResponse)
 def score_pose(request: ScoreRequest) -> ScoreResponse:
     """Score the current ligand conformation without optimisation."""
     receptor = Path(request.receptorPath)
     if not receptor.exists():
         raise InvalidInputError(f"receptor file not found: {request.receptorPath}")
+
+    if resolve_backend() == CLI_BACKEND:
+        with tempfile.TemporaryDirectory(prefix="vinastudio-score-") as scratch:
+            return ScoreResponse(**score_cli(_interactive_params(request), scratch))
 
     v = _configure_vina(request)
     energies = v.score(unbound_energy=request.unboundEnergy)
@@ -911,28 +967,44 @@ def optimize_pose(request: OptimizeRequest) -> OptimizeResponse:
     if not receptor.exists():
         raise InvalidInputError(f"receptor file not found: {request.receptorPath}")
 
+    if interactive_pose_backend() == CLI_BACKEND:
+        with tempfile.TemporaryDirectory(prefix="vinastudio-optimize-") as scratch:
+            energy, pose = optimize_cli(_interactive_params(request), request.maxSteps, scratch)
+        return OptimizeResponse(energy=energy, ligandPdbqt=pose)
+
     v = _configure_vina(request)
-    energy = v.optimize(max_steps=request.maxSteps)
-    pdbqt = v.poses(n_poses=1, coordinates_only=False)
-    return OptimizeResponse(energy=energy, ligandPdbqt=pdbqt)
+    # optimize() returns the same eight-value decomposition as score(); the
+    # response reports the total, which is its first column. (It used to be
+    # handed the whole array, which the response model rejected outright.)
+    breakdown = v.optimize(max_steps=request.maxSteps)
+    return OptimizeResponse(
+        energy=float(breakdown[0]),
+        ligandPdbqt=_exported_pose(v, "optimisation"),
+    )
 
 
 @router.post("/randomize", response_model=RandomizeResponse)
 def randomize_pose(request: RandomizeRequest) -> RandomizeResponse:
     """Randomise the ligand conformation within the binding site.
 
-    Vina keeps the lowest-energy of ``maxSteps`` random candidates, so the
-    maps (receptor + box) are required and ``seed`` makes the result
-    reproducible.
+    Vina keeps the lowest-energy of ``maxSteps`` random candidates, so the maps
+    (receptor + box) are required. ``seed`` is passed through but **does not make
+    the result reproducible**: Vina's randomisation seeds itself, on both the
+    Python API and the binary (measured 2026-10-15 — two runs with the same seed
+    differ). The field is kept because the request shape is shared with docking.
     """
     receptor = Path(request.receptorPath)
     if not receptor.exists():
         raise InvalidInputError(f"receptor file not found: {request.receptorPath}")
 
+    if interactive_pose_backend() == CLI_BACKEND:
+        with tempfile.TemporaryDirectory(prefix="vinastudio-randomize-") as scratch:
+            pose = randomize_cli(_interactive_params(request), request.maxSteps, scratch)
+        return RandomizeResponse(ligandPdbqt=pose)
+
     v = _configure_vina(request)
     v.randomize(max_steps=request.maxSteps)
-    pdbqt = v.poses(n_poses=1, coordinates_only=False)
-    return RandomizeResponse(ligandPdbqt=pdbqt)
+    return RandomizeResponse(ligandPdbqt=_exported_pose(v, "randomisation"))
 
 
 @router.get("/jobs/{job_id}/export-csv")
