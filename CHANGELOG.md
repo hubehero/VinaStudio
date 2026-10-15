@@ -14,6 +14,9 @@ entries about the product — no internal task ids or workflow narration.
 
 ### 新增
 
+- **在 Windows 上安装项目不再失败**：`vina` 模块没有 Windows 版，此前它是**硬依赖**，
+  导致 `pip install` 直接报错；现在它只在该平台存在时才是依赖。应用在 Windows 上通过随包的
+  命令行二进制对接（见下一条）。
 - **安装包内附带官方 Vina 二进制**：桌面包（deb / tar.gz）把它放在
   `vinastudio/resources/vina/`，因此 `vina` Python 模块缺失或损坏的机器**仍能对接**——这正是
   命令行后端存在的意义。二进制为 Apache-2.0，署名随包同行；它不进 wheel（wheel 面向该平台
@@ -36,6 +39,10 @@ entries about the product — no internal task ids or workflow narration.
 
 ### Added
 
+- **Installing the project on Windows no longer fails**: `vina` has no Windows build
+  and was a hard dependency, which made `pip install` impossible there. It is now a
+  dependency only where it exists; on Windows the application docks through the
+  packaged command-line binary instead.
 - **The official Vina binary now ships inside the desktop packages**: the deb and the
   tarball carry it at `vinastudio/resources/vina/`, so a machine whose `vina` Python
   module is missing or broken can still dock — the whole reason the command-line

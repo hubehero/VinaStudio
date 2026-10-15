@@ -112,6 +112,12 @@ standard through the command-line backend and asserts the same regime the Linux
 tests use (2026-10-15: 23.1 s, best affinity −13.239 kcal/mol on Windows against
 −13.228 on Linux).
 
+Release artifacts are **Linux only**. `windows-build.yml` builds the Windows
+installer and publishes nothing — that stays true until somebody has installed it on
+a real machine and walked through the application, which is the last unverified link
+on that platform. It is ready to test: the bundle builds, the engine inside it runs
+on Windows, and the installer compiles (219 MB, 2026-10-15).
+
 ## What CI does
 
 On `v*` tags, `.github/workflows/release.yml` runs three jobs:

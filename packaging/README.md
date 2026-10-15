@@ -89,6 +89,22 @@ This will:
 Output:
 - `dist\vinastudio-X.Y.Z-setup.exe`
 
+### Windows in CI
+
+`windows-latest` cannot push a release, but it can build the package:
+`.github/workflows/windows-build.yml` (manual dispatch) produces
+`vinastudio-<version>-setup.exe` (~219 MB) and uploads it as the
+`windows-installer` artifact. It checks that the engine binary is inside the bundle
+and runs there before compiling the installer, because that is the one thing a
+Windows package has to get right.
+
+Installer screens are **English only**: Inno Setup does not ship a Chinese language
+file and the unofficial set upstream has none either. The application itself is
+bilingual. Three other things this path needed, none of which had ever been built:
+`vina` is excluded from the dependency graph on Windows (no wheel exists), the icon
+generator renders through QtSvg instead of cairo (`libcairo-2.dll` does not exist
+on Windows), and the `.iss` path prefixes were one level short.
+
 ## What the bundle carries
 
 The desktop packages ship the **official Vina binary** alongside the Python
