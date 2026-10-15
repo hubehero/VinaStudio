@@ -18,13 +18,16 @@ from vinastudio.core.chem.pose_validation import THRESHOLDS
 #: Anything in an inlined diagram that could execute or fetch when the
 #: standalone report is opened. Rejected upstream; re-checked here so a future
 #: caller cannot skip validation by importing this module directly.
-#: The event-attribute check is a separate pattern without a quantifier pair, and
-#: an oversized diagram is refused outright: the SVG arrives in a request body,
-#: so a crafted one must not be able to make the scan expensive
-#: (CodeQL py/polynomial-redos).
+#: The event-attribute check is its own pattern without a quantifier pair, and an
+#: oversized diagram is refused outright: the SVG arrives in a request body, so a
+#: crafted one must not be able to make the scan expensive
+#: (CodeQL py/polynomial-redos). The separator class matters — requiring plain
+#: whitespace let `<svg/onload=…>` through, which the previous pattern caught.
 _UNSAFE_SVG = re.compile(r"<script|<foreignobject|javascript:", re.I)
-_SVG_EVENT_ATTR = re.compile(r"\son[a-z]+\s*=", re.I)
-MAX_SVG_CHARS = 2_000_000
+_SVG_EVENT_ATTR = re.compile(r"""(?:^|[\s/"'<])on[a-z]+\s*=""", re.I)
+#: Generous: our own diagrams are tens of kilobytes, and a report that inlines a
+#: ten-megabyte diagram is not something to keep working.
+MAX_SVG_CHARS = 10_000_000
 
 _STRINGS: dict[str, dict[str, str]] = {
     "zh-CN": {
