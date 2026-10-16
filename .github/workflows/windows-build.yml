@@ -130,8 +130,12 @@ jobs:
           p = pefile.PE(ssl, fast_load=True); p.parse_data_directories()
           need = sorted(i.dll.decode() for i in p.DIRECTORY_ENTRY_IMPORT)
           print("_ssl.pyd imports:", ", ".join(need))
+          # api-ms-win-*/ext-ms-win-* are API-set names the Windows loader resolves
+          # through the apiset schema, not files on disk, so they are not "missing".
+          virtual = ("api-ms-win-", "ext-ms-win-")
+          concrete = [n for n in need if not n.lower().startswith(virtual)]
           system = os.path.join(os.environ["SystemRoot"], "System32")
-          missing = [n for n in need
+          missing = [n for n in concrete
                      if not os.path.exists(os.path.join(internal, n))
                      and not os.path.exists(os.path.join(system, n))]
           if missing:
