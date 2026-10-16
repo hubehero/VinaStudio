@@ -118,6 +118,30 @@ jobs:
           }
           Write-Host "OK: the C++ runtime sits at the bundle root"
 
+          # `_ssl.pyd` is where this bundle kept dying, so name its dependencies and
+          # assert each resolves — either in the bundle or as a Windows system DLL.
+          python -m pip install --quiet pefile
+          $probe = @'
+          import os, sys, pefile
+          internal = sys.argv[1]
+          ssl = os.path.join(internal, "_ssl.pyd")
+          if not os.path.exists(ssl):
+              print("_ssl.pyd is absent from the bundle"); sys.exit(1)
+          p = pefile.PE(ssl, fast_load=True); p.parse_data_directories()
+          need = sorted(i.dll.decode() for i in p.DIRECTORY_ENTRY_IMPORT)
+          print("_ssl.pyd imports:", ", ".join(need))
+          system = os.path.join(os.environ["SystemRoot"], "System32")
+          missing = [n for n in need
+                     if not os.path.exists(os.path.join(internal, n))
+                     and not os.path.exists(os.path.join(system, n))]
+          if missing:
+              print("MISSING from both the bundle and System32:", missing)
+              sys.exit(1)
+          print("OK: every _ssl.pyd dependency resolves")
+          '@
+          python -c $probe (Resolve-Path "dist/vinastudio/_internal").Path
+          if ($LASTEXITCODE -ne 0) { throw "a dependency of _ssl.pyd cannot be resolved" }
+
           Write-Host "--- OpenSSL and C++ runtime copies"
           Get-ChildItem -Recurse -File "dist/vinastudio/_internal" |
             Where-Object { $_.Name -match "^(libcrypto|libssl|msvcp140|vcruntime140)" } |

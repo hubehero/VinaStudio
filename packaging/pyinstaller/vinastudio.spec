@@ -178,39 +178,42 @@ a = Analysis(
 # them is safe on the supported Windows versions and is the difference between a
 # bundle that starts and one that does not.
 _SYSTEM_RUNTIME_PREFIXES = ("api-ms-win-", "ext-ms-win-")
-#: 32-bit OpenSSL inside a 64-bit process is dead weight that can only be resolved by
-#: mistake; CPython's `-x64` pair is what `_ssl` links against.
-_ARCH_MISMATCH_NAMES = {"libcrypto-3.dll", "libssl-3.dll"}
-#: The C++ runtime is not the UCRT. Windows supplies the UCRT and its API sets, but not
-#: this, so the bundle must carry one — CPython's `_ssl.pyd` imports VCRUNTIME140.dll
-#: directly, and PyInstaller's frozen importer resolves an extension module's
-#: dependencies without consulting PATH, so a copy outside the bundle cannot satisfy
-#: it. (Removing them all is what produced "DLL load failed while importing _ssl: The
-#: specified module could not be found".) The wheels here each carry their own copy
-#: under their own directory — three VCRUNTIME140.dll, at two different sizes — and two
-#: copies of one basename means Windows hands every consumer whichever loaded first,
-#: which is the other failure this bundle has shown: "Invalid access to memory
-#: location". So the rule is neither zero nor many: exactly one of each, at the bundle
-#: root beside python312.dll, where every consumer resolves it.
-_RUNTIME_FAMILIES = ("msvcp140", "vcruntime140", "concrt140")
+#: Families the wheels in this stack each ship a copy of, under their own directory.
+#: Where two copies share one basename Windows hands every consumer whichever loaded
+#: first, and the module built against the other fails on import with "Invalid access
+#: to memory location" — how `_ssl` first died here. So each basename is collapsed to a
+#: single copy, at the bundle root beside python312.dll where every consumer resolves
+#: it.
+#:
+#: The C++ runtime is *not* the UCRT: Windows ships the UCRT, but not this, so the
+#: bundle has to carry one. `_ssl.pyd` imports VCRUNTIME140.dll directly, and
+#: PyInstaller's frozen importer resolves an extension module's dependencies without
+#: consulting PATH — which is why removing every copy produced the other failure,
+#: "DLL load failed while importing _ssl: The specified module could not be found".
+#: The rule is therefore neither zero nor many: exactly one of each basename.
+#:
+#: OpenSSL is listed for the same reason, not because either pair is unwanted:
+#: `libcrypto-3.dll`/`libssl-3.dll` is the pair CPython's `_ssl.pyd` links against, and
+#: `libcrypto-3-x64.dll`/`libssl-3-x64.dll` is Qt's/rdkit's. They are different
+#: basenames and both stay; only a genuine duplicate of one of them is removed.
+_RUNTIME_FAMILIES = ("msvcp140", "vcruntime140", "concrt140", "libcrypto", "libssl")
 
 
 def _is_scrapped_from_bundle(name: str) -> bool:
-    """Whether this DLL must not travel with the application at all."""
+    """Whether this DLL must not travel with the application at all.
+
+    Only the UCRT's API-set forwarders and ucrtbase: Windows supplies those, and a copy
+    inside the bundle shadows the system one.
+    """
     lowered = name.lower()
-    return lowered.startswith(_SYSTEM_RUNTIME_PREFIXES) or lowered in {
-        "ucrtbase.dll",
-        *_ARCH_MISMATCH_NAMES,
-    }
+    return lowered.startswith(_SYSTEM_RUNTIME_PREFIXES) or lowered == "ucrtbase.dll"
 
 
-def _collapse_cxx_runtime(entries):
-    """Keep one copy of each C++ runtime DLL, moved to the bundle root.
+def _collapse_runtime_duplicates(entries):
+    """Keep one copy of each runtime DLL basename, moved to the bundle root.
 
     The kept copy is the shallowest one seen (the root is where PyInstaller put the one
-    it paired with python312.dll); the nested duplicates are dropped. Every copy here
-    is the same 14.x runtime family, so any of them serves a module built against
-    another, but exactly one must serve them all.
+    it paired with python312.dll); the nested duplicates are dropped.
     """
     kept: dict[str, tuple[int, tuple]] = {}
     rest = []
@@ -230,7 +233,7 @@ def _collapse_cxx_runtime(entries):
     return rest + [entry for _depth, entry in kept.values()]
 
 
-a.binaries = _collapse_cxx_runtime(a.binaries)
+a.binaries = _collapse_runtime_duplicates(a.binaries)
 
 pyz = PYZ(a.pure)
 
