@@ -39,3 +39,12 @@ jobs:
       # the checkout lacks them, docks, and asserts the result.
       - name: Dock the 1iep gold standard
         run: python packaging/ci/vina_engine_check.py
+
+      # Every pin in fetch_vina_cli.py is checked here, not just this platform's:
+      # the Linux and Windows binaries are exercised by this job and the Windows
+      # build, but nothing else looks at the macOS one, so a changed upstream asset
+      # would otherwise go unnoticed. `--all` verifies the others without writing
+      # them — it used to install whichever came last.
+      - name: Check every pinned engine binary
+        if: runner.os == 'Linux'
+        run: python scripts/fetch_vina_cli.py --all
