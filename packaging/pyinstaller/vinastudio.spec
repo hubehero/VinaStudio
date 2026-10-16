@@ -178,11 +178,26 @@ a = Analysis(
 # them is safe on the supported Windows versions and is the difference between a
 # bundle that starts and one that does not.
 _SYSTEM_RUNTIME_PREFIXES = ("api-ms-win-", "ext-ms-win-")
+_COLLISION_FILTERS = (
+    # OpenSSL: `_ssl` needs the copy CPython was built against. rdkit ships its own,
+    # and two files with one name means one of them silently wins — the loser's
+    # consumer then fails with "Invalid access to memory location" while importing,
+    # which is exactly how this bundle died on `_ssl` after the runtime DLLs were
+    # sorted out. OpenSSL 3.x keeps a stable ABI, so keeping CPython's copy serves
+    # both.
+    ("libcrypto", "rdkit.libs"),
+    ("libssl", "rdkit.libs"),
+)
 a.binaries = [
     entry
     for entry in a.binaries
     if not Path(entry[0]).name.lower().startswith(_SYSTEM_RUNTIME_PREFIXES)
     and Path(entry[0]).name.lower() != "ucrtbase.dll"
+    and not any(
+        Path(entry[0]).name.lower().startswith(name)
+        and origin in str(entry[1]).replace("\\", "/")
+        for name, origin in _COLLISION_FILTERS
+    )
 ]
 
 pyz = PYZ(a.pure)
