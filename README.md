@@ -52,6 +52,9 @@ uv run python -m vinastudio  # launch the desktop application
 
 ## Development
 
+These commands need the development tree: the release mirror ships the application
+and its packaging, but not the test suite or `scripts/dev.py`.
+
 Run the interface with hot reload against a live API:
 
 ```bash

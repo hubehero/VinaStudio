@@ -46,6 +46,8 @@ uv run python -m vinastudio  # 启动桌面应用
 
 ## 开发
 
+以下命令需要开发树：发布镜像只分发应用与打包产物，不含测试套件与 `scripts/dev.py`。
+
 以热重载方式运行界面，并连接真实 API：
 
 ```bash
