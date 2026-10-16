@@ -96,18 +96,19 @@ jobs:
           # Two DLLs with one basename means one of them silently wins and the loser's
           # consumer fails on import with "Invalid access to memory location". Print
           # the collisions rather than be surprised by them one import at a time.
+          $root = (Resolve-Path "dist/vinastudio/_internal").Path
           Write-Host "--- duplicated DLL basenames under _internal"
           Get-ChildItem -Recurse -File "dist/vinastudio/_internal" -Filter *.dll |
             Group-Object Name | Where-Object { $_.Count -gt 1 } |
             ForEach-Object {
-              $locations = ($_.Group.FullName | ForEach-Object { Split-Path $_ -LeafDirectoryName }) -join " | "
-              Write-Host ("  {0} x{1}: {2}" -f $_.Name, $_.Count, $locations)
+              $where = ($_.Group.FullName | ForEach-Object { $_.Replace($root, "") }) -join " | "
+              Write-Host ("  {0} x{1}: {2}" -f $_.Name, $_.Count, $where)
             }
           Write-Host "--- OpenSSL and C++ runtime copies"
           Get-ChildItem -Recurse -File "dist/vinastudio/_internal" |
             Where-Object { $_.Name -match "^(libcrypto|libssl|msvcp140|vcruntime140)" } |
             ForEach-Object {
-              Write-Host ("  {0}  {1:N0} bytes  [{2}]" -f $_.Name, $_.Length, (Split-Path $_.FullName -LeafDirectoryName))
+              Write-Host ("  {0}  {1:N0} bytes  [{2}]" -f $_.Name, $_.Length, $_.FullName.Replace($root, ""))
             }
 
       # Then let the packaged application answer for itself.
