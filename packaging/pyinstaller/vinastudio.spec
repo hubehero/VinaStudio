@@ -178,27 +178,34 @@ a = Analysis(
 # them is safe on the supported Windows versions and is the difference between a
 # bundle that starts and one that does not.
 _SYSTEM_RUNTIME_PREFIXES = ("api-ms-win-", "ext-ms-win-")
-_COLLISION_FILTERS = (
-    # OpenSSL: `_ssl` needs the copy CPython was built against. rdkit ships its own,
-    # and two files with one name means one of them silently wins — the loser's
-    # consumer then fails with "Invalid access to memory location" while importing,
-    # which is exactly how this bundle died on `_ssl` after the runtime DLLs were
-    # sorted out. OpenSSL 3.x keeps a stable ABI, so keeping CPython's copy serves
-    # both.
-    ("libcrypto", "rdkit.libs"),
-    ("libssl", "rdkit.libs"),
-)
-a.binaries = [
-    entry
-    for entry in a.binaries
-    if not Path(entry[0]).name.lower().startswith(_SYSTEM_RUNTIME_PREFIXES)
-    and Path(entry[0]).name.lower() != "ucrtbase.dll"
-    and not any(
-        Path(entry[0]).name.lower().startswith(name)
-        and origin in str(entry[1]).replace("\\", "/")
-        for name, origin in _COLLISION_FILTERS
+#: The C++ runtime must be present once or not at all. The wheels in this stack each
+#: carry a copy in their own directory — 99,840 and 103,936 bytes of VCRUNTIME140.dll
+#: were both in the bundle — and Windows resolves such a name to whichever copy
+#: loaded first. A module built against the other one then dies with
+#: "Invalid access to memory location", which is how `_ssl` went. The installer
+#: already requires the VC++ Redistributable, and that is the canonical provider, so
+#: the bundle ships none of these.
+_RUNTIME_BASENAME_PREFIXES = ("msvcp140", "vcruntime140", "concrt140")
+#: 32-bit OpenSSL inside a 64-bit process is dead weight that can only be resolved by
+#: mistake; CPython's `-x64` pair is what `_ssl` links against.
+_ARCH_MISMATCH_NAMES = {"libcrypto-3.dll", "libssl-3.dll"}
+
+
+def _drop_from_bundle(name: str) -> bool:
+    """Whether this DLL must not travel with the application.
+
+    Everything named here is something Windows itself provides to a 64-bit process on
+    the supported versions, or a copy of it that must not exist twice.
+    """
+    lowered = name.lower()
+    return (
+        lowered.startswith(_SYSTEM_RUNTIME_PREFIXES)
+        or lowered in {"ucrtbase.dll"} | _ARCH_MISMATCH_NAMES
+        or lowered.startswith(_RUNTIME_BASENAME_PREFIXES)
     )
-]
+
+
+a.binaries = [entry for entry in a.binaries if not _drop_from_bundle(Path(entry[0]).name)]
 
 pyz = PYZ(a.pure)
 
