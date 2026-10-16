@@ -80,28 +80,31 @@ jobs:
           if (-not (Test-Path $dll)) { throw "python312.dll is missing from the bundle" }
           Write-Host ("python312.dll: {0:N1} MB" -f ((Get-Item $dll).Length / 1MB))
 
-      # Then let the packaged application answer for itself. It is a windowed build
-      # with no console, so the port comes from the log file it writes under
-      # VINASTUDIO_HOME; the backend must come out as the bundled engine.
+      # Then let the packaged application answer for itself.
+      #
+      # The port comes from the OS, not from a log line: this is a windowed build, so
+      # stderr is not a console, and a StreamHandler pointed at a missing stream is
+      # exactly the kind of thing that silently swallows the evidence. stdout/stderr
+      # are redirected anyway so the child gets valid handles.
       - name: Start the packaged app and ask it for its backend
         run: |
           $appHome = Join-Path $env:TEMP "vinastudio-ci"
           $env:VINASTUDIO_HOME = $appHome
           $env:QT_QPA_PLATFORM = "offscreen"
-          $log = Join-Path $appHome "logs\vinastudio.log"
-          $proc = Start-Process -FilePath "dist/vinastudio/vinastudio.exe" -PassThru
+          $out = Join-Path $env:TEMP "vinastudio-ci.out"
+          $err = Join-Path $env:TEMP "vinastudio-ci.err"
+          $proc = Start-Process -FilePath "dist/vinastudio/vinastudio.exe" `
+            -RedirectStandardOutput $out -RedirectStandardError $err -PassThru
           try {
             $port = $null
             foreach ($attempt in 1..90) {
               Start-Sleep -Seconds 2
-              if (Test-Path $log) {
-                $match = Select-String -Path $log -Pattern "listening on http://127\.0\.0\.1:(\d+)" |
-                  Select-Object -First 1
-                if ($match) { $port = $match.Matches[0].Groups[1].Value; break }
-              }
               if ($proc.HasExited) { throw "the packaged app exited early (code $($proc.ExitCode))" }
+              $listening = Get-NetTCPConnection -State Listen -OwningProcess $proc.Id `
+                -ErrorAction SilentlyContinue | Select-Object -First 1
+              if ($listening) { $port = $listening.LocalPort; break }
             }
-            if (-not $port) { throw "the app never reported a port within three minutes" }
+            if (-not $port) { throw "the app never opened a listening port within three minutes" }
 
             $info = Invoke-RestMethod "http://127.0.0.1:$port/api/system/info"
             Write-Host ("backend={0} reason={1} cliAvailable={2}" -f `
@@ -110,6 +113,21 @@ jobs:
               throw "Windows should fall back to the binary; got $($info.docking.backend)"
             }
             Write-Host "OK: the packaged application starts and finds its own engine"
+          } catch {
+            # Explain the failure instead of only reporting it.
+            Write-Host "--- failure: $($_.Exception.Message)"
+            Write-Host "--- process alive: $(if ($proc.HasExited) { 'no' } else { 'yes' })"
+            Get-ChildItem -Recurse -Force $appHome -ErrorAction SilentlyContinue |
+              Select-Object -First 30 FullName
+            foreach ($path in @($out, $err, (Join-Path $appHome "logs\vinastudio.log"))) {
+              if (Test-Path $path) {
+                Write-Host "--- $path"
+                Get-Content $path -Tail 40
+              } else {
+                Write-Host "--- $path (absent)"
+              }
+            }
+            throw
           } finally {
             if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
           }
