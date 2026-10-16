@@ -159,6 +159,29 @@ jobs:
           Write-Host "--- console build stderr"
           Get-Content $err -Tail 40 -ErrorAction SilentlyContinue
 
+      # "Failed to load Python DLL" says the file exists and the loader refused it.
+      # Two questions separate the cases: can a working Python load this exact file,
+      # and what is inside it (machine type, section names, imports)?
+      - name: Inspect the Python runtime the bundle carries
+        if: failure()
+        run: |
+          $dll = (Resolve-Path "dist/vinastudio/_internal/python312.dll").Path
+          Write-Host "--- can the host Python load it?"
+          python -c "import ctypes, sys; ctypes.WinDLL(sys.argv[1]); print('loaded:', sys.argv[1])" $dll
+          python -m pip install --quiet pefile
+          $probe = @'
+          import pefile, sys
+          p = pefile.PE(sys.argv[1], fast_load=True)
+          p.parse_data_directories()
+          print("machine:", hex(p.FILE_HEADER.Machine))
+          print("sections:", [s.Name.rstrip(b"\x00").decode() for s in p.sections])
+          print("imports:", sorted(i.dll.decode() for i in p.DIRECTORY_ENTRY_IMPORT))
+          '@
+          python -c $probe $dll
+          Write-Host "--- DLLs shipped beside it (first 12)"
+          Get-ChildItem dist/vinastudio/_internal/*.dll |
+            Select-Object -First 12 -Property Name, Length | Format-Table -AutoSize
+
       - name: Compile the installer
         run: |
           # Inno Setup ships on the runner image; only fetch it if it is missing.
