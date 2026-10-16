@@ -21,9 +21,14 @@ def setup_logging(level: int = logging.INFO, *, to_file: bool = True) -> None:
     root = logging.getLogger()
     root.setLevel(level)
 
-    stream = logging.StreamHandler(sys.stderr)
-    stream.setFormatter(logging.Formatter(_LOG_FORMAT))
-    root.addHandler(stream)
+    # A windowed build has no console and sys.stderr is None; a handler bound to
+    # it would swallow every record (logging turns the resulting AttributeError
+    # into a "Logging error" line nobody sees). The file handler below is the
+    # real channel there.
+    if sys.stderr is not None:
+        stream = logging.StreamHandler(sys.stderr)
+        stream.setFormatter(logging.Formatter(_LOG_FORMAT))
+        root.addHandler(stream)
 
     if to_file:
         try:

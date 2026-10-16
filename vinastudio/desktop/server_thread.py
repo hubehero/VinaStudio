@@ -52,6 +52,12 @@ class LocalServer:
             port=port,
             log_level=log_level,
             access_log=False,
+            # Uvicorn's default log config builds a colourised formatter, which
+            # calls sys.stdout.isatty(). A windowed build has no stdout (it is
+            # None), so that call raised before the window could open; None hands
+            # logging to setup_logging(), which already owns every handler and
+            # the log file for the whole process.
+            log_config=None,
             # The desktop shell owns signals; uvicorn must not install handlers
             # from a non-main thread.
             lifespan="on",

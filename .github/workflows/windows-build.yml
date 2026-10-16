@@ -208,11 +208,17 @@ jobs:
       # stderr is not a console, and a StreamHandler pointed at a missing stream is
       # exactly the kind of thing that silently swallows the evidence. stdout/stderr
       # are redirected anyway so the child gets valid handles.
+      #
+      # That redirection is also why the first real user met a defect this job could
+      # not: a GUI process has no console, so PyInstaller leaves sys.stdout/stderr as
+      # None there, and the runner's valid handles hid it. The app asks for the
+      # console-less condition instead of hoping to inherit it.
       - name: Start the packaged app and ask it for its backend
         run: |
           $appHome = Join-Path $env:TEMP "vinastudio-ci"
           $env:VINASTUDIO_HOME = $appHome
           $env:QT_QPA_PLATFORM = "offscreen"
+          $env:VINASTUDIO_SIMULATE_NO_CONSOLE = "1"
           $out = Join-Path $env:TEMP "vinastudio-ci.out"
           $err = Join-Path $env:TEMP "vinastudio-ci.err"
           $proc = Start-Process -FilePath "dist/vinastudio/vinastudio.exe" `

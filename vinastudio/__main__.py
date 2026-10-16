@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 
 from vinastudio import __version__
@@ -34,6 +35,16 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
+
+    # PyInstaller's windowed mode leaves sys.stdout/sys.stderr as None, because a
+    # GUI process has no console. Nothing here may touch them — but a build
+    # machine hands the child valid handles, so the packaging check asks for the
+    # condition instead of hoping to inherit it. This is a CI seam, like
+    # VINASTUDIO_CONSOLE_BUILD, not a user option.
+    if os.environ.get("VINASTUDIO_SIMULATE_NO_CONSOLE"):
+        sys.stdout = None
+        sys.stderr = None
+
     setup_logging(logging.DEBUG if args.verbose else logging.INFO)
 
     # Order matters: the Chromium environment must be configured before any
