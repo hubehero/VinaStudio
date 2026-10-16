@@ -94,16 +94,30 @@ jobs:
           Write-Host "OK: no shadowing copies of the system runtime"
 
           # Two DLLs with one basename means one of them silently wins and the loser's
-          # consumer fails on import with "Invalid access to memory location". Print
-          # the collisions rather than be surprised by them one import at a time.
+          # consumer fails on import — "Invalid access to memory location" or "The
+          # specified module could not be found", depending on which copy wins. The
+          # spec collapses the C++ runtime to a single root copy; assert that landed and
+          # that nothing else collides.
           $root = (Resolve-Path "dist/vinastudio/_internal").Path
-          Write-Host "--- duplicated DLL basenames under _internal"
-          Get-ChildItem -Recurse -File "dist/vinastudio/_internal" -Filter *.dll |
-            Group-Object Name | Where-Object { $_.Count -gt 1 } |
-            ForEach-Object {
-              $where = ($_.Group.FullName | ForEach-Object { $_.Replace($root, "") }) -join " | "
-              Write-Host ("  {0} x{1}: {2}" -f $_.Name, $_.Count, $where)
+          $dups = @(Get-ChildItem -Recurse -File "dist/vinastudio/_internal" -Filter *.dll |
+            Group-Object Name | Where-Object { $_.Count -gt 1 })
+          if ($dups.Count -gt 0) {
+            foreach ($d in $dups) {
+              $where = ($d.Group.FullName | ForEach-Object { $_.Replace($root, "") }) -join " | "
+              Write-Host ("  duplicate {0} x{1}: {2}" -f $d.Name, $d.Count, $where)
             }
+            throw "the bundle has duplicated DLL basenames; one copy silently wins"
+          }
+          Write-Host "OK: no duplicated DLL basenames"
+
+          # The C++ runtime must be present, once, at the root: `_ssl.pyd` imports it
+          # directly and the frozen importer resolves that without consulting PATH.
+          foreach ($name in @("VCRUNTIME140.dll", "msvcp140.dll")) {
+            $path = Join-Path $root $name
+            if (-not (Test-Path $path)) { throw "$name is missing from the bundle root" }
+          }
+          Write-Host "OK: the C++ runtime sits at the bundle root"
+
           Write-Host "--- OpenSSL and C++ runtime copies"
           Get-ChildItem -Recurse -File "dist/vinastudio/_internal" |
             Where-Object { $_.Name -match "^(libcrypto|libssl|msvcp140|vcruntime140)" } |

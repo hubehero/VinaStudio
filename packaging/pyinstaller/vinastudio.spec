@@ -178,34 +178,59 @@ a = Analysis(
 # them is safe on the supported Windows versions and is the difference between a
 # bundle that starts and one that does not.
 _SYSTEM_RUNTIME_PREFIXES = ("api-ms-win-", "ext-ms-win-")
-#: The C++ runtime must be present once or not at all. The wheels in this stack each
-#: carry a copy in their own directory — 99,840 and 103,936 bytes of VCRUNTIME140.dll
-#: were both in the bundle — and Windows resolves such a name to whichever copy
-#: loaded first. A module built against the other one then dies with
-#: "Invalid access to memory location", which is how `_ssl` went. The installer
-#: already requires the VC++ Redistributable, and that is the canonical provider, so
-#: the bundle ships none of these.
-_RUNTIME_BASENAME_PREFIXES = ("msvcp140", "vcruntime140", "concrt140")
 #: 32-bit OpenSSL inside a 64-bit process is dead weight that can only be resolved by
 #: mistake; CPython's `-x64` pair is what `_ssl` links against.
 _ARCH_MISMATCH_NAMES = {"libcrypto-3.dll", "libssl-3.dll"}
+#: The C++ runtime is not the UCRT. Windows supplies the UCRT and its API sets, but not
+#: this, so the bundle must carry one — CPython's `_ssl.pyd` imports VCRUNTIME140.dll
+#: directly, and PyInstaller's frozen importer resolves an extension module's
+#: dependencies without consulting PATH, so a copy outside the bundle cannot satisfy
+#: it. (Removing them all is what produced "DLL load failed while importing _ssl: The
+#: specified module could not be found".) The wheels here each carry their own copy
+#: under their own directory — three VCRUNTIME140.dll, at two different sizes — and two
+#: copies of one basename means Windows hands every consumer whichever loaded first,
+#: which is the other failure this bundle has shown: "Invalid access to memory
+#: location". So the rule is neither zero nor many: exactly one of each, at the bundle
+#: root beside python312.dll, where every consumer resolves it.
+_RUNTIME_FAMILIES = ("msvcp140", "vcruntime140", "concrt140")
 
 
-def _drop_from_bundle(name: str) -> bool:
-    """Whether this DLL must not travel with the application.
-
-    Everything named here is something Windows itself provides to a 64-bit process on
-    the supported versions, or a copy of it that must not exist twice.
-    """
+def _is_scrapped_from_bundle(name: str) -> bool:
+    """Whether this DLL must not travel with the application at all."""
     lowered = name.lower()
-    return (
-        lowered.startswith(_SYSTEM_RUNTIME_PREFIXES)
-        or lowered in {"ucrtbase.dll"} | _ARCH_MISMATCH_NAMES
-        or lowered.startswith(_RUNTIME_BASENAME_PREFIXES)
-    )
+    return lowered.startswith(_SYSTEM_RUNTIME_PREFIXES) or lowered in {
+        "ucrtbase.dll",
+        *_ARCH_MISMATCH_NAMES,
+    }
 
 
-a.binaries = [entry for entry in a.binaries if not _drop_from_bundle(Path(entry[0]).name)]
+def _collapse_cxx_runtime(entries):
+    """Keep one copy of each C++ runtime DLL, moved to the bundle root.
+
+    The kept copy is the shallowest one seen (the root is where PyInstaller put the one
+    it paired with python312.dll); the nested duplicates are dropped. Every copy here
+    is the same 14.x runtime family, so any of them serves a module built against
+    another, but exactly one must serve them all.
+    """
+    kept: dict[str, tuple[int, tuple]] = {}
+    rest = []
+    for entry in entries:
+        dest, _src, _kind = entry
+        name = Path(dest).name
+        lowered = name.lower()
+        if _is_scrapped_from_bundle(name):
+            continue
+        if lowered.startswith(_RUNTIME_FAMILIES):
+            depth = len(Path(dest).parts)
+            previous = kept.get(lowered)
+            if previous is None or depth < previous[0]:
+                kept[lowered] = (depth, (name, entry[1], entry[2]))
+            continue
+        rest.append(entry)
+    return rest + [entry for _depth, entry in kept.values()]
+
+
+a.binaries = _collapse_cxx_runtime(a.binaries)
 
 pyz = PYZ(a.pure)
 
