@@ -168,6 +168,12 @@ a = Analysis(
 
 pyz = PYZ(a.pure)
 
+#: A windowed build reports a fatal start-up problem in a message box, which nobody
+#: can read on a build machine — and which keeps the process alive waiting for a
+#: click. CI sets this to build the same bundle as a console application so the
+#: bootloader's own words land in the log instead.
+console_build = bool(os.environ.get("VINASTUDIO_CONSOLE_BUILD"))
+
 exe = EXE(
     pyz,
     a.scripts,
@@ -178,7 +184,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=True,
     upx=True,
-    console=False,
+    console=console_build,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

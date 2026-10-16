@@ -117,6 +117,10 @@ jobs:
             # Explain the failure instead of only reporting it.
             Write-Host "--- failure: $($_.Exception.Message)"
             Write-Host "--- process alive: $(if ($proc.HasExited) { 'no' } else { 'yes' })"
+            Write-Host "--- main window title: '$($proc.MainWindowTitle)'"
+            Write-Host "--- recent application events"
+            Get-WinEvent -LogName Application -MaxEvents 8 -ErrorAction SilentlyContinue |
+              Format-List TimeCreated, ProviderName, Message
             Get-ChildItem -Recurse -Force $appHome -ErrorAction SilentlyContinue |
               Select-Object -First 30 FullName
             foreach ($path in @($out, $err, (Join-Path $appHome "logs\vinastudio.log"))) {
@@ -131,6 +135,29 @@ jobs:
           } finally {
             if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
           }
+
+      # A windowed build explains itself with a message box, which is invisible here
+      # and waits for a click. So when it does not come up, build the same bundle as a
+      # console application and read what it actually says: that text is the
+      # difference between guessing and knowing.
+      - name: Read the fatal error from a console build
+        if: failure()
+        run: |
+          $env:VINASTUDIO_CONSOLE_BUILD = "1"
+          pyinstaller packaging/pyinstaller/vinastudio.spec --noconfirm `
+            --distpath dist-console --workpath build-console 2>&1 | Select-Object -Last 3
+          $env:QT_QPA_PLATFORM = "offscreen"
+          $env:VINASTUDIO_HOME = Join-Path $env:TEMP "vinastudio-console"
+          $out = Join-Path $env:TEMP "console.out"
+          $err = Join-Path $env:TEMP "console.err"
+          $proc = Start-Process -FilePath "dist-console/vinastudio/vinastudio.exe" `
+            -RedirectStandardOutput $out -RedirectStandardError $err -PassThru
+          Start-Sleep -Seconds 45
+          if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
+          Write-Host "--- console build stdout"
+          Get-Content $out -Tail 40 -ErrorAction SilentlyContinue
+          Write-Host "--- console build stderr"
+          Get-Content $err -Tail 40 -ErrorAction SilentlyContinue
 
       - name: Compile the installer
         run: |
