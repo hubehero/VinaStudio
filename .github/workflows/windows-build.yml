@@ -146,6 +146,55 @@ jobs:
           python -c $probe (Resolve-Path "dist/vinastudio/_internal").Path
           if ($LASTEXITCODE -ne 0) { throw "a dependency of _ssl.pyd cannot be resolved" }
 
+          # A file exists and looks the right size, yet LoadLibrary still fails: the
+          # loader reads the BASERELOC directory, and GNU strip's PE back-end rewrites
+          # that size to the entire section. The walk then leaves the real block chain,
+          # reads the section's zero padding as a block of size 0, and raises error 998
+          # ("Invalid access to memory location"). So walk the tables, do not measure
+          # the files. Images without relocations are legitimate and skipped.
+          $reloc = @'
+          import os, sys, struct, pefile
+
+          internal = sys.argv[1]
+
+          def reloc_walk(path):
+              """Return (block_count, problem) for a PE's relocation directory."""
+              pe = pefile.PE(path, fast_load=True); pe.parse_data_directories()
+              directory = pe.OPTIONAL_HEADER.DATA_DIRECTORY[
+                  pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_BASERELOC"]]
+              if not directory.Size:
+                  return None, None
+              data = pe.get_data(directory.VirtualAddress, directory.Size)
+              offset, blocks = 0, 0
+              while offset + 8 <= len(data):
+                  block_size = struct.unpack_from("<I", data, offset + 4)[0]
+                  if block_size < 8:
+                      return blocks, "block of size {0} at +{1}".format(block_size, offset)
+                  blocks += 1
+                  offset += block_size
+              if offset != len(data):
+                  return blocks, "table ends at +{0} of a {1}-byte directory".format(offset, len(data))
+              return blocks, None
+
+          problems = 0
+          for name in ("python312.dll", "_ssl.pyd", "libcrypto-3.dll", "libssl-3.dll"):
+              path = os.path.join(internal, name)
+              if not os.path.exists(path):
+                  print("  {0}: absent, skipped".format(name))
+                  continue
+              blocks, problem = reloc_walk(path)
+              if problem:
+                  print("  {0}: MALFORMED relocation table -- {1}".format(name, problem))
+                  problems += 1
+              elif blocks is None:
+                  print("  {0}: no base relocations, skipped".format(name))
+              else:
+                  print("  {0}: {1} relocation blocks, table is clean".format(name, blocks))
+          sys.exit(1 if problems else 0)
+          '@
+          python -c $reloc (Resolve-Path "dist/vinastudio/_internal").Path
+          if ($LASTEXITCODE -ne 0) { throw "a bundled DLL has a malformed relocation table" }
+
           Write-Host "--- OpenSSL and C++ runtime copies"
           Get-ChildItem -Recurse -File "dist/vinastudio/_internal" |
             Where-Object { $_.Name -match "^(libcrypto|libssl|msvcp140|vcruntime140)" } |

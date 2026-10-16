@@ -243,6 +243,16 @@ pyz = PYZ(a.pure)
 #: bootloader's own words land in the log instead.
 console_build = bool(os.environ.get("VINASTUDIO_CONSOLE_BUILD"))
 
+#: Strip only on ELF.  PyInstaller picks up whatever ``strip`` is on PATH, and a
+#: GitHub Windows runner has MSYS/Git's GNU strip — whose PE back-end rewrites the
+#: BASERELOC and EXCEPTION data-directory sizes to the entire section.  The
+#: inflated relocation directory makes the loader walk past the real block chain
+#: into the section's zero padding, read a bogus zero-size block, and fail
+#: LoadLibrary with ERROR_NOACCESS (998) -- which surfaces as "DLL load failed
+#: while importing _ssl: Invalid access to memory location" on a fresh Windows
+#: machine.  Windows DLLs already ship stripped, so nothing is lost there.
+_strip_binaries = sys.platform != "win32"
+
 exe = EXE(
     pyz,
     a.scripts,
@@ -251,7 +261,7 @@ exe = EXE(
     name="vinastudio",
     debug=False,
     bootloader_ignore_signals=False,
-    strip=True,
+    strip=_strip_binaries,
     upx=True,
     console=console_build,
     disable_windowed_traceback=False,
@@ -269,7 +279,7 @@ coll = COLLECT(
     exe,
     a.binaries,
     a.datas,
-    strip=True,
+    strip=_strip_binaries,
     upx=True,
     # Not the engine binary: UPX-compressed executables are a long-standing
     # antivirus false-positive trigger, and this one runs on students' Windows
