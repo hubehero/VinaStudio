@@ -80,6 +80,19 @@ jobs:
           if (-not (Test-Path $dll)) { throw "python312.dll is missing from the bundle" }
           Write-Host ("python312.dll: {0:N1} MB" -f ((Get-Item $dll).Length / 1MB))
 
+          # Windows supplies the UCRT and its API-set forwarders; copies inside
+          # `_internal` shadow them and the app then cannot load its own runtime. The
+          # spec filters these out, and this keeps a future dependency from quietly
+          # putting them back.
+          $stubs = @(Get-ChildItem "dist/vinastudio/_internal/api-ms-win-*.dll", `
+                                     "dist/vinastudio/_internal/ext-ms-win-*.dll" `
+                                     -ErrorAction SilentlyContinue)
+          $ucrt = Get-Item "dist/vinastudio/_internal/ucrtbase.dll" -ErrorAction SilentlyContinue
+          if ($stubs.Count -gt 0 -or $ucrt) {
+            throw "the bundle ships system runtime copies: $($stubs.Count) API-set stub(s), ucrtbase: $([bool]$ucrt)"
+          }
+          Write-Host "OK: no shadowing copies of the system runtime"
+
       # Then let the packaged application answer for itself.
       #
       # The port comes from the OS, not from a log line: this is a windowed build, so

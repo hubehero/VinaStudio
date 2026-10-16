@@ -166,6 +166,25 @@ a = Analysis(
     optimize=1,
 )
 
+# Windows provides the Universal C Runtime and its API-set forwarders, and this
+# application already requires Windows 10 1809 or newer
+# (packaging/windows/vinastudio.iss). PyInstaller nevertheless collects the copies
+# that extension wheels carry, and those copies land in `_internal` where they shadow
+# the system ones — which is what makes the bootloader fail with
+#     Failed to load Python DLL ...\_internal\python312.dll
+#     LoadLibrary: Invalid access to memory location
+# on a machine where the system runtime is present. The host Python loads that very
+# file without complaint, so the file is not the problem; its neighbours are. Dropping
+# them is safe on the supported Windows versions and is the difference between a
+# bundle that starts and one that does not.
+_SYSTEM_RUNTIME_PREFIXES = ("api-ms-win-", "ext-ms-win-")
+a.binaries = [
+    entry
+    for entry in a.binaries
+    if not Path(entry[0]).name.lower().startswith(_SYSTEM_RUNTIME_PREFIXES)
+    and Path(entry[0]).name.lower() != "ucrtbase.dll"
+]
+
 pyz = PYZ(a.pure)
 
 #: A windowed build reports a fatal start-up problem in a message box, which nobody
