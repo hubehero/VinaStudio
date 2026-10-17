@@ -240,6 +240,24 @@ jobs:
             if ($info.docking.backend -ne "vina-cli") {
               throw "Windows should fall back to the binary; got $($info.docking.backend)"
             }
+
+            # `backend` alone is not what the user sees. The capability page reads
+            # the self-check, and the shipped build told CLI-backed users their
+            # installation was missing "vina" — true about the import, false about
+            # the capability. Assert the verdict the page renders, in the frozen
+            # build, where the module really is unimportable.
+            $check = Invoke-RestMethod "http://127.0.0.1:$port/api/system/selfcheck"
+            Write-Host ("dockingAvailable={0} dockingMissing=[{1}] failed=[{2}]" -f `
+              $check.dockingAvailable, ($check.dockingMissing -join ","), ($check.failed -join ","))
+            if (-not $check.dockingAvailable) {
+              throw "the frozen build reported docking unavailable (failed: $($check.failed -join ', '))"
+            }
+            if ($check.dockingMissing.Count -ne 0) {
+              throw "the frozen build named a docking dependency as missing: $($check.dockingMissing -join ', ')"
+            }
+            if ($check.failed -notcontains "vina") {
+              throw "expected the vina module to be unimportable here, so this check stops proving anything"
+            }
             Write-Host "OK: the packaged application starts and finds its own engine"
           } catch {
             # Explain the failure instead of only reporting it.
