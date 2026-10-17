@@ -50,6 +50,10 @@ export interface SelfCheck {
   failed: string[]
   checks: PackageCheck[]
   dockingAvailable: boolean
+  /** Libraries docking needs that failed to import; empty when only the
+   * engine is absent, and empty (with `dockingAvailable` true) on the normal
+   * CLI-backed build, where the `vina` module is missing by design. */
+  dockingMissing: string[]
 }
 
 export interface ScoringFunctionSpec {

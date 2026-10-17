@@ -116,6 +116,12 @@ function probeRenderer(viewer: $3Dmol.GLViewer): void {
   ).renderer
   const gl = renderer?.getContext?.()
   if (!gl) return
+  recordRenderer(gl)
+}
+
+/** Read the renderer string off a live context and remember it, once. */
+function recordRenderer(gl: WebGLRenderingContext | WebGL2RenderingContext): void {
+  if (rendererInfo.value !== null) return
   const name = (() => {
     const debugInfo = gl.getExtension('WEBGL_debug_renderer_info')
     if (debugInfo) {
@@ -126,6 +132,25 @@ function probeRenderer(viewer: $3Dmol.GLViewer): void {
   if (name) {
     rendererInfo.value = { renderer: name, software: SOFTWARE_RENDERER_RE.test(name) }
   }
+}
+
+/**
+ * Probe the GL renderer without mounting a viewer.
+ *
+ * The environment report is reached before any 3D view has been opened, and
+ * "which renderer am I actually on?" is the first question a slowness report
+ * raises: ``VINASTUDIO_SOFTWARE_RENDER`` only records what was *requested*,
+ * while Chromium silently serves SwiftShader when it blocklists the GPU. The
+ * throwaway context is released immediately so it cannot count against the
+ * page's context limit.
+ */
+export function probeStandaloneRenderer(): void {
+  if (rendererInfo.value !== null) return
+  const canvas = document.createElement('canvas')
+  const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl')
+  if (!gl) return
+  recordRenderer(gl)
+  gl.getExtension('WEBGL_lose_context')?.loseContext()
 }
 
 /** Interaction data for 3D visualization. */
@@ -230,6 +255,14 @@ export class MoleculeViewer {
   /** Current rendering quality preset. */
   private currentQuality: RenderQuality = 'medium'
 
+  /** The element the viewer draws into; the drag detector is bound to it. */
+  private readonly container: HTMLElement
+  /** True while a pointer drag is in flight — see beginInteraction(). */
+  private interacting = false
+
+  private readonly onPointerDown = (): void => this.beginInteraction()
+  private readonly onPointerUp = (): void => this.endInteraction()
+
   // -- adaptive AO kernel (no-op unless enabled; see setAdaptiveAO) -------
   private adaptiveAOOn = false
   private aoDegraded = false
@@ -255,6 +288,7 @@ export class MoleculeViewer {
   ) {
     this.currentQuality = options.quality ?? 'medium'
     const preset = RENDER_QUALITY_PRESETS[this.currentQuality]
+    this.container = container
 
     // 3Dmol installs its own ResizeObserver on the container and renders the
     // canvas at 100% of it, so no extra resize plumbing is needed here.
@@ -283,7 +317,51 @@ export class MoleculeViewer {
     }
     this.adaptiveAOOn = options.adaptiveAO === true
 
+    // 3Dmol's own handlers on the canvas redraw on every mouse move, so a drag
+    // is the heaviest sustained load the viewport sees. Capture phase on the
+    // container sees the press before the canvas does; the release is caught on
+    // the window because the drag can end outside the canvas. Neither listener
+    // stops propagation, so 3Dmol's rotation stays untouched.
+    container.addEventListener('pointerdown', this.onPointerDown, true)
+    window.addEventListener('pointerup', this.onPointerUp, true)
+    window.addEventListener('pointercancel', this.onPointerUp, true)
+
     probeRenderer(this.raw)
+  }
+
+  /**
+   * Drop the ambient-occlusion pass for the duration of a drag.
+   *
+   * AO is a full-frame post-process on top of every draw, and a drag pays for
+   * it many times per second — the frame budget the interaction actually needs.
+   * Leaving it off while the camera moves is the same trade Blender ("fast
+   * navigate") and PyMOL make: the drag stays responsive, and the shading comes
+   * back on release, when a single frame can afford it again.
+   */
+  beginInteraction(): void {
+    if (this.interacting || this.aoBaselineStrength <= 0) {
+      return
+    }
+    this.interacting = true
+    // Samples taken during a drag describe the suspended pass, not steady
+    // state; the kernel must not act on them.
+    this.aoFrameTimes = []
+    this._applyAO(false)
+    this.scheduleRender()
+  }
+
+  /** Restore the preset's AO look once the drag is over. */
+  endInteraction(): void {
+    if (!this.interacting) {
+      return
+    }
+    this.interacting = false
+    // The adaptive kernel may have shed AO on its own in the meantime; if it
+    // did, honour that and stay off.
+    if (this.aoBaselineStrength > 0 && !this.aoDegraded) {
+      this._applyAO(true)
+    }
+    this.scheduleRender()
   }
 
   /**
@@ -317,7 +395,7 @@ export class MoleculeViewer {
    * cannot hold a frame rate, only shed the most expensive runtime style pass.
    */
   private _renderWithAdaptiveAO(): void {
-    if (this.adaptiveAOOn && this.aoBaselineStrength > 0) {
+    if (this.adaptiveAOOn && this.aoBaselineStrength > 0 && !this.interacting) {
       const start = performance.now()
       this.raw.render()
       this._pushAOSample(performance.now() - start)
@@ -349,17 +427,26 @@ export class MoleculeViewer {
   }
 
   /**
-   * Set AO to the preset baseline or to strength/radius 0 (the low-preset
-   * look). Runtime-safe: ``setViewStyle`` only — never recreates the viewer
-   * and never touches cartoonQuality/antialias/surface.
+   * Set AO to the preset baseline, or turn the pass off.
+   *
+   * Runtime-safe: ``setViewStyle`` only — never recreates the viewer and never
+   * touches cartoonQuality/antialias/surface.
    */
   private _applyAO(presetAO: boolean): void {
     try {
-      this.raw.setViewStyle({
-        style: 'ambientOcclusion',
-        strength: presetAO ? this.aoBaselineStrength : 0,
-        radius: presetAO ? this.aoBaselineRadius : 0,
-      })
+      if (presetAO) {
+        this.raw.setViewStyle({
+          style: 'ambientOcclusion',
+          strength: this.aoBaselineStrength,
+          radius: this.aoBaselineRadius,
+        })
+      } else {
+        // Not `strength: 0`: 3Dmol forwards a strength only when it is truthy,
+        // so zero survives as "no change" and the pass stays enabled at its old
+        // strength. Clearing the view style is the only public way to reach
+        // disableAmbientOcclusion.
+        this.raw.setViewStyle({ style: '' })
+      }
     } catch {
       // AO may not be supported; same graceful degradation as the constructor.
     }
@@ -948,6 +1035,9 @@ export class MoleculeViewer {
       return
     }
     this.disposed = true
+    this.container.removeEventListener('pointerdown', this.onPointerDown, true)
+    window.removeEventListener('pointerup', this.onPointerUp, true)
+    window.removeEventListener('pointercancel', this.onPointerUp, true)
     this._cancelSurfaceTimer()
     this.boxShapes = []
     this.surfaceId = null

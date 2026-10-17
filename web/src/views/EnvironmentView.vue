@@ -4,6 +4,7 @@ import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import StatusPill from '@/components/StatusPill.vue'
+import { probeStandaloneRenderer, rendererInfo } from '@/composables/use3Dmol'
 import { useSystemStore } from '@/stores/system'
 import type { PackageCheck } from '@/types/api'
 
@@ -11,6 +12,10 @@ const system = useSystemStore()
 const { t } = useI18n()
 
 onMounted(() => {
+  // The renderer row is the one field a "the 3D view is slow" report needs, and
+  // this page can be reached before any viewer exists, so probe here rather than
+  // waiting for a viewport to do it.
+  probeStandaloneRenderer()
   if (!system.info) {
     void system.refresh()
   }
@@ -49,6 +54,10 @@ const runtimeRows = computed(() => {
         ? t('environment.softwareRenderOn')
         : t('environment.softwareRenderOff'),
     },
+    {
+      label: t('environment.renderer'),
+      value: rendererInfo.value?.renderer ?? t('environment.rendererUnknown'),
+    },
     { label: t('environment.dockingBackend'), value: dockingBackendText() },
   ]
 })
@@ -69,10 +78,14 @@ const dockingState = computed<'ok' | 'error' | 'idle'>(() => {
 })
 
 const dockingLabel = computed(() => {
-  if (!system.selfCheck) return t('environment.selfCheckIdle')
-  return system.selfCheck.dockingAvailable
-    ? t('environment.dockingReady')
-    : t('environment.dockingMissing', { packages: system.selfCheck.failed.join(', ') })
+  const check = system.selfCheck
+  if (!check) return t('environment.selfCheckIdle')
+  if (check.dockingAvailable) return t('environment.dockingReady')
+  // No library is to blame: nothing provides the engine at all (no importable
+  // `vina` module and no `vina` binary). Saying "missing dependencies: " with
+  // an empty list would read as a bug of its own.
+  if (check.dockingMissing.length === 0) return t('environment.dockingNoEngine')
+  return t('environment.dockingMissing', { packages: check.dockingMissing.join(', ') })
 })
 </script>
 

@@ -724,13 +724,21 @@ defineExpose({ highlightResidues })
   justify-content: flex-start;
 }
 
+/*
+ * Cards floating over the stage are opaque, never `backdrop-filter: blur()`.
+ *
+ * A blurred backdrop has to be read back out of the compositor and re-blurred
+ * whenever what is behind it changes — and what is behind it is a WebGL canvas
+ * that redraws every frame while the user rotates the view. That readback
+ * costs a large slice of the frame budget and makes the canvas flicker, so
+ * these overlays paint a solid surface colour instead.
+ */
 .viewport__empty-card {
   max-width: 420px;
   padding: 16px 18px;
   border-radius: var(--vs-radius);
-  background: color-mix(in srgb, var(--vs-bg-surface) 88%, transparent);
+  background: var(--vs-bg-surface);
   border: 1px solid var(--vs-border);
-  backdrop-filter: blur(6px);
 }
 
 .viewport__badge {
@@ -778,9 +786,9 @@ defineExpose({ highlightResidues })
   gap: 2px;
   padding: 3px;
   border-radius: var(--vs-radius);
-  background: color-mix(in srgb, var(--vs-bg-surface) 86%, transparent);
+  /* Opaque, not blurred: see .viewport__empty-card. */
+  background: var(--vs-bg-surface);
   border: 1px solid var(--vs-border);
-  backdrop-filter: blur(6px);
 }
 
 .viewport__sw-warn {
@@ -793,12 +801,12 @@ defineExpose({ highlightResidues })
   max-width: 320px;
   padding: 8px 10px;
   border-radius: var(--vs-radius);
-  background: color-mix(in srgb, var(--vs-bg-surface) 90%, transparent);
+  /* Opaque, not blurred: see .viewport__empty-card. */
+  background: var(--vs-bg-surface);
   border: 1px solid color-mix(in srgb, var(--vs-warning) 45%, var(--vs-border));
   color: var(--vs-warning);
   font-size: 11.5px;
   line-height: 1.5;
-  backdrop-filter: blur(6px);
   z-index: 2;
 }
 

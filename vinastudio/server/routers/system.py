@@ -40,6 +40,27 @@ TRACKED_PACKAGES: dict[str, str] = {
     "PySide6": "PySide6",
 }
 
+#: Python libraries docking cannot run without. The engine itself is deliberately
+#: absent: it is either the ``vina`` module *or* the shipped ``vina`` binary, so
+#: an unimportable module is the normal state of a packaged Windows build rather
+#: than a missing capability (``core.engines.backend_report`` answers the engine
+#: question by itself).
+DOCKING_LIBRARIES: tuple[str, ...] = ("meeko", "rdkit")
+
+
+def _docking_verdict(failed: list[str], backend: str | None) -> dict[str, Any]:
+    """Can docking run, and which library imports (if any) block it.
+
+    ``failed`` is the raw self-check result, which legitimately names packages
+    that docking does not need — reporting those as "missing dependencies" told
+    CLI-backed users their working installation was broken.
+    """
+    missing = [name for name in DOCKING_LIBRARIES if name in failed]
+    return {
+        "dockingAvailable": backend is not None and not missing,
+        "dockingMissing": missing,
+    }
+
 
 def _distribution_version(name: str) -> str | None:
     try:
@@ -120,7 +141,7 @@ def selfcheck() -> dict[str, Any]:
         "ok": not failed,
         "failed": failed,
         "checks": checks,
-        "dockingAvailable": not {"vina", "meeko", "rdkit"} & set(failed),
+        **_docking_verdict(failed, backend_report()["backend"]),
     }
 
 
