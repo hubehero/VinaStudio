@@ -58,9 +58,40 @@ const runtimeRows = computed(() => {
       label: t('environment.renderer'),
       value: rendererInfo.value?.renderer ?? t('environment.rendererUnknown'),
     },
+    {
+      label: t('environment.buffer'),
+      value: bufferSizeText(),
+    },
+    {
+      label: t('environment.devicePixelRatio'),
+      value: rendererInfo.value?.devicePixelRatio?.toString() ?? t('environment.rendererUnknown'),
+    },
+    {
+      label: t('environment.msaa'),
+      value:
+        rendererInfo.value?.samples === undefined
+          ? t('environment.rendererUnknown')
+          : rendererInfo.value.samples > 0
+            ? `${rendererInfo.value.samples}×`
+            : t('environment.msaaOff'),
+    },
     { label: t('environment.dockingBackend'), value: dockingBackendText() },
   ]
 })
+
+/**
+ * The viewport's drawing buffer in device pixels.
+ *
+ * Render cost tracks this number: ambient occlusion is a fixed 64 taps per
+ * pixel, so doubling the display scale quadruples it. "How big is the buffer"
+ * is therefore the first question a "the 3D view stutters" report raises, and
+ * it cannot be answered from the renderer string alone.
+ */
+function bufferSizeText(): string {
+  const info = rendererInfo.value
+  if (!info?.bufferWidth || !info?.bufferHeight) return t('environment.rendererUnknown')
+  return `${info.bufferWidth} × ${info.bufferHeight} px`
+}
 
 const packageRows = computed<PackageCheck[]>(() => system.selfCheck?.checks ?? [])
 

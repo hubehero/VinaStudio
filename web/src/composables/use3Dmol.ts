@@ -88,6 +88,22 @@ export interface RendererInfo {
   renderer: string
   /** True when the string names a CPU rasteriser — frames will be slow. */
   software: boolean
+  /**
+   * Size of the buffer the fragment passes actually run over, in device pixels.
+   *
+   * Ambient occlusion is a 64-tap-per-pixel post-process (3Dmol's strength only
+   * scales its output, never the tap count), so frame cost is linear in these
+   * pixels — and they are ``CSS size × devicePixelRatio``, which is why the same
+   * scene costs four times as much at 200% display scaling. Absent when the only
+   * probe so far was the throwaway canvas, whose size says nothing about the
+   * viewport.
+   */
+  bufferWidth?: number
+  bufferHeight?: number
+  /** Multiplier between CSS pixels and the buffer above. */
+  devicePixelRatio?: number
+  /** MSAA samples of the default framebuffer; 0 means it is off. */
+  samples?: number
 }
 
 /**
@@ -116,12 +132,35 @@ function probeRenderer(viewer: $3Dmol.GLViewer): void {
   ).renderer
   const gl = renderer?.getContext?.()
   if (!gl) return
-  recordRenderer(gl)
+  recordRenderer(gl, true)
 }
 
-/** Read the renderer string off a live context and remember it, once. */
-function recordRenderer(gl: WebGLRenderingContext | WebGL2RenderingContext): void {
-  if (rendererInfo.value !== null) return
+/**
+ * Read the renderer string off a live context and remember it, once.
+ *
+ * ``withSurface`` marks a context whose framebuffer is the viewport's own: only
+ * then are its size and sample count worth keeping. The name is settled by
+ * whichever probe ran first, but geometry can arrive later — the environment
+ * page may have run its throwaway probe before any 3D view existed.
+ */
+function recordRenderer(
+  gl: WebGLRenderingContext | WebGL2RenderingContext,
+  withSurface = false,
+): void {
+  const known = rendererInfo.value
+  if (known && (!withSurface || known.bufferWidth !== undefined)) return
+  const surface = withSurface
+    ? {
+        bufferWidth: gl.drawingBufferWidth,
+        bufferHeight: gl.drawingBufferHeight,
+        devicePixelRatio: window.devicePixelRatio,
+        samples: Number(gl.getParameter(gl.SAMPLES) ?? 0),
+      }
+    : {}
+  if (known) {
+    rendererInfo.value = { ...known, ...surface }
+    return
+  }
   const name = (() => {
     const debugInfo = gl.getExtension('WEBGL_debug_renderer_info')
     if (debugInfo) {
@@ -130,7 +169,11 @@ function recordRenderer(gl: WebGLRenderingContext | WebGL2RenderingContext): voi
     return String(gl.getParameter(gl.RENDERER))
   })()
   if (name) {
-    rendererInfo.value = { renderer: name, software: SOFTWARE_RENDERER_RE.test(name) }
+    rendererInfo.value = {
+      renderer: name,
+      software: SOFTWARE_RENDERER_RE.test(name),
+      ...surface,
+    }
   }
 }
 

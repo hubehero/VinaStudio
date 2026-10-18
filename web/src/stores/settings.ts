@@ -38,8 +38,9 @@ export interface ViewerSettings {
   antialiasOff: boolean
   /**
    * Frame-time-driven ambient-occlusion downgrade (3Dmol has no geometric
-   * LOD; AO is the most expensive runtime-adjustable style pass). Off by
-   * default: preset AO, zero timing overhead.
+   * LOD; AO is the most expensive runtime-adjustable style pass). On by
+   * default: it changes nothing while frames are cheap, and AO is the one pass
+   * whose cost the viewport can shed without touching the scene.
    */
   adaptiveAO: boolean
 }
@@ -66,7 +67,7 @@ const DEFAULT_VIEWER: ViewerSettings = {
   surfaceOpacity: 0.75,
   renderQuality: 'medium',
   antialiasOff: false,
-  adaptiveAO: false,
+  adaptiveAO: true,
 }
 
 const DEFAULT_MOLECULES: MoleculeSettings = {
@@ -102,7 +103,11 @@ function loadFromStorage(): { viewer: ViewerSettings; molecules: MoleculeSetting
         // Old payloads lack the keys entirely → false; anything non-boolean
         // also lands on false (the pixel-identical default).
         antialiasOff: stored.antialiasOff === true,
-        adaptiveAO: stored.adaptiveAO === true,
+        // Unlike the key above, an absent value means "never chosen", so it
+        // follows today's default — a stored `false` is a user's decision and
+        // stays one.
+        adaptiveAO:
+          typeof stored.adaptiveAO === 'boolean' ? stored.adaptiveAO : defaults.adaptiveAO,
       }
       return { viewer: migrated, molecules: migrateMolecules(parsed.molecules) }
     }
