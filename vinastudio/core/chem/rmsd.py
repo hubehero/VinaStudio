@@ -18,6 +18,7 @@ from pathlib import Path
 from rdkit import Chem
 from rdkit.Chem import rdMolAlign
 
+from vinastudio.core.chem.rdkit_io import mol_from_file
 from vinastudio.core.errors import InvalidInputError
 
 #: Community redocking convention, not a hard physical constant.
@@ -175,15 +176,14 @@ def _mol_from_path(path: Path) -> Chem.Mol:
     if suffix == ".pdbqt":
         return _mol_from_pdbqt_path(path)
     if suffix == ".sdf":
-        supplier = Chem.SDMolSupplier(str(path), removeHs=False)
-        for candidate in supplier:
-            if candidate is not None:
-                if candidate.GetNumConformers() == 0:
-                    raise InvalidInputError(f"no 3D coordinates in {path}")
-                return candidate
-        raise InvalidInputError(f"no readable molecule in {path}")
+        mol = mol_from_file(path, removeHs=False)
+        if mol is None:
+            raise InvalidInputError(f"no readable molecule in {path}")
+        if mol.GetNumConformers() == 0:
+            raise InvalidInputError(f"no 3D coordinates in {path}")
+        return mol
     if suffix == ".mol":
-        mol = Chem.MolFromMolFile(str(path), removeHs=False)
+        mol = mol_from_file(path, removeHs=False)
         if mol is None:
             raise InvalidInputError(f"no readable molecule in {path}")
         return mol

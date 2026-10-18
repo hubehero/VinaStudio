@@ -34,6 +34,7 @@ from vinastudio.core.chem.pdb_lines import (
     residue_key,
     scan_residues,
 )
+from vinastudio.core.chem.rdkit_io import mol_from_file
 from vinastudio.core.errors import InvalidInputError
 
 Point3 = tuple[float, float, float]
@@ -337,13 +338,7 @@ def points_from_rdkit_file(
     does not sanitise is still perfectly usable for defining a box, and RDKit
     only honours ``removeHs`` when sanitising.
     """
-    from rdkit import Chem
-
-    if path.suffix.lower() == ".sdf":
-        molecules = Chem.SDMolSupplier(str(path), removeHs=False, sanitize=False)
-        mol = next((candidate for candidate in molecules if candidate is not None), None)
-    else:
-        mol = Chem.MolFromMolFile(str(path), removeHs=False, sanitize=False)
+    mol = mol_from_file(path, removeHs=False, sanitize=False)
 
     if mol is None:
         raise InvalidInputError(f"no readable molecule in {path.name}")

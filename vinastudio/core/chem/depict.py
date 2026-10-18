@@ -19,6 +19,7 @@ from typing import Any
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
+from vinastudio.core.chem.rdkit_io import mol_from_file
 from vinastudio.core.errors import InvalidInputError
 
 #: Inline text that is clearly an SDF/MOL block rather than a path.
@@ -125,7 +126,7 @@ def _mol_from_path(path: Path) -> Chem.Mol:
     if suffix == ".pdbqt":
         return _mol_from_pdbqt(path.read_text(encoding="utf-8", errors="replace"))
     if suffix in (".sdf", ".mol"):
-        mol = Chem.MolFromMolFile(str(path), removeHs=False)
+        mol = mol_from_file(path, removeHs=False)
         if mol is None:
             raise InvalidInputError(f"RDKit could not parse {path}")
         return mol

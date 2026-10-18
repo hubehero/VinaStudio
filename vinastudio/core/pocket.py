@@ -52,6 +52,7 @@ from vinastudio.core.chem.pdb_lines import (
     is_hydrogen_record,
     residue_name,
 )
+from vinastudio.core.chem.rdkit_io import mol_from_file
 from vinastudio.core.errors import InvalidInputError
 
 #: Pauling electronegativity. The paper's apolar test is "at least three atoms
@@ -214,13 +215,7 @@ def _atoms_from_pdbqt(text: str) -> list[PocketAtom]:
 
 def _atoms_from_rdkit(path: Path) -> list[PocketAtom]:
     """A small molecule is a valid input; it simply has no residue names."""
-    from rdkit import Chem
-
-    if path.suffix.lower() == ".sdf":
-        molecules = Chem.SDMolSupplier(str(path), removeHs=False, sanitize=False)
-        mol = next((candidate for candidate in molecules if candidate is not None), None)
-    else:
-        mol = Chem.MolFromMolFile(str(path), removeHs=False, sanitize=False)
+    mol = mol_from_file(path, removeHs=False, sanitize=False)
     if mol is None:
         raise InvalidInputError(f"no readable molecule in {path.name}")
     if mol.GetNumConformers() == 0:

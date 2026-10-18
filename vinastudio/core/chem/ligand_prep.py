@@ -36,6 +36,7 @@ from rdkit.Chem import AllChem, rdMolDescriptors
 from vinastudio.core.chem.formats import detect_format, is_supported
 from vinastudio.core.chem.pdbqt import PdbqtError, parse_pdbqt
 from vinastudio.core.chem.properties import compute_properties, lipinski_violations
+from vinastudio.core.chem.rdkit_io import mol_from_file, sdf_supplier
 from vinastudio.core.errors import (
     InvalidInputError,
     PreparationError,
@@ -170,7 +171,7 @@ def read_mol(path: Path) -> tuple[Chem.Mol, int]:
 
     if suffix == ".sdf":
         with _captured_rdkit_messages() as messages:
-            supplier = Chem.SDMolSupplier(str(path), removeHs=False, sanitize=True)
+            supplier = sdf_supplier(path, removeHs=False, sanitize=True)
             first: Chem.Mol | None = None
             total = 0
             for mol in supplier:
@@ -183,15 +184,12 @@ def read_mol(path: Path) -> tuple[Chem.Mol, int]:
             )
         return first, total
 
+    if suffix not in (".mol", ".mol2", ".pdb"):
+        # Raised outside the message capture: the suffix, not RDKit, decides.
+        raise UnsupportedFormatError(f"cannot parameterise a {suffix} file")
+
     with _captured_rdkit_messages() as messages:
-        if suffix == ".mol":
-            mol = Chem.MolFromMolFile(str(path), removeHs=False, sanitize=True)
-        elif suffix == ".mol2":
-            mol = Chem.MolFromMol2File(str(path), removeHs=False, sanitize=True)
-        elif suffix == ".pdb":
-            mol = Chem.MolFromPDBFile(str(path), removeHs=False, sanitize=True)
-        else:
-            raise UnsupportedFormatError(f"cannot parameterise a {suffix} file")
+        mol = mol_from_file(path, removeHs=False, sanitize=True)
 
     if mol is None:
         raise InvalidInputError(

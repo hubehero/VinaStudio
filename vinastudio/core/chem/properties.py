@@ -17,6 +17,7 @@ from rdkit import Chem
 from rdkit.Chem import Descriptors
 
 from vinastudio.core.chem.pdbqt import _SMILES_RE
+from vinastudio.core.chem.rdkit_io import mol_from_file
 
 
 def compute_properties(mol: Chem.Mol) -> dict[str, float | int]:
@@ -90,17 +91,7 @@ def _read_source_mol(path: Path) -> Chem.Mol | None:
     profile comes from the Meeko header SMILES instead (see ligand_profile).
     """
     try:
-        suffix = path.suffix.lower()
-        if suffix == ".sdf":
-            supplier = Chem.SDMolSupplier(str(path), removeHs=False, sanitize=True)
-            return next((mol for mol in supplier if mol is not None), None)
-        if suffix == ".mol":
-            return Chem.MolFromMolFile(str(path), removeHs=False, sanitize=True)
-        if suffix == ".mol2":
-            return Chem.MolFromMol2File(str(path), removeHs=False, sanitize=True)
-        if suffix == ".pdb":
-            return Chem.MolFromPDBFile(str(path), removeHs=False, sanitize=True)
-        return None
+        return mol_from_file(path, removeHs=False, sanitize=True)
     except Exception:  # noqa: BLE001 - best-effort path, absence is not an error
         return None
 
