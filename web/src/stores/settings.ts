@@ -20,6 +20,16 @@ import type { RenderQuality, SurfaceKind } from '@/composables/use3Dmol'
 
 const STORAGE_KEY = 'vinastudio-settings'
 
+/**
+ * Bumped when an old stored default must stop winning over the new one.
+ *
+ * The whole viewer object is persisted on every change, so a payload cannot
+ * tell "never touched this" from "left it at the old default". Version 2 is the
+ * first one: payloads without a version take the antialias-off default once,
+ * and from then on an explicit choice sticks.
+ */
+const STORAGE_VERSION = 2
+
 export interface ViewerSettings {
   invertZoom: boolean
   showAxes: boolean
@@ -57,6 +67,7 @@ export interface MoleculeSettings {
 }
 
 interface StoredSettings {
+  version?: number
   viewer?: Partial<ViewerSettings>
   molecules?: Partial<MoleculeSettings>
 }
@@ -84,6 +95,7 @@ function loadFromStorage(): { viewer: ViewerSettings; molecules: MoleculeSetting
     if (raw) {
       const parsed = JSON.parse(raw) as StoredSettings
       const stored = parsed.viewer ?? {}
+      const storedVersion = typeof parsed.version === 'number' ? parsed.version : 1
       // Migrate the old boolean ``showSurface`` field that no longer exists.
       const kind: SurfaceKind | null =
         'surfaceKind' in stored
@@ -104,12 +116,15 @@ function loadFromStorage(): { viewer: ViewerSettings; molecules: MoleculeSetting
           stored.renderQuality === 'low' || stored.renderQuality === 'high'
             ? stored.renderQuality
             : defaults.renderQuality,
-        // An absent key means "never chosen", so it follows today's default
-        // (AA off); a stored boolean is a user's decision and stays one.
+        // A v1 payload stored the old `false` default wholesale, so it cannot
+        // prove the user wanted AA on: it takes the new default once. From v2
+        // on, an explicit boolean is a decision and stays one.
         antialiasOff:
-          typeof stored.antialiasOff === 'boolean'
-            ? stored.antialiasOff
-            : defaults.antialiasOff,
+          storedVersion < STORAGE_VERSION
+            ? defaults.antialiasOff
+            : typeof stored.antialiasOff === 'boolean'
+              ? stored.antialiasOff
+              : defaults.antialiasOff,
         // Same rule as the key above: an absent value follows today's default,
         // while a stored `false` is a user's decision and stays one.
         adaptiveAO:
@@ -130,7 +145,10 @@ function migrateMolecules(stored: Partial<MoleculeSettings> | undefined): Molecu
 
 function saveToStorage(viewer: ViewerSettings, molecules: MoleculeSettings): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ viewer, molecules }))
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ version: STORAGE_VERSION, viewer, molecules }),
+    )
   } catch {
     // Best-effort only.
   }
