@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import multiprocessing
 import os
 import sys
 
@@ -34,6 +35,15 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Frozen builds re-execute this entry point for every spawned worker; the
+    # child's argv starts with ``--multiprocessing-fork``. PyInstaller's runtime
+    # hook only *replaces* ``freeze_support`` — it never calls it — so without
+    # this line the child parses the GUI's arguments and dies (or, in a windowed
+    # build, blocks on the bootloader's traceback dialog) instead of running the
+    # docking worker: the job stays at 0% with no CPU use. It must run before
+    # ``_parse_args``, and it is a no-op in a normal Python process.
+    multiprocessing.freeze_support()
+
     args = _parse_args(argv)
 
     # PyInstaller's windowed mode leaves sys.stdout/sys.stderr as None, because a

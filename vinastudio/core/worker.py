@@ -30,6 +30,35 @@ from vinastudio.core.engines.common import events_for_line
 log = logging.getLogger(__name__)
 
 
+def _capture_stdout() -> tuple[int, int | None]:
+    """Point fd 1 at a fresh pipe and return ``(read_fd, saved_stdout)``.
+
+    ``saved_stdout`` is ``None`` when the process has no usable stdout — a
+    windowed frozen build starts that way, because PyInstaller leaves
+    ``sys.stdout`` as ``None`` when there is no descriptor behind it. The pipe
+    is what matters: Vina's C-level progress lines go to fd 1, so replacing a
+    missing descriptor is enough to feed the parser. The restore path below
+    just closes fd 1 in that case instead of duplicating nothing.
+    """
+    read_fd, write_fd = os.pipe()
+    try:
+        saved_stdout = os.dup(1)
+    except OSError:
+        saved_stdout = None
+    os.dup2(write_fd, 1)
+    os.close(write_fd)
+    return read_fd, saved_stdout
+
+
+def _restore_stdout(saved_stdout: int | None) -> None:
+    """Undo :func:`_capture_stdout`; closing fd 1 is what ends the reader."""
+    if saved_stdout is None:
+        os.close(1)
+        return
+    os.dup2(saved_stdout, 1)
+    os.close(saved_stdout)
+
+
 def _emit(pipe: Connection, kind: str, data: dict[str, Any] | None = None) -> None:
     """Send a structured event through the pipe."""
     event: dict[str, Any] = {"type": kind}
@@ -83,10 +112,7 @@ def docking_worker(params: dict[str, Any], pipe: Connection) -> None:
     output_dir = params.pop("output_dir", "")
 
     # Redirect stdout so Vina's progress lines flow through our parser.
-    read_fd, write_fd = os.pipe()
-    old_stdout = os.dup(1)
-    os.dup2(write_fd, 1)
-    os.close(write_fd)
+    read_fd, saved_stdout = _capture_stdout()
 
     # Start a reader thread that parses stdout asynchronously.
     import threading
@@ -120,8 +146,7 @@ def docking_worker(params: dict[str, Any], pipe: Connection) -> None:
         # sees EOF and returns.  Joining before that point always burned the
         # full timeout — the write end was still open — and then raced the
         # reader against ``os.close(read_fd)``.
-        os.dup2(old_stdout, 1)
-        os.close(old_stdout)
+        _restore_stdout(saved_stdout)
         reader.join(timeout=2.0)
         os.close(read_fd)
         pipe.close()
@@ -387,10 +412,7 @@ def site_screening_worker(params: dict[str, Any], pipe: Connection) -> None:
 
     # Vina's progress lines are parsed off stdout, exactly as in the other
     # workers.
-    read_fd, write_fd = os.pipe()
-    old_stdout = os.dup(1)
-    os.dup2(write_fd, 1)
-    os.close(write_fd)
+    read_fd, saved_stdout = _capture_stdout()
 
     import threading
 
@@ -508,8 +530,7 @@ def site_screening_worker(params: dict[str, Any], pipe: Connection) -> None:
         log.exception("site screening worker failed")
         _emit(pipe, "failed", {"error": str(exc)})
     finally:
-        os.dup2(old_stdout, 1)
-        os.close(old_stdout)
+        _restore_stdout(saved_stdout)
         reader.join(timeout=2.0)
         os.close(read_fd)
         pipe.close()

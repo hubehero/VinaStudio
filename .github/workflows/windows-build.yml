@@ -258,12 +258,75 @@ jobs:
             if ($check.failed -notcontains "vina") {
               throw "expected the vina module to be unimportable here, so this check stops proving anything"
             }
+
+            # A real docking job, not just a capability probe. The worker is a
+            # spawn child launched by the packaged exe itself, so this is the only
+            # assertion that can catch a frozen entry point re-running the GUI
+            # instead of the worker, or a worker that assumes a console
+            # (TASK-40 §11.1/§11.2). The bundle already carries prepared 1iep
+            # PDBQTs; exhaustiveness 1 keeps it to a few seconds.
+            $sample = (Resolve-Path "dist/vinastudio/_internal/vinastudio/resources/sample/1iep").Path
+            $receptor = Join-Path $sample "1iep_receptor.pdbqt"
+            $ligand = Join-Path $sample "1iep_ligand.pdbqt"
+            foreach ($file in @($receptor, $ligand)) {
+              if (-not (Test-Path $file)) { throw "bundled 1iep sample missing: $file" }
+            }
+            $dockBody = @{
+              receptorPath = $receptor
+              ligandPath = $ligand
+              center = @(15.190, 53.903, 16.917)
+              size = @(20.0, 20.0, 20.0)
+              scoring = "vina"
+              exhaustiveness = 1
+              nPoses = 1
+              cpu = 1
+              seed = 42
+              verbosity = 1
+            } | ConvertTo-Json -Depth 4
+            $dockJob = Invoke-RestMethod -Method Post `
+              -Uri "http://127.0.0.1:$port/api/docking/start" `
+              -ContentType "application/json" -Body $dockBody
+            Write-Host "started docking job $($dockJob.jobId)"
+
+            $dockStatus = $null
+            foreach ($attempt in 1..90) {
+              Start-Sleep -Seconds 2
+              $dockStatus = Invoke-RestMethod "http://127.0.0.1:$port/api/docking/jobs/$($dockJob.jobId)"
+              if ($dockStatus.status -in @("completed", "failed", "cancelled")) { break }
+            }
+            if ($null -eq $dockStatus -or $dockStatus.status -ne "completed") {
+              $state = if ($null -eq $dockStatus) { "no status" } else {
+                "status=$($dockStatus.status) progress=$($dockStatus.progress) stage=$($dockStatus.stage) error=$($dockStatus.error)"
+              }
+              $tail = if ($null -eq $dockStatus) { "" } else {
+                ($dockStatus.log | Select-Object -Last 8) -join " | "
+              }
+              throw "docking did not complete: $state log=$tail"
+            }
+
+            $dockResult = Invoke-RestMethod "http://127.0.0.1:$port/api/docking/jobs/$($dockJob.jobId)/result"
+            if ($dockResult.poses.Count -lt 1) { throw "docking completed with no poses" }
+            if ($dockResult.bestAffinity -ge 0) {
+              throw "docking returned a non-negative affinity: $($dockResult.bestAffinity)"
+            }
+            Write-Host ("docking OK: best={0:N3} kcal/mol poses={1} elapsed={2} ms" -f `
+              $dockResult.bestAffinity, $dockResult.poses.Count, $dockResult.elapsedMs)
+
             Write-Host "OK: the packaged application starts and finds its own engine"
           } catch {
             # Explain the failure instead of only reporting it.
             Write-Host "--- failure: $($_.Exception.Message)"
             Write-Host "--- process alive: $(if ($proc.HasExited) { 'no' } else { 'yes' })"
             Write-Host "--- main window title: '$($proc.MainWindowTitle)'"
+            if ($dockJob) {
+              try {
+                $s = Invoke-RestMethod "http://127.0.0.1:$port/api/docking/jobs/$($dockJob.jobId)"
+                Write-Host "--- docking job $($dockJob.jobId): $($s.status) $($s.progress)% stage=$($s.stage) error=$($s.error)"
+                $s.log | Select-Object -Last 20 | ForEach-Object { Write-Host "    $_" }
+              } catch {
+                Write-Host "--- could not read docking job: $($_.Exception.Message)"
+              }
+            }
             Write-Host "--- recent application events"
             Get-WinEvent -LogName Application -MaxEvents 8 -ErrorAction SilentlyContinue |
               Format-List TimeCreated, ProviderName, Message
