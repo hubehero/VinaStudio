@@ -82,7 +82,7 @@ export default {
     rendererLabel: 'Active renderer',
     softwareRendererWarn: 'WebGL is running on the software renderer; viewport performance will be noticeably degraded.',
     antialiasOffLabel: 'Force antialiasing off',
-    antialiasOffHint: 'Faster rendering on low-end GPUs at the cost of jagged edges; follows the quality preset by default',
+    antialiasOffHint: 'On by default; turn it off for antialiased edges. Faster rendering on low-end GPUs at the cost of jagged edges',
     adaptiveAOLabel: 'Adaptive ambient occlusion',
     adaptiveAOHint: 'Temporarily disables ambient occlusion when frames drop, restoring it when smooth; affects the 3D viewport only',
     resetDefaults: 'Reset to defaults',

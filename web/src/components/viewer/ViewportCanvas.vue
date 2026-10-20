@@ -68,7 +68,7 @@ const { viewer, ready, error, recreate } = useMoleculeViewer(container, {
   autoReferenceFrame: false,
   // Getters so a rebuild always binds the latest preset and switch states.
   quality: () => settings.viewer.renderQuality,
-  antialiasOff: () => settings.viewer.antialiasOff ?? false,
+  antialiasOff: () => settings.viewer.antialiasOff,
   adaptiveAO: () => settings.viewer.adaptiveAO ?? false,
 })
 const loadError = ref<string | null>(null)

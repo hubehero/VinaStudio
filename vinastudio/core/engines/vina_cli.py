@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -35,6 +36,13 @@ CLI_PATH_ENV = "VINASTUDIO_VINA_CLI"
 
 #: ``--num_modes`` default is 9, so it is always passed explicitly.
 DEFAULT_NUM_MODES = 9
+
+#: A windowed build has no console, so Windows would open a console window for
+#: every console-subsystem child (``vina.exe``) and leave it there for the whole
+#: run. The child still inherits the worker's stdout pipe, which is what carries
+#: the progress lines; this only suppresses the window. Zero on POSIX, where
+#: ``creationflags`` is a no-op.
+_CREATE_NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
 
 
 def cli_path() -> Path:
@@ -112,6 +120,7 @@ def _run(command: list[str], *, capture: bool = False) -> subprocess.CompletedPr
             stdout=subprocess.PIPE if capture else None,
             text=True,
             check=False,
+            creationflags=_CREATE_NO_WINDOW,
         )
     except PermissionError as exc:
         raise RuntimeError(f"{command[0]} is not executable: {exc}") from exc

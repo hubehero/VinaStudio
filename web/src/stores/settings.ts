@@ -33,7 +33,11 @@ export interface ViewerSettings {
   renderQuality: RenderQuality
   /**
    * Force construction-time antialiasing off, overriding the preset.
-   * ``false`` (the default) follows the preset — the pixel-identical status quo.
+   *
+   * On by default (the user's ruling, 2026-10-20): AA on QtWebEngine 6 for
+   * Windows flickers unpredictably, and AA is what doubles 3Dmol's draw buffer
+   * (2× per axis, 4× the pixels) on the same compositor path. A user who wants
+   * antialiased edges can still switch it off.
    */
   antialiasOff: boolean
   /**
@@ -66,7 +70,7 @@ const DEFAULT_VIEWER: ViewerSettings = {
   surfaceKind: null,
   surfaceOpacity: 0.75,
   renderQuality: 'medium',
-  antialiasOff: false,
+  antialiasOff: true,
   adaptiveAO: true,
 }
 
@@ -100,12 +104,14 @@ function loadFromStorage(): { viewer: ViewerSettings; molecules: MoleculeSetting
           stored.renderQuality === 'low' || stored.renderQuality === 'high'
             ? stored.renderQuality
             : defaults.renderQuality,
-        // Old payloads lack the keys entirely → false; anything non-boolean
-        // also lands on false (the pixel-identical default).
-        antialiasOff: stored.antialiasOff === true,
-        // Unlike the key above, an absent value means "never chosen", so it
-        // follows today's default — a stored `false` is a user's decision and
-        // stays one.
+        // An absent key means "never chosen", so it follows today's default
+        // (AA off); a stored boolean is a user's decision and stays one.
+        antialiasOff:
+          typeof stored.antialiasOff === 'boolean'
+            ? stored.antialiasOff
+            : defaults.antialiasOff,
+        // Same rule as the key above: an absent value follows today's default,
+        // while a stored `false` is a user's decision and stays one.
         adaptiveAO:
           typeof stored.adaptiveAO === 'boolean' ? stored.adaptiveAO : defaults.adaptiveAO,
       }

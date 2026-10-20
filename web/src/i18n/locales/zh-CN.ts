@@ -82,7 +82,7 @@ export default {
     rendererLabel: '当前渲染器',
     softwareRendererWarn: 'WebGL 正在使用软件渲染，视口性能会显著下降。',
     antialiasOffLabel: '强制关闭抗锯齿',
-    antialiasOffHint: '关闭后低性能设备渲染更快，边缘锯齿会更明显；默认跟随画质档位',
+    antialiasOffHint: '默认开启；需要抗锯齿边缘时可手动关闭。关闭抗锯齿后低性能设备渲染更快，但边缘锯齿更明显',
     adaptiveAOLabel: '自适应环境光遮蔽',
     adaptiveAOHint: '持续掉帧时自动关闭环境光遮蔽，流畅后恢复；仅影响 3D 视口观感',
     resetDefaults: '恢复默认',
