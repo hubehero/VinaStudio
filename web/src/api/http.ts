@@ -362,11 +362,22 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
-  importBundle: (path: string) =>
-    request<ImportBundleResponse>('/api/docking/import-bundle', {
+  importBundle: async (file: File): Promise<ImportBundleResponse> => {
+    const form = new FormData()
+    form.append('file', file)
+    // Same non-simple-request guard as /api/files/upload: the endpoint
+    // accepts bytes, never a filesystem path from the page.
+    const response = await fetch('/api/docking/import-bundle', {
       method: 'POST',
-      body: JSON.stringify({ path }),
-    }),
+      headers: { 'X-Requested-With': 'VinaStudio' },
+      body: form,
+    })
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '')
+      throw new ApiError(detail || `import failed (${response.status})`, response.status)
+    }
+    return (await response.json()) as ImportBundleResponse
+  },
   vinaInfo: () => request<VinaInfoResponse>('/api/docking/info'),
   vinaCite: (scoring: string = 'vina') =>
     request<VinaCiteResponse>(`/api/docking/cite?scoring=${encodeURIComponent(scoring)}`),

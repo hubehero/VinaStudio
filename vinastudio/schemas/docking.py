@@ -254,14 +254,6 @@ class ExportPoseResponse(BaseModel):
     sdf: str
 
 
-class ImportBundleRequest(BaseModel):
-    """Body of ``POST /api/docking/import-bundle``."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    path: str = Field(description="Uploaded zip path inside the active workspace.")
-
-
 class ImportBundleResponse(BaseModel):
     """The imported run is a new completed job, never the original one."""
 

@@ -49,8 +49,7 @@ async function onImportFile(event: Event): Promise<void> {
   if (!file) return
   importing.value = true
   try {
-    const saved = await api.upload(file)
-    const result = await api.importBundle(saved.path)
+    const result = await api.importBundle(file)
     await docking.fetchJobs()
     const job = docking.jobSummaries.find((summary) => summary.jobId === result.jobId)
     if (job) await docking.openHistoryJob(job)

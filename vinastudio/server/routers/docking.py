@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import logging
 import os
@@ -13,9 +14,9 @@ import uuid
 import zipfile
 from datetime import datetime
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, Header, HTTPException, UploadFile
 
 from vinastudio import __version__
 from vinastudio.config import NATIVE_MAP_SCORING, SCORING_WEIGHT_COUNT, max_upload_bytes
@@ -43,7 +44,6 @@ from vinastudio.core.paths import (
     JOB_LOG_FILENAME,
     POSES_SDF_FILENAME,
     job_dir,
-    resolve_within,
     workspace_root,
 )
 from vinastudio.core.report import render_report, svg_is_safe
@@ -72,7 +72,6 @@ from vinastudio.schemas.docking import (
     IfpJobRequest,
     IfpJobResponse,
     IfpResidue,
-    ImportBundleRequest,
     ImportBundleResponse,
     OptimizeRequest,
     OptimizeResponse,
@@ -1238,10 +1237,10 @@ def export_bundle(job_id: str, request: ExportBundleRequest) -> Artifact:
     )
 
 
-def _read_result_bundle(source: Path) -> dict[str, bytes]:
+def _read_result_bundle(payload: bytes) -> dict[str, bytes]:
     """Read a v1 bundle with no path traversal, symlinks or zip bombs."""
     try:
-        with zipfile.ZipFile(source) as bundle:
+        with zipfile.ZipFile(io.BytesIO(payload)) as bundle:
             infos = bundle.infolist()
             if len(infos) > BUNDLE_MAX_ENTRIES:
                 raise InvalidInputError("result bundle has too many members")
@@ -1280,8 +1279,8 @@ def _read_result_bundle(source: Path) -> dict[str, bytes]:
     return contents
 
 
-def _import_result_bundle(source: Path) -> ImportBundleResponse:
-    contents = _read_result_bundle(source)
+def _import_result_bundle(payload: bytes) -> ImportBundleResponse:
+    contents = _read_result_bundle(payload)
 
     try:
         manifest = json.loads(contents["manifest.json"].decode("utf-8"))
@@ -1381,27 +1380,26 @@ def _import_result_bundle(source: Path) -> ImportBundleResponse:
 
 
 @router.post("/import-bundle", response_model=ImportBundleResponse)
-def import_bundle(request: ImportBundleRequest) -> ImportBundleResponse:
+async def import_bundle(
+    x_requested_with: Annotated[str, Header()],
+    file: UploadFile = File(...),
+) -> ImportBundleResponse:
     """Restore a result bundle as a new, read-only completed job.
 
-    The path must be an uploaded zip inside the active workspace; the source
-    is never overwritten and the imported run gets a fresh id, so the current
-    project and its results stay untouched.
+    The zip bytes arrive as multipart, not as a user-supplied path: the same
+    non-simple-request header as ``/api/files/upload`` applies, and no path
+    from the request ever reaches the filesystem.  The imported run gets a
+    fresh id, so the current project and its results stay untouched.
     """
-    from vinastudio.server.routers.workspace import get_active_workspace
-
-    # Uploads with an active workspace land in <ws>/exports or <ws>/ligands,
-    # while job directories live in <ws>/jobs; the containment check therefore
-    # uses the workspace root, not workspace_root() (the jobs directory).
-    source_root = get_active_workspace() or workspace_root()
-    try:
-        source = resolve_within(source_root, request.path)
-    except ValueError as exc:
-        raise InvalidInputError("result bundle path escapes the workspace") from exc
-    if not source.is_file():
-        raise InvalidInputError("result bundle not found")
-    if source.suffix.lower() != ".zip":
+    name = Path(file.filename or "bundle.zip").name
+    if Path(name).suffix.lower() != ".zip":
         raise InvalidInputError("result bundle must be a .zip file")
-    if source.stat().st_size > max_upload_bytes():
+    limit = max_upload_bytes()
+    if file.size is not None and file.size > limit:
         raise InvalidInputError("result bundle exceeds the upload limit")
-    return _import_result_bundle(source)
+    payload = await file.read()
+    if not payload:
+        raise InvalidInputError("result bundle is empty")
+    if len(payload) > limit:
+        raise InvalidInputError("result bundle exceeds the upload limit")
+    return _import_result_bundle(payload)

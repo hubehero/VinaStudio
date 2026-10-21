@@ -693,11 +693,6 @@ export interface ExportBundleRequest {
   lang: 'zh-CN' | 'en-US'
 }
 
-export interface ImportBundleRequest {
-  /** Uploaded .zip path inside the active workspace. */
-  path: string
-}
-
 export interface ImportBundleResponse {
   /** A fresh id; the imported bundle never reuses or overwrites the original. */
   jobId: string
