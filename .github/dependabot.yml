@@ -15,6 +15,11 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    # TypeScript is pinned to 5.x: TS 7 dropped lib/tsc, which vue-tsc needs
+    # (AGENTS.md, docs/TECHNICAL_GUIDE.md). A major upgrade is a deliberate task.
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
