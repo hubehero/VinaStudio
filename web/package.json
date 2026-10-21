@@ -15,7 +15,7 @@
     "3dmol": "^2.5.5",
     "@element-plus/icons-vue": "^2.3.2",
     "element-plus": "^2.14.6",
-    "pinia": "^4.0.3",
+    "pinia": "^4.1.0",
     "vue": "^3.5.43",
     "vue-i18n": "^11.4.12",
     "vue-router": "^5.3.1"
