@@ -129,13 +129,15 @@ Release artifacts are **Linux and, from 0.4.0, Windows**. The Windows installer 
 verified on real hardware on 2026-10-20 (preparation, docking, analysis, persistence,
 non-ASCII paths); every Windows build also docks 1iep inside the frozen bundle and
 asserts the result, so the packaging path is exercised before anybody downloads it.
+**macOS is source-only and is not a release target** (decision, 2026-10-21).
 
 `windows-build.yml` still publishes nothing by itself — it is the on-demand test
-build. `release.yml` does not build Windows yet. For 0.4.0, either add a
-`build-windows` job to `release.yml` (reusing the steps from `windows-build.yml`) or
-attach the verified `windows-installer` artifact to the release manually and record
-its SHA-256 in the notes. The public limitations are documented in
-`docs/WINDOWS.md`; keep that page in step with the build.
+build. `release.yml` does not build Windows yet; 0.4.1's installer was attached
+manually. The 0.5 target is a `build-windows` job in `release.yml` (reusing the steps
+from `windows-build.yml`), so tagging produces both platforms without a manual step.
+Until then, attach the verified `windows-installer` artifact and record its SHA-256 in
+the notes. The public limitations are documented in `docs/WINDOWS.md`; keep that page
+in step with the build.
 
 ## What CI does
 

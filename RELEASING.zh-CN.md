@@ -60,8 +60,9 @@ gh workflow run windows-build.yml --ref main
 # 等运行结束，下载 windows-installer，确认日志里有 "docking OK"
 ```
 
-如果 `release.yml` 还没有构建 Windows 的 job，就把验证过的安装包在创建 release 后
-手动挂上去，并在说明里写 SHA-256。
+0.4.1 的安装包是手动挂载的。0.5 的目标是把 `build-windows` 加进 `release.yml`，
+tag 后自动构建并挂载；在此之前，仍把验证过的安装包在创建 release 后手动挂上去，
+并在说明里写 SHA-256。
 
 ### 5. 打附注 tag 并推送
 
@@ -113,3 +114,5 @@ git push origin v0.4.0
 Linux 需要 OpenGL 桌面会话；Windows 需要 Direct3D 11，按机器安装（管理员），
 安装包未签名（SmartScreen 会提示）。科学栈（vina、meeko、RDKit）与 Vina 1.2.7
 命令行二进制都已随包；Windows 没有 `vina` Python 模块，会自动使用该二进制。
+**macOS 不发布 release 包**（2026-10-21 决定）；仅保留源码路径，不做安装包、
+签名或公证。

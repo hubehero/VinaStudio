@@ -253,6 +253,10 @@ the same reason.
 | 5 | Batch virtual screening, `.vinaproj` project files | done |
 | 6 | PyInstaller packaging | done |
 | 7 | Windows desktop package (installer, command-line backend) | done |
+| 8 | Release automation, CI/test gates, Windows hardening (0.5) | next |
+| 9 | Result depth: MM-GBSA/GNINA spikes, publication graphics (0.6) | planned |
+| 10 | Workflow and data: management, command palette, accessibility (0.7) | planned |
+| 11 | Scale: Docker/Web mode, GPU engine if viable (0.8) | planned |
 
 ### Platform support
 
@@ -262,8 +266,9 @@ That build bundles the AutoDock Vina 1.2.7 command line and uses it automaticall
 because upstream publishes no Windows wheel for the `vina` module. Preparation,
 docking, analysis and persistence are the same; the user-facing scope, known
 boundaries (AutoDock4 maps, antialiasing default, unsigned installer, x64 only)
-and troubleshooting live in [WINDOWS.md](WINDOWS.md). macOS remains source-only:
-no package and no release-level verification.
+and troubleshooting live in [WINDOWS.md](WINDOWS.md). macOS is source-only **by
+decision**: it is not a release target, and no package or release-level
+verification is planned.
 
 ### Artefacts and the `/artifacts` mount
 

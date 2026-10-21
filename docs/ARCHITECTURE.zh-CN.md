@@ -234,6 +234,10 @@ uploaded → inspecting → inspected → preparing → prepared
 | 5 | 批量虚拟筛选、`.vinaproj` 项目文件 | 完成 |
 | 6 | PyInstaller 打包 | 完成 |
 | 7 | Windows 桌面包（安装包、命令行后端） | 完成 |
+| 8 | 发布自动化、CI/测试门禁、Windows 硬化（0.5） | 下一步 |
+| 9 | 结果深度：MM-GBSA/GNINA 调研、出版级图形（0.6） | 计划中 |
+| 10 | 工作流与数据：数据管理、命令面板、可访问性（0.7） | 计划中 |
+| 11 | 规模化：Docker/Web 模式、GPU 引擎（可行时）（0.8） | 计划中 |
 
 ### 平台支持
 
@@ -242,7 +246,8 @@ Linux 是主要的打包目标（`.deb` 与便携 tar.gz）。Windows 10 1809+ /
 命令行引擎并自动使用它，因为上游从未发布 `vina` 模块的 Windows 轮子。准备、
 对接、分析与持久化与 Linux 相同；面向用户的支持范围、已知边界（AutoDock4
 地图、抗锯齿默认值、未签名安装包、仅 x64）与排障见 [WINDOWS.zh-CN.md](WINDOWS.zh-CN.md)。
-macOS 仍只有源码路径：没有安装包，也未做发布级验证。
+macOS 仅保留源码路径，**不发布 release 包**（2026-10-21 决定）；不做安装包与
+发布级验证。
 
 ### 工件与 `/artifacts` 挂载
 
