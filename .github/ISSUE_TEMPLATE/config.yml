@@ -1,0 +1,12 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: User guide / 用户手册
+    url: https://github.com/hubehero/VinaStudio/blob/main/docs/USER_GUIDE.zh-CN.md
+    about: Installation, first run, preparation, docking and reading results.
+  - name: Windows support and limits / Windows 支持与边界
+    url: https://github.com/hubehero/VinaStudio/blob/main/docs/WINDOWS.zh-CN.md
+    about: Supported versions, known boundaries and troubleshooting.
+  - name: Security report / 安全问题
+    url: https://github.com/hubehero/VinaStudio/security/advisories/new
+    about: Please report vulnerabilities privately, not in a public issue.

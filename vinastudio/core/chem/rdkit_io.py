@@ -1,9 +1,9 @@
 """RDKit readers that never hand a filesystem path to RDKit.
 
 RDKit's C++ file readers take a narrow ``std::string`` path, so on Windows any
-path holding non-ASCII characters — a CJK user profile, or an install kept
-inside a cloud-sync folder such as ``D:\\灰太狼云盘\\…`` — opens as garbage and
-every ligand read dies with ``OSError: File error: Bad input file <path>``.
+path holding non-ASCII characters — a CJK user profile, or a data folder such
+as ``D:\\数据\\配体.sdf`` — opens as garbage and every ligand read dies with
+``OSError: File error: Bad input file <path>``.
 The bytes are fine: Python, gemmi and this project's own parsers read the very
 same file from the same directory. So the reader is at fault, not the data.
 

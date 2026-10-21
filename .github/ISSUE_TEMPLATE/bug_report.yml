@@ -1,0 +1,76 @@
+name: Bug report / 缺陷报告
+description: Something behaves differently from what the documentation says.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. Chinese and English are both welcome.
+        Before posting, remove personal paths, usernames, tokens and any sample data you
+        cannot share. Security issues belong in a private advisory, not here.
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The release tag, or the version shown on the About page.
+      placeholder: "0.4.0"
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: Operating system
+      placeholder: "Windows 11 23H2 x64 / Ubuntu 24.04"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: What you did, in order. A minimal example is more useful than a long one.
+      placeholder: |
+        1. Open ...
+        2. Choose ...
+        3. See ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead
+      description: Include the exact error text if there is one.
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Logs and renderer
+      description: |
+        Paste the tail of the application log and, for viewport problems, the
+        `Environment` page's renderer line. Remove personal paths first.
+      render: text
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Before submitting
+      options:
+        - label: I checked the user guide and the Windows limitations, and this is not a documented boundary.
+          required: true
+        - label: I removed personal information from logs, screenshots and file paths.
+          required: true

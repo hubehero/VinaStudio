@@ -1,10 +1,12 @@
 # Architecture
 
+**English** · [简体中文](ARCHITECTURE.zh-CN.md) · [Home](../README.en.md)
+
 VinaStudio is four layers with strict boundaries. This document explains the
 design and, more importantly, the three constraints that shape all of it.
 
-For methodology validation, reproducibility, and references, see
-[ACADEMIC_VERIFICATION.md](ACADEMIC_VERIFICATION.md).
+For methodology validation, reproducibility and references, see
+`docs/ACADEMIC_VERIFICATION.md` in the source tree.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -249,7 +251,19 @@ the same reason.
 | 3 | Spawned job system with live progress, log streaming and real cancellation; full scoring/optimization parameter surface | done |
 | 4 | Pose ranking, energy decomposition, interaction detection, electrostatic cube, export | done |
 | 5 | Batch virtual screening, `.vinaproj` project files | done |
-| 6 | PyInstaller packaging | next |
+| 6 | PyInstaller packaging | done |
+| 7 | Windows desktop package (installer, command-line backend) | done |
+
+### Platform support
+
+Linux is the primary packaged target (`.deb` and portable tarball). Windows 10
+1809+ / 11 on x64 gets an installer from **0.4.0**, verified on real hardware.
+That build bundles the AutoDock Vina 1.2.7 command line and uses it automatically,
+because upstream publishes no Windows wheel for the `vina` module. Preparation,
+docking, analysis and persistence are the same; the user-facing scope, known
+boundaries (AutoDock4 maps, antialiasing default, unsigned installer, x64 only)
+and troubleshooting live in [WINDOWS.md](WINDOWS.md). macOS remains source-only:
+no package and no release-level verification.
 
 ### Artefacts and the `/artifacts` mount
 

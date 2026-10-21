@@ -1,648 +1,295 @@
-	# VinaStudio 用户操作手册
+# VinaStudio User Guide
 
-> 零基础可学 · 全流程图文指南
+**English** · [简体中文](USER_GUIDE.zh-CN.md) · [Home](../README.en.md)
 
----
+This guide takes you from a fresh installation to a docked pose you can trust:
+prepare a receptor and a ligand, choose the search box, run AutoDock Vina, read
+the result, and export it. It assumes no command-line experience.
 
-## 目录
-
-1. [这是什么](#1-这是什么)
-2. [安装前的准备](#2-安装前的准备)
-3. [安装步骤](#3-安装步骤)
-4. [启动应用](#4-启动应用)
-5. [界面总览](#5-界面总览)
-6. [第一步：准备受体（蛋白质）](#6-第一步准备受体蛋白质)
-7. [第二步：准备配体（小分子药物）](#7-第二步准备配体小分子药物)
-8. [第三步：定义结合位点](#8-第三步定义结合位点)
-9. [第四步：运行对接](#9-第四步运行对接)
-10. [第五步：查看结果](#10-第五步查看结果)
-11. [进阶操作](#11-进阶操作)
-12. [常见问题 (FAQ)](#12-常见问题-faq)
-13. [术语表](#13-术语表)
+If you only want the short version, the [quick reference](#quick-reference) at
+the end lists every step in order.
 
 ---
 
-## 1. 这是什么
+## 1. What VinaStudio is
 
-VinaStudio 是一个**分子对接桌面软件**，把 AutoDock Vina（一个广泛使用的分子对接引擎）包装成了图形界面。
+VinaStudio is a desktop workbench around **AutoDock Vina** (the 1.2.7 engine).
+It handles the whole docking workflow — PDBQT preparation, box definition,
+docking, pose inspection, interaction analysis and export — without asking you to
+assemble command lines by hand.
 
-**通俗解释**：想象你有一把锁（蛋白质受体）和一把钥匙（小分子配体），分子对接就是用计算机模拟钥匙插入锁的过程，预测它们的结合方式和强度。VinaStudio 让你不用写命令行就能完成这个过程。
+The interface is bilingual (Chinese and English), and the scientific results are
+computed by Vina itself; the application never invents a score.
 
-**能做什么**：
-- 把蛋白质结构文件（PDB）转换为对接格式（PDBQT）
-- 把小分子文件（SDF/MOL）转换为对接格式（PDBQT）
-- 在 3D 视图中查看蛋白质和小分子
-- 定义对接搜索区域（盒子）
-- 运行 AutoDock Vina 对接
-- 查看对接结果（亲和力、构象、相互作用）
+**Where to go next**
 
-**界面语言**：默认中文，可在右上角切换为英文。
-
----
-
-## 2. 安装前的准备
-
-### 2.1 系统要求
-
-| 项目 | 要求 |
-|------|------|
-| 操作系统 | Linux / macOS / Windows |
-| Python | 3.12 或更高 |
-| 包管理器 | [uv](https://docs.astral.sh/uv/)（推荐）|
-| Node.js | 20 或更高 |
-| 包管理器 | [pnpm](https://pnpm.io/) |
-| 内存 | 至少 4 GB（对接大分子需要更多） |
-| 磁盘空间 | 约 2 GB（包含所有依赖） |
-
-### 2.2 安装 Python（如果还没装）
-
-```bash
-# Linux (Ubuntu/Debian)
-sudo apt update
-sudo apt install python3.12
-
-# macOS (使用 Homebrew)
-brew install python@3.12
-
-# Windows
-# 从 https://www.python.org/downloads/ 下载 Python 3.12 安装包
-# 安装时勾选 "Add Python to PATH"
-```
-
-### 2.3 安装 uv（Python 包管理器）
-
-```bash
-# Linux / macOS
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Windows (PowerShell)
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
-
-安装后重新打开终端，验证安装：
-```bash
-uv --version
-# 应该显示类似 uv 0.x.x
-```
-
-### 2.4 安装 Node.js 和 pnpm
-
-```bash
-# Linux (使用 fnm 或 nvm)
-curl -fsSL https://fnm.vercel.app/install | bash
-fnm install 20
-fnm use 20
-
-# macOS
-brew install node@20
-
-# Windows
-# 从 https://nodejs.org/ 下载 Node.js 20 LTS 安装包
-
-# 安装 pnpm（所有平台通用）
-npm install -g pnpm
-```
-
-验证安装：
-```bash
-node --version   # 应该显示 v20.x.x
-pnpm --version   # 应该显示 9.x.x 或更高
-```
+- Windows installation and boundaries: [WINDOWS.md](WINDOWS.md)
+- How the application is put together: [ARCHITECTURE.md](ARCHITECTURE.md)
+- What changed in this version: [CHANGELOG.md](../CHANGELOG.md)
 
 ---
 
-## 3. 安装步骤
+## 2. Before you install
 
-### 3.1 获取源代码
+### 2.1 Requirements
+
+| Item | Requirement |
+|---|---|
+| Operating system | Linux (x86_64), Windows 10 1809+ / 11 (x64), or macOS from source |
+| Python | 3.12 — **source installs only**; the Windows installer bundles it |
+| Package manager | [uv](https://docs.astral.sh/uv/) for source installs |
+| Node.js | 20+ and [pnpm](https://pnpm.io/), only to build the interface |
+| Memory | 4 GB minimum; more for large receptors |
+| Disk | About 2 GB with all dependencies |
+
+### 2.2 Windows: use the installer
+
+Download `vinastudio-<version>-setup.exe` from the
+[releases page](https://github.com/hubehero/VinaStudio/releases), verify its
+SHA-256, and run it. The installer needs administrator rights and is unsigned, so
+SmartScreen asks for confirmation. It includes Python, the scientific stack and
+the Vina engine — you do **not** need to install Python, uv, Node.js or pnpm.
+
+The full Windows scope and its boundaries are in [WINDOWS.md](WINDOWS.md).
+
+### 2.3 Linux: use a package or the source tree
+
+Published releases provide a `.deb` for Ubuntu/Debian and a portable `.tar.gz`.
+Unpack the tarball and run `vinastudio/vinastudio`; install the `.deb` with your
+package manager.
+
+To run the development tree instead:
 
 ```bash
-# 如果你有 git
-git clone <仓库地址>
-cd AutoDock_Vina
-
-# 或者直接解压源代码压缩包
-unzip VinaStudio-main.zip
-cd VinaStudio-main
-```
-
-### 3.2 一键安装
-
-```bash
-# 步骤 1：安装 Python 依赖（包括 vina、meeko、rdkit 等科学计算包）
 uv sync --extra dev
-
-# 步骤 2：安装前端依赖
 pnpm -C web install
-
-# 步骤 3：构建界面（把 Vue 界面编译成静态文件）
 pnpm -C web build
-```
-
-或者用封装脚本（等价于上面的步骤 2 和 3）：
-```bash
-uv run python scripts/build_web.py
-```
-
-### 3.3 验证安装
-
-```bash
-# 运行测试，确认一切正常
-uv run pytest -q
-
-# 运行环境自检（会真正导入 vina、meeko、rdkit）
-uv run python -c "from vina import Vina; print('Vina OK')"
-uv run python -c "from meeko import MoleculePreparation; print('Meeko OK')"
-uv run python -c "from rdkit import Chem; print('RDKit OK')"
-```
-
-如果三条都输出 `OK`，说明安装成功。
-
----
-
-## 4. 启动应用
-
-```bash
 uv run python -m vinastudio
 ```
 
-启动后会看到：
-1. 终端显示服务启动日志（如 `Uvicorn running on http://127.0.0.1:xxxxx`）
-2. 弹出一个桌面窗口，显示 VinaStudio 界面
-
-**关闭应用**：直接关闭窗口，或在终端按 `Ctrl+C`。
-
-> **注意**：首次启动可能需要几秒钟加载，请耐心等待。
+`scripts/build_web.py` wraps the two pnpm steps. The bundled Linux packages
+already contain the built interface and the Vina binary.
 
 ---
 
-## 5. 界面总览
+## 3. First launch
 
-启动后你会看到这样的界面（从上到下、从左到右）：
+1. Start VinaStudio from the Start menu, the desktop shortcut, or
+   `uv run python -m vinastudio` on a source install.
+2. The first launch asks for a **workspace** — a folder where prepared files,
+   jobs and exports are kept. Choose a normal local folder; the application
+   creates `projects/`, `receptors/`, `ligands/`, `jobs/` and `exports/` inside it.
+3. The workspace can be changed later in **Settings → Workspace**.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  顶栏：语言切换 | 主题切换 | API 文档 | 环境自检            │
-├──────────┬──────────────────────────────────────────────────┤
-│          │                                                  │
-│  左侧    │              3D 视口                              │
-│  导航    │         (显示蛋白质和小分子)                       │
-│          │                                                  │
-│  工作台  ├──────────────────────────────────────────────────┤
-│  准备    │              右侧操作面板                          │
-│  盒子    │         (根据当前步骤显示不同内容)                  │
-│  对接    │                                                  │
-│          │                                                  │
-├──────────┴──────────────────────────────────────────────────┤
-│  底栏：状态信息                                             │
-└─────────────────────────────────────────────────────────────┘
-```
+The status bar shows the application version and the event channel. A green
+“connected” indicator means the interface and the local API are talking; both
+run on your machine, and the API listens on loopback only.
 
-### 主要区域说明
-
-| 区域 | 功能 |
-|------|------|
-| **顶栏** | 切换语言（中/英）、切换主题（浅色/深色）、查看 API 文档、环境自检 |
-| **左侧导航** | 在不同功能之间切换：工作台、分子管理、结合位点、分子对接 |
-| **3D 视口** | 以 3D 方式显示蛋白质和小分子（支持鼠标旋转、缩放、平移） |
-| **右侧操作面板** | 根据当前步骤显示对应的参数设置和操作按钮 |
-| **底栏** | 显示服务连接状态 |
-
-### 3D 视口操作
-
-| 鼠标操作 | 效果 |
-|----------|------|
-| **左键拖动** | 旋转分子 |
-| **滚轮** | 缩放 |
-| **右键拖动** | 平移 |
-| **Shift + 左键拖动** | 平移盒子（在结合位点步骤中） |
+> **Windows note:** the first run may be slow while the bundled runtime
+> initialises. Later launches are faster.
 
 ---
 
-## 6. 第一步：准备受体（蛋白质）
+## 4. The interface
 
-**目标**：把蛋白质结构文件（PDB 格式）转换为对接引擎能识别的格式（PDBQT）。
+The left sidebar is the workflow: **Workbench**, **Molecules**, **Binding
+sites**, **Docking**, **Reports**, **Batch screening**, **Virtual screening**,
+**History**, **Environment**, **Help** and **About**.
 
-### 6.1 什么是受体？
+The 3D viewport is the centre of the work. Drag to rotate, scroll to zoom, and
+use the toolbar to re-frame the view or export a PNG. The right-hand panel
+changes with the page: preparation options, box coordinates, docking parameters,
+or result details.
 
-受体就是你要研究的蛋白质。比如你研究某种抗癌药物如何与癌细胞上的蛋白结合，那个蛋白就是受体。
-
-### 6.2 获取蛋白质结构
-
-蛋白质结构可以从 [RCSB PDB 数据库](https://www.rcsb.org/) 免费下载：
-
-1. 打开 https://www.rcsb.org/
-2. 在搜索框输入蛋白质的 PDB ID（如 `1iep`）
-3. 点击搜索结果进入详情页
-4. 点击 **Download Files** → **PDB Format**
-5. 保存 `.pdb` 文件到你的电脑
-
-### 6.3 在 VinaStudio 中准备受体
-
-1. 点击左侧导航的 **「分子管理」**
-2. 点击 **「上传分子」** 按钮，选择你的 `.pdb` 文件（也可以把文件直接拖进列表区）
-3. 文件载入后会自动检查内容并判定类型，蛋白质会归入 **「受体」** 分组
-4. 在列表中点选该分子，右侧详情会显示受体信息：
-   - **残基数**：蛋白质由多少个氨基酸组成
-   - **水分子**：PDB 文件中包含的水分子数量（通常需要删除）
-   - **非聚合物基团**：离子、辅因子等
-5. **推荐选项**（初学者保持默认即可，在详情的 **「准备选项」** 里）：
-   - ☑ 删除水分子（默认开启）
-   - ☑ 删除非聚合物基团（默认开启）
-   - ☐ 允许模板匹配失败的残基（如果准备失败，尝试开启）
-6. 点击 **「准备」** 按钮
-7. 等待准备完成，详情会显示 **「准备报告」**：
-   - 原子数、极性氢数量、净电荷等
-   - 3D 视口会显示蛋白质的卡通模型
-
-### 6.4 常见问题
-
-**Q: 转换失败，提示 "Template matching failed" 怎么办？**
-
-这是因为 Meeko（参数化工具）无法识别某些非标准残基。解决方法（二选一）：
-1. 直接点击错误提示中的 **「放宽模板检查后重试」** 按钮
-2. 或在 **「准备选项」** 中勾选 **「允许模板匹配失败的残基」**，再点击 **「准备」**
-
-**Q: 蛋白质有很多水分子，要全部删除吗？**
-
-是的，对接时通常删除水分子。水分子不影响对接结果，因为对接算法不考虑溶剂效应。
+The **Workbench** page is the best starting point. It shows the pipeline steps,
+marks what is ready, and offers a one-click 1iep example if you want to see a
+complete run before using your own structures.
 
 ---
 
-## 7. 第二步：准备配体（小分子药物）
+## 5. Prepare a receptor
 
-**目标**：把小分子文件（SDF/MOL 格式）转换为对接引擎能识别的格式（PDBQT）。
+A receptor is the protein you dock into. VinaStudio accepts PDB and mmCIF files.
 
-### 7.1 什么是配体？
+1. Open **Molecules** and load your receptor file.
+2. The manager inspects the file and proposes a type. If it guesses wrong, set it
+   to **Receptor** explicitly.
+3. Open the preparation options. The defaults remove waters and non-polymer
+   groups; keep them unless you have a reason not to. Flexible side chains can be
+   picked here as well.
+4. Run the preparation. The result is a **PDBQT** file — the format Vina reads.
+5. Check the summary: residue and atom counts, any ignored residues, and the
+   warnings. A drop in atom count is expected: PDBQT keeps heavy atoms and polar
+   hydrogens only.
 
-配体就是你要研究的小分子药物。比如你研究伊马替尼（格列卫）如何与癌细胞蛋白结合，伊马替尼就是配体。
-
-### 7.2 获取小分子结构
-
-小分子结构可以从以下数据库获取：
-
-| 数据库 | 网址 | 说明 |
-|--------|------|------|
-| PubChem | https://pubchem.ncbi.nlm.nih.gov/ | 最大免费化学数据库 |
-| ChEMBL | https://www.ebi.ac.uk/chembl/ | 药物分子数据库 |
-| DrugBank | https://go.drugbank.com/ | 药物信息数据库 |
-
-**从 PubChem 下载示例**：
-1. 打开 https://pubchem.ncbi.nlm.nih.gov/
-2. 搜索分子名称（如 "imatinib"）
-3. 进入分子详情页
-4. 点击 **Download** → **3D Conformation** → **SDF**
-5. 保存 `.sdf` 文件
-
-### 7.3 在 VinaStudio 中准备配体
-
-1. 回到 **「分子管理」** 页面
-2. 点击 **「上传分子」** 按钮，选择你的 `.sdf` 或 `.mol` 文件（会自动归入 **「配体」** 分组）
-3. 在列表中点选该分子，右侧详情会显示配体信息：
-   - **原子数**：小分子有多少个原子
-   - **氢原子**：已经明确画出的氢原子数
-   - **可旋转键**：可以自由旋转的化学键数量（影响对接灵活性）
-4. 点击 **「准备」** 按钮
-5. 等待准备完成：
-   - 详情显示准备报告（补充了多少氢、是否生成了 3D 构象等）
-   - 3D 视口会显示配体的棒状模型
-
-### 7.4 配体文件格式说明
-
-| 格式 | 扩展名 | 说明 |
-|------|--------|------|
-| SDF | `.sdf` | 最常用，包含 3D 坐标和键信息 |
-| MOL | `.mol` | 单分子格式，类似 SDF |
-| MOL2 | `.mol2` | Tripos 格式，信息更全 |
-| PDB | `.pdb` | 蛋白质格式，也可以存小分子（不推荐） |
-
-> **推荐**：优先使用 SDF 格式，因为它包含完整的化学键信息。
+If Meeko rejects residues because their atoms are split across the file, the
+application offers to normalise the atom order and retry. This changes nothing
+chemically.
 
 ---
 
-## 8. 第三步：定义结合位点
+## 6. Prepare a ligand
 
-**目标**：告诉对接引擎在蛋白质的哪个区域搜索配体的结合位置。
+A ligand is the small molecule you are docking. VinaStudio accepts MOL, SDF,
+MOL2 and PDB files, and can also build a ligand from SMILES or from the built-in
+2D sketcher.
 
-### 8.1 什么是结合位点盒子？
+1. Load the ligand in **Molecules**.
+2. Inspect it: atom count, rotatable bonds, whether it has 3D coordinates and
+   hydrogens. A 2D structure is fine — preparation will embed and protonate it.
+3. Choose the preparation options. The defaults are suitable for most drug-like
+   molecules; macrocycle and amide settings are there when you need them.
+4. Run the preparation. VinaStudio writes a PDBQT and an SDF copy; the SDF is what
+   the 3D viewport draws.
+5. Check the report: hydrogens added, conformer generated, rotatable bonds found,
+   total charge and atom types.
 
-结合位点盒子是一个三维的长方体区域，对接引擎只在这个区域内搜索配体的最佳结合位置。盒子越小，搜索越快但可能错过最佳位置；盒子越大，搜索越慢但更全面。
-
-### 8.2 自动定义盒子（推荐初学者使用）
-
-1. 点击左侧导航的 **「结合位点」**
-2. 在右侧面板，点击 **「按配体计算」** 按钮
-3. 系统会根据配体的位置自动计算一个包围盒
-4. 3D 视口会显示一个橙色的线框盒子
-5. 你可以调整 **「外扩」** 值（默认 5 Å），让盒子更大一些
-
-### 8.3 手动定义盒子
-
-如果自动盒子不合适，可以手动设置：
-
-1. 在右侧面板，直接修改 **「盒子中心」** 的 X、Y、Z 坐标
-2. 修改 **「盒子边长」** 的 X、Y、Z 值（单位是 Å，埃）
-3. 3D 视口会实时更新盒子位置和大小
-
-**如何确定盒子中心和大小？**
-
-方法 A - 使用已知配体位置：
-- 如果 PDB 文件中有共晶配体，盒子中心就是配体的几何中心
-- 盒子大小一般设为 20×20×20 Å 或 25×25×25 Å
-
-方法 B - 使用文献值：
-- 查看相关论文中使用的对接盒子参数
-- 直接输入论文中报告的中心和大小
-
-### 8.4 导出/导入 Vina 配置
-
-如果你有现成的 Vina 配置文件（`config.txt`），可以直接导入：
-
-1. 在右侧面板找到 **「Vina 配置」** 区域
-2. 点击 **「读入」**，选择 `config.txt` 文件
-3. 盒子参数会自动更新
-
-同样，你也可以导出当前配置：
-1. 点击 **「导出」**
-2. 保存为 `config.txt` 文件
+Both the receptor and the ligand become the **pipeline** molecules. The docking
+page uses them unless you pick different ones in the molecule selectors.
 
 ---
 
-## 9. 第四步：运行对接
+## 7. Define the search box
 
-**目标**：运行 AutoDock Vina 对接，搜索配体在蛋白质上的最佳结合位置。
+The box is the region Vina searches. It should contain the binding site and a
+little surrounding space, but not the whole protein.
 
-### 9.1 对接前检查
+There are three ways to set it:
 
-在运行对接前，确认以下条件：
-- [x] 受体已准备（显示了蛋白质卡通）
-- [x] 配体已准备（显示了小分子棒状模型）
-- [x] 结合位点盒子已定义（显示了橙色盒子）
-- [x] 配体在盒子内部或附近
+- **From a ligand** — if you have a co-crystal ligand, choose it and the box is
+  fitted around it.
+- **From residues** — pick the residues that line the site.
+- **Manually** — type the centre and edge lengths.
 
-### 9.2 设置对接参数
+The box is drawn in the viewport and can be moved with Shift-drag. A 20 Å box is
+a reasonable default for a drug-like ligand; smaller boxes dock faster but may
+cut off a pose.
 
-1. 点击左侧导航的 **「分子对接」**
-2. 在右侧面板设置参数：
-
-**基本参数（初学者保持默认）**：
-
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| 打分函数 | vina | 选择 Vina 打分函数（推荐） |
-| 搜索穷举度 | 8 | 越高越精确，但越慢（推荐 8-32） |
-| 构象数量 | 20 | 输出多少个不同构象 |
-| 能量范围 | 3 | 最佳和最差构象的能量差上限（kcal/mol） |
-
-**高级参数（通常不需要修改）**：
-
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| 最小 RMSD | 1.0 | 构象之间的最小差异（Å） |
-| 最大评估次数 | 0 | 0 表示使用内部启发式 |
-| 随机种子 | 0 | 0 表示随机；固定值使结果可复现 |
-| CPU 核心数 | 0 | 0 表示使用全部核心 |
-| 详细程度 | 1 | 设为 0 时进度显示不详细 |
-
-### 9.3 运行对接
-
-1. 确认参数无误后，点击 **「开始对接」** 按钮
-2. 右侧面板会显示：
-   - **进度条**：显示当前进度百分比
-   - **对接日志**：实时输出对接过程信息
-3. 对接过程中你可以：
-   - 继续浏览其他页面
-   - 查看日志了解进度
-   - 点击 **「取消」** 中途中断对接
-
-### 9.4 对接时间参考
-
-| 穷举度 | 蛋白质大小 | 大约时间 |
-|--------|------------|----------|
-| 8 | 小（<300 残基）| 1-3 分钟 |
-| 8 | 中（300-600 残基）| 3-10 分钟 |
-| 16 | 小 | 2-6 分钟 |
-| 32 | 小 | 5-15 分钟 |
-
-> 实际时间取决于 CPU 性能和分子大小。
+**Binding sites** can also propose candidates from the receptor geometry alone.
+That is a coarse screen for choosing where to look, not a claim about the true
+site; see the in-app glossary and the honesty notes on the page.
 
 ---
 
-## 10. 第五步：查看结果
+## 8. Run docking
 
-### 10.1 结果概览
+Open **Docking**, confirm the receptor, ligand and box, then set:
 
-对接完成后，右侧面板会显示 **「对接结果」**：
+| Parameter | What it does |
+|---|---|
+| Scoring function | Vina (default), Vinardo, or AutoDock4 with external maps |
+| Exhaustiveness | Search effort; higher is slower and more thorough |
+| Number of poses | How many poses to keep |
+| Energy range | Keep poses within this energy of the best one |
+| Seed | Makes a run reproducible when the engine supports it |
+| CPU | Threads to use; 0 means all available |
 
-- **最佳亲和力**：配体与蛋白质的最强结合能（kcal/mol，越负越好）
-- **构象表格**：列出所有输出构象的亲和力和 RMSD
+Press **Run**. The job starts in a separate process, so the interface stays
+responsive; progress and the engine log stream into the panel, and **Cancel**
+actually stops the run by terminating that process.
 
-### 10.2 理解亲和力
-
-亲和力（Affinity）表示配体与蛋白质结合的强度：
-
-| 亲和力 (kcal/mol) | 结合强度 | 说明 |
-|-------------------|----------|------|
-| < -10 | 强 | 很好的候选药物 |
-| -10 到 -7 | 中等 | 有一定结合活性 |
-| -7 到 -5 | 弱 | 结合较弱 |
-| > -5 | 极弱或不结合 | 几乎没有活性 |
-
-> **注意**：这只是预测值，实际活性需要实验验证。
-
-### 10.3 理解 RMSD
-
-RMSD（均方根偏差）表示不同构象之间的差异：
-
-- **RMSD 下界 (lb)**：两个构象之间的最小可能偏差
-- **RMSD 上界 (ub)**：两个构象之间的最大可能偏差
-- RMSD < 2.0 Å 通常认为两个构象相似
-
-### 10.4 在 3D 视图中查看构象
-
-1. 在构象表格中点击任意一行
-2. 3D 视口会显示对应的配体构象
-3. 对比不同构象，观察配体的结合模式
-
-### 10.5 导出结果
-
-对接完成后，可以导出结果：
-
-**导出 SDF 格式**（推荐）：
-1. 点击 **「导出 SDF」** 按钮
-2. 选择保存位置
-3. SDF 文件包含所有构象的 3D 坐标和化学键信息
-
-**导出 PDBQT 格式**：
-1. 点击 **「导出 PDBQT」** 按钮
-2. 选择保存位置
-3. PDBQT 文件可以直接用于后续的 Vina 分析
+Docking time depends on the box, the ligand and the exhaustiveness. A small
+1iep run takes seconds; a large box with high exhaustiveness can take minutes.
+The time is shown when the job finishes.
 
 ---
 
-## 11. 进阶操作
+## 9. Read the result
 
-### 11.1 使用内置示例
+The result page ranks poses by predicted affinity. The most negative value is the
+best-scoring pose, in kcal/mol.
 
-VinaStudio 内置了 1iep（c-Abl 激酶 + 伊马替尼）的示例数据：
+- **Affinity** is a scoring-function estimate, not an experimental binding free
+  energy. Do not compare values from different scoring functions.
+- **RMSD (lower/upper bound)** describes how different a pose is from the best
+  one.
+- The **3D viewport** draws the selected pose with the receptor. Pose navigation
+  swaps the ligand without moving your camera.
+- The **analysis** panels add geometric validation, redocking RMSD against a
+  reference, clustering and interaction detection. These are report-only: they
+  never re-dock or edit coordinates.
+- **Interactions** are shown for the pose you selected, using geometric cutoffs
+  for ionic contacts, hydrogen bonds and hydrophobic contacts. The 2D diagram
+  gives the same contacts as a readable map.
 
-1. 在 **「分子管理」** 页面，点击 **「示例文件」** 按钮并从下拉菜单选择示例
-2. 系统会自动加载示例受体和配体
-3. 你可以直接跳到 **「结合位点」** 和 **「对接」** 步骤
-
-### 11.2 柔性对接
-
-如果蛋白质的某些残基在结合时会发生构象变化，可以设置柔性残基：
-
-1. 在 **「分子管理」** 中选中受体，在 **「柔性残基选择」** 里勾选需要柔性的残基（如 `A:42` 表示 A 链第 42 号残基）
-2. 点击 **「准备」**；准备报告中的 **「柔性残基」** 会列出最终生效的选择
-
-### 11.3 批量对接
-
-如果你想对多个配体进行对接：
-
-1. 准备受体（只需一次）
-2. 对每个配体分别准备和对接
-3. 比较不同配体的亲和力
-
-### 11.4 使用不同打分函数
-
-VinaStudio 支持三种打分函数：
-
-| 打分函数 | 特点 | 适用场景 |
-|----------|------|----------|
-| **vina** | 最常用，平衡速度和精度 | 一般对接（推荐） |
-| **vinardo** | 更快，但精度稍低 | 大规模虚拟筛选 |
-| **ad4** | AutoDock4 打分，需要外部地图 | 与 AutoDock4 结果对比 |
-
-> **注意**：不同打分函数的结果不能直接比较。
-
-### 11.5 使用 AutoDock4 打分
-
-AutoDock4 需要预先用 AutoGrid4 生成亲和力地图：
-
-1. 使用 AutoGrid4 生成地图文件（`.map`）
-2. 在 **「分子对接」** 页面选择 `ad4` 打分函数
-3. 在 **「AutoGrid4 亲和力图文件」** 中填入地图文件路径
-4. 运行对接
-
-### 11.6 设置随机种子
-
-如果你需要结果可复现（每次运行得到完全相同的结果）：
-
-1. 在 **「分子对接」** 页面
-2. 将 **「随机种子」** 从 0 改为一个固定值（如 42）
-3. 运行对接
+**Export** provides CSV, a self-contained HTML report, and a result bundle. The
+report records the parameters the run actually used, so it can be pasted into a
+methods section without guessing.
 
 ---
 
-## 12. 常见问题 (FAQ)
+## 10. Advanced workflows
 
-### 安装相关
-
-**Q: 安装时报错 `error: uv: not found` 怎么办？**
-
-A: uv 没有安装或没有加入 PATH。重新安装 uv 并重启终端：
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-source ~/.bashrc  # 或 ~/.zshrc
-```
-
-**Q: 安装时报错 `ModuleNotFoundError: No module named 'vina'` 怎么办？**
-
-A: 确保使用 `uv sync --extra dev` 而不是普通的 `pip install`：
-```bash
-uv sync --extra dev
-```
-
-**Q: `pnpm -C web build` 报错怎么办？**
-
-A: 先安装前端依赖：
-```bash
-pnpm -C web install
-pnpm -C web build
-```
-
-### 运行相关
-
-**Q: 启动后窗口空白怎么办？**
-
-A: 可能是端口冲突。尝试关闭其他可能占用端口的程序，然后重启 VinaStudio。
-
-**Q: 对接过程中进度条不动怎么办？**
-
-A: Vina 的对接是计算密集型任务，进度更新可能有延迟。查看日志输出确认是否在运行。如果卡住超过 30 分钟，可以取消后降低穷举度重试。
-
-**Q: 对接结果亲和力是 0 或正数怎么办？**
-
-A: 这通常意味着对接没有正确运行。检查：
-1. 受体是否正确准备
-2. 配体是否在盒子内部
-3. 盒子大小是否合适
-
-### 科学相关
-
-**Q: 对接结果和文献不一致怎么办？**
-
-A: 可能的原因：
-- 使用了不同的打分函数
-- 盒子位置或大小不同
-- 受体准备方式不同（水分子、质子化状态）
-- 配体构象不同
-
-**Q: 亲和力值为 -13 kcal/mol 意味着什么？**
-
-A: 这是一个相当强的结合预测值。一般来说：
-- < -10 kcal/mol：强结合，值得进一步实验验证
-- -10 到 -7 kcal/mol：中等结合
-- > -5 kcal/mol：弱结合或不结合
-
-但请注意：**对接预测只是初步筛选，实际活性需要通过实验（如 IC50 测定）验证。**
-
-**Q: 为什么对接找不到已知的结合模式？**
-
-A: 可能的原因：
-1. 盒子太小或位置不对
-2. 穷举度太低
-3. 受体没有包含关键的结合位点残基
-4. 配体的质子化状态不对
+- **Batch docking** — one receptor against a list of ligands, with a leaderboard
+  and per-ligand rows.
+- **Virtual screening** — import a library, dock each molecule, rank the hits,
+  and resume if the run is interrupted.
+- **Site screening** — dock one ligand into each candidate box and rank the
+  boxes. This is a coarse comparison between candidates, not a production run.
+- **Flexible docking** — select flexible side chains during receptor preparation;
+  Vina then searches their torsions as well.
+- **AutoDock4** — requires AutoGrid4 maps generated outside the application. The
+  interface refuses `ad4` when no maps are supplied rather than silently running
+  a different scoring function.
 
 ---
 
-## 13. 术语表
+## 11. Frequently asked questions
 
-| 术语 | 英文 | 解释 |
-|------|------|------|
-| 受体 | Receptor | 接收配体的蛋白质分子 |
-| 配体 | Ligand | 与受体结合的小分子 |
-| 对接 | Docking | 用计算机模拟配体与受体结合的过程 |
-| 亲和力 | Affinity | 配体与受体结合的强度 |
-| 构象 | Pose | 配体在受体上的一个特定结合位置和方向 |
-| PDB | Protein Data Bank | 蛋白质结构数据库，存储实验测定的 3D 结构 |
-| PDBQT | PDBQT format | AutoDock 使用的分子格式，包含电荷和原子类型信息 |
-| SDF | Structure Data File | 小分子结构文件格式，包含 3D 坐标和化学键信息 |
-| RMSD | Root Mean Square Deviation | 衡量两个结构之间差异的指标 |
-| 穷举度 | Exhaustiveness | 对接搜索的彻底程度，越高越精确但越慢 |
-| 盒子 | Box | 对接搜索的空间范围 |
-| 残基 | Residue | 蛋白质的基本组成单位（氨基酸） |
-| Å | Angstrom | 长度单位，1 Å = 0.1 纳米 = 10^-10 米 |
-| kcal/mol | 千卡每摩尔 | 能量单位，用于表示结合强度 |
+**The interface is blank after switching pages.**
+That was a known defect in older builds; update to the current release. If it
+recurs, include the page and the log in a bug report.
 
----
+**The 3D view is slow.**
+Open **Environment** and read the actual renderer. `SwiftShader`, `llvmpipe` or
+`Basic Render Driver` means software rendering. On Windows, antialiasing is off
+by default because of an upstream QtWebEngine flicker; leave it off unless you
+need smooth edges.
 
-## 附录：完整的对接流程速查表
+**Docking stays at 0% with no CPU use.**
+That was a packaging defect fixed in 0.4.0. Confirm the version and check the
+installer hash.
 
-```
-1. 获取蛋白质结构 → 下载 PDB 文件
-2. 获取小分子结构 → 下载 SDF 文件
-3. 启动 VinaStudio  → uv run python -m vinastudio
-4. 准备受体         → 分子管理 → 载入 PDB → 点击「准备」
-5. 准备配体         → 分子管理 → 载入 SDF → 点击「准备」
-6. 定义盒子         → 结合位点 → 按配体计算
-7. 运行对接         → 分子对接 → 开始对接
-8. 查看结果         → 构象表格 → 3D 视图
-9. 导出结果         → 导出 SDF
-```
+**A ligand fails to load from a folder with Chinese characters.**
+Fixed in 0.4.0. Older builds returned an error from RDKit's path handling.
+
+**Can I compare affinities from Vina and Vinardo?**
+No. Different scoring functions produce different energy scales. Compare only
+runs that used the same function.
+
+**Why did the atom count drop after preparation?**
+PDBQT keeps heavy atoms and polar hydrogens. Removing non-polar hydrogens is the
+format's normal behaviour, not data loss.
+
+**Can I reproduce a run exactly?**
+Use a fixed seed for docking. Vina's `randomize` operation ignores the seed, so
+that one cannot be replayed; the interface says so.
 
 ---
 
-*本手册适用于 VinaStudio 最新版本。如有问题，请查阅 GitHub 仓库的 Issues 页面。*
+## 12. Glossary
+
+- **Receptor** — the protein structure being docked into.
+- **Ligand** — the small molecule being docked.
+- **PDBQT** — AutoDock's structure format; heavy atoms plus polar hydrogens and
+  atom types.
+- **Box** — the search volume, defined by a centre and three edge lengths.
+- **Pose** — one predicted binding conformation with its score.
+- **Affinity** — the scoring function's estimate for a pose, in kcal/mol.
+- **Exhaustiveness** — how much search effort Vina spends.
+- **RMSD** — root-mean-square deviation between two poses, in ångström.
+
+---
+
+## Quick reference
+
+1. Choose a workspace.
+2. Load and prepare the receptor → PDBQT.
+3. Load and prepare the ligand → PDBQT.
+4. Set the box: from a ligand, from residues, or manually.
+5. Open Docking, choose the scoring function and exhaustiveness, press Run.
+6. Inspect the poses, interactions and validation.
+7. Export CSV, HTML or a result bundle.
+
+For installation problems, start with [WINDOWS.md](WINDOWS.md) on Windows and the
+[CHANGELOG](../CHANGELOG.md) for version-specific fixes.

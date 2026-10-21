@@ -1,0 +1,49 @@
+name: Feature request / 功能建议
+description: Suggest a capability or an improvement to an existing one.
+title: "[feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the problem before the solution. A concrete workflow is easier to
+        evaluate than a feature name, and it keeps the scientific claims honest.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The task, the inputs, and where the current interface gets in the way.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would help?
+      description: The behaviour you have in mind. Alternatives are welcome too.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Preparation (receptor or ligand)
+        - Binding site and box
+        - Docking and jobs
+        - Analysis and export
+        - Interface, rendering or accessibility
+        - Documentation and packaging
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Papers, tools or screenshots that show the workflow you mean.
+    validations:
+      required: false

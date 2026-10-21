@@ -1,5 +1,7 @@
 # Releasing VinaStudio
 
+**English** · [简体中文](RELEASING.zh-CN.md)
+
 This repository is the release channel: it holds the published source tree and
 the artifacts of every version. Releases are cut from a tag and built by CI.
 
@@ -63,6 +65,17 @@ gh workflow run release.yml
 Wait for the build to go green. This is the cheapest place to discover a broken
 build.
 
+Build the Windows installer from the same commit and verify it before tagging:
+
+```bash
+gh workflow run windows-build.yml --ref main
+# wait for the run, then download the windows-installer artifact and check
+# the embedded 1iep docking smoke in the job log ("docking OK")
+```
+
+If `release.yml` does not build Windows yet, attach that verified installer to the
+release after it is created and record its SHA-256 in the release notes.
+
 ### 5. Tag and push
 
 An annotated tag, so the tag carries an author and a message:
@@ -112,11 +125,17 @@ standard through the command-line backend and asserts the same regime the Linux
 tests use (2026-10-15: 23.1 s, best affinity −13.239 kcal/mol on Windows against
 −13.228 on Linux).
 
-Release artifacts are **Linux only**. `windows-build.yml` builds the Windows
-installer and publishes nothing — that stays true until somebody has installed it on
-a real machine and walked through the application, which is the last unverified link
-on that platform. It is ready to test: the bundle builds, the engine inside it runs
-on Windows, and the installer compiles (219 MB, 2026-10-15).
+Release artifacts are **Linux and, from 0.4.0, Windows**. The Windows installer was
+verified on real hardware on 2026-10-20 (preparation, docking, analysis, persistence,
+non-ASCII paths); every Windows build also docks 1iep inside the frozen bundle and
+asserts the result, so the packaging path is exercised before anybody downloads it.
+
+`windows-build.yml` still publishes nothing by itself — it is the on-demand test
+build. `release.yml` does not build Windows yet. For 0.4.0, either add a
+`build-windows` job to `release.yml` (reusing the steps from `windows-build.yml`) or
+attach the verified `windows-installer` artifact to the release manually and record
+its SHA-256 in the notes. The public limitations are documented in
+`docs/WINDOWS.md`; keep that page in step with the build.
 
 ## What CI does
 
@@ -137,6 +156,10 @@ cannot be published.
 |---|---|
 | `vinastudio_X.Y.Z_amd64.deb` | Ubuntu / Debian (amd64) |
 | `vinastudio-X.Y.Z-linux-amd64.tar.gz` | portable — unpack and run `vinastudio/vinastudio` |
+| `vinastudio-X.Y.Z-setup.exe` | Windows 10 1809+ / 11, x64 (from 0.4.0) |
 
-Requires an OpenGL desktop session. The scientific stack (vina, meeko, RDKit) is
-bundled. Windows is not released: upstream `vina` has no Windows wheels.
+The Linux build needs an OpenGL desktop session. The Windows build needs Direct3D 11
+and installs per-machine (administrator); it is unsigned, so SmartScreen prompts on
+first run. The scientific stack (vina, meeko, RDKit) and the Vina 1.2.7 CLI binary
+are bundled on both platforms; Windows has no `vina` Python module and uses the
+binary automatically.
