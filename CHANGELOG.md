@@ -12,6 +12,17 @@ entries about the product — no internal task ids or workflow narration.
 
 ## [Unreleased]
 
+### 新增
+
+- **设置 → 通用 → 检查更新**：手动检查 GitHub Releases；有新版本时打开官方
+  释放页面，不下载、不安装。
+
+### Added
+
+- **Settings → General → Check for updates**: manually checks GitHub Releases
+  and opens the official release page when a newer version exists, without
+  downloading or installing anything.
+
 ## [0.4.1] - 2026-10-21
 
 依赖安全更新。功能与 0.4.0 相同；建议 0.4.0 用户升级。

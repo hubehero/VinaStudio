@@ -16,16 +16,20 @@ import { api } from '@/api/http'
 import { openInBrowser, pickDirectory } from '@/api/bridge'
 import { rendererInfo } from '@/composables/use3Dmol'
 import { useSettingsStore } from '@/stores/settings'
+import type { UpdateCheck } from '@/types/api'
 import { useUiStore, type ThemeMode } from '@/stores/ui'
 import { useWorkspaceStore } from '@/stores/workspace'
 
-const { t, locale } = useI18n()
+const { t, locale, te } = useI18n()
 const settings = useSettingsStore()
 const ui = useUiStore()
 const workspace = useWorkspaceStore()
 
 const visible = ref(false)
 const uploadLimitMb = ref(100)
+const currentVersion = ref('')
+const updateChecking = ref(false)
+const updateResult = ref<UpdateCheck | null>(null)
 
 // Workspace settings
 const workspaceName = ref('')
@@ -51,6 +55,12 @@ onMounted(async () => {
   } catch {
     // ignore, use default
   }
+  try {
+    const info = await api.systemInfo()
+    currentVersion.value = info.app.version
+  } catch {
+    // The update check reports its own current version; leave this blank.
+  }
 })
 
 function open(): void {
@@ -71,6 +81,38 @@ function handleReset(): void {
   settings.resetViewer()
   void ui.resetPreferences()
 }
+
+async function checkForUpdates(): Promise<void> {
+  updateChecking.value = true
+  try {
+    const result = await api.updateCheck()
+    updateResult.value = result
+    if (result.current) currentVersion.value = result.current
+  } catch {
+    updateResult.value = {
+      current: currentVersion.value,
+      latest: null,
+      updateAvailable: false,
+      url: '',
+      publishedAt: null,
+      error: 'unavailable',
+    }
+  } finally {
+    updateChecking.value = false
+  }
+}
+
+function openReleasePage(): void {
+  const url = updateResult.value?.url
+  if (url) void openInBrowser(url)
+}
+
+const updateErrorText = computed(() => {
+  const code = updateResult.value?.error
+  if (!code) return ''
+  const key = `settings.updateError.${code}`
+  return te(key) ? t(key) : t('settings.updateError.unavailable')
+})
 
 async function handleWorkspaceNameSave() {
   if (!workspaceName.value.trim()) return
@@ -192,6 +234,52 @@ defineExpose({ open })
             </div>
             <span class="settings-item__value">{{ uploadLimitMb }} MB</span>
           </div>
+
+          <div class="settings-item">
+            <div class="settings-item__info">
+              <span class="settings-item__label">{{ t('settings.version') }}</span>
+              <span class="settings-item__desc">{{ t('settings.versionDesc') }}</span>
+            </div>
+            <div class="settings-link-group">
+              <span class="settings-item__value vs-mono">{{ currentVersion ? 'v' + currentVersion : '—' }}</span>
+              <ElButton size="small" :loading="updateChecking" @click="checkForUpdates">
+                {{ t('settings.checkUpdates') }}
+              </ElButton>
+              <ElButton
+                v-if="updateResult?.updateAvailable"
+                size="small"
+                type="primary"
+                @click="openReleasePage"
+              >
+                {{ t('settings.openReleasePage') }}
+              </ElButton>
+            </div>
+          </div>
+
+          <ElAlert
+            v-if="updateResult?.updateAvailable"
+            :title="t('settings.updateAvailable', { version: updateResult.latest ?? '' })"
+            type="success"
+            :closable="false"
+            show-icon
+            class="settings-update-alert"
+          />
+          <ElAlert
+            v-else-if="updateResult && !updateResult.error"
+            :title="t('settings.upToDate')"
+            type="info"
+            :closable="false"
+            show-icon
+            class="settings-update-alert"
+          />
+          <ElAlert
+            v-else-if="updateResult?.error"
+            :title="updateErrorText"
+            type="warning"
+            :closable="false"
+            show-icon
+            class="settings-update-alert"
+          />
 
           <div class="settings-item">
             <div class="settings-item__info">
@@ -492,6 +580,10 @@ defineExpose({ open })
   justify-content: space-between;
   gap: 12px;
   padding: 8px 0;
+}
+
+.settings-update-alert {
+  margin-top: 4px;
 }
 
 .settings-item--sub {

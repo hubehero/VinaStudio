@@ -88,6 +88,14 @@ run on your machine, and the API listens on loopback only.
 > **Windows note:** the first run may be slow while the bundled runtime
 > initialises. Later launches are faster.
 
+### 3.1 Checking for updates
+
+Open **Settings → General** and choose **Check for updates**. VinaStudio asks
+GitHub Releases only when you click; it reports the latest version and, if a
+newer release exists, opens the official release page. It never downloads or
+installs anything. An offline or rate-limited check shows a message and leaves
+the app unchanged.
+
 ---
 
 ## 4. The interface

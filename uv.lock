@@ -613,6 +613,7 @@ name = "vinastudio"
 version = "0.4.1"
 source = { editable = "." }
 dependencies = [
+    { name = "certifi" },
     { name = "fastapi" },
     { name = "gemmi" },
     { name = "meeko" },
@@ -636,6 +637,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "certifi", specifier = ">=2026.10.19" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "gemmi", specifier = ">=0.7.5" },
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27" },

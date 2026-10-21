@@ -41,6 +41,9 @@ dependencies = [
     "numpy>=1.26",
     "scipy>=1.13",
     "gemmi>=0.7.5",
+    # The update check fetches GitHub over TLS; a frozen build needs an
+    # explicit CA bundle instead of relying on the interpreter's default.
+    "certifi>=2026.10.19",
 ]
 
 [project.optional-dependencies]

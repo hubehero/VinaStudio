@@ -27,6 +27,7 @@ import type {
   ExportPoseResponse,
   FileFilters,
   Health,
+  UpdateCheck,
   IfpGroupRequest,
   PocketsRequest,
   PocketsResult,
@@ -156,6 +157,7 @@ export const api = {
   selfCheck: () => request<SelfCheck>('/api/system/selfcheck'),
   capabilities: () => request<Capabilities>('/api/system/capabilities'),
   citations: () => request<CitationResponse>('/api/system/citation'),
+  updateCheck: () => request<UpdateCheck>('/api/system/update-check'),
 
   // -- files ---------------------------------------------------------------
   fileFilters: () => request<FileFilters>('/api/files/filters'),

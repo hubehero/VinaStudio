@@ -93,6 +93,24 @@ export interface Health {
   eventClients: number
 }
 
+export type UpdateCheckError =
+  | 'offline'
+  | 'timeout'
+  | 'rate_limited'
+  | 'no_release'
+  | 'invalid_response'
+  | 'unavailable'
+
+export interface UpdateCheck {
+  current: string
+  latest: string | null
+  updateAvailable: boolean
+  /** Official release page; populated only when a newer release exists. */
+  url: string
+  publishedAt: string | null
+  error: UpdateCheckError | null
+}
+
 // --------------------------------------------------------------------------
 // preparation
 // --------------------------------------------------------------------------
