@@ -48,3 +48,6 @@ jobs:
 
       - name: Type-check the interface
         run: pnpm -C web typecheck
+
+      - name: Unit-test the interface
+        run: pnpm -C web test
