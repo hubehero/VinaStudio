@@ -43,7 +43,7 @@ python packaging/ci/release-preflight.py
 版本单一来源、提交身份、发布工作流、安全告警与导入完整性。**有失败就不要打 tag。**
 
 发布树不含 `tests/`，单元测试不能在这里跑。打 tag 前在开发树跑全量门禁：
-`uv run pytest -q`、`uv run ruff check .`、`pnpm -C web typecheck`。
+`uv run pytest -q`、`uv run ruff check .`、`pnpm -C web typecheck`、`pnpm -C web test`。
 
 ### 4. 先构建，再打 tag
 
