@@ -69,7 +69,7 @@ What it does:
 | macOS | Source only — not packaged or release-verified |
 
 Running from source needs Python 3.12, [uv](https://docs.astral.sh/uv/), and
-Node.js 20+ with [pnpm](https://pnpm.io/) (interface build only). The Windows
+Node.js 22+ with [pnpm](https://pnpm.io/) (interface build and frontend tests). The Windows
 installer bundles all of that, including the Vina engine.
 
 ## Install and run
