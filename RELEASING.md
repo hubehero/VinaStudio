@@ -54,7 +54,7 @@ identity, the workflow, and the open security alerts. Fix everything it reports 
 
 The release tree does not ship `tests/`, so the unit suite cannot run here. Before
 tagging, run the development tree's full gate: `uv run pytest -q`,
-`uv run ruff check .`, `pnpm -C web typecheck`.
+`uv run ruff check .`, `pnpm -C web typecheck`, `pnpm -C web test`.
 
 ### 4. Build before tagging
 
