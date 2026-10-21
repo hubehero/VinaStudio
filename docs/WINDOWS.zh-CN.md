@@ -160,12 +160,16 @@ powershell -ExecutionPolicy Bypass -File .\vinastudio-diagnostics.ps1
 
 - 真机走查：2026-10-20，Windows + Intel UHD（ANGLE / D3D11）；
   准备、对接、分析、持久化、中文路径、渲染器诊断均正常。
-- 安装包：`vinastudio-0.3.0-setup.exe`（开发树构建），229,564,630 B，
+- 走查用的开发树安装包：`vinastudio-0.3.0-setup.exe`，229,564,630 B，
   SHA-256 `ec51d3d5e8448b2ab65b4a8a02dc88c25175e86aac80dac1ae81f2c9370bbb66`。
+- **0.4.0 正式安装包**：`vinastudio-0.4.0-setup.exe`，229,571,859 B，
+  SHA-256 `63722aca9e5566e5bc0a285aa98093e1d3ec088cc219539739b3154b5e64cd9f`，
+  由 tag `v0.4.0`（`18a6722`）构建；应用代码与走查包相同，差异只有版本号与文档。
 - 构建内自动冒烟：每个 Windows 构建都会在冻结包里真跑一次 1iep 对接
-  （穷举度 1），断言完成、至少一个构象、亲和力为负；本次结果
-  `-8.593 kcal/mol`、15.25 s。这同时覆盖了进程 spawn、stdout 重定向、
-  CLI 后端与随包 Vina 二进制。
+  （穷举度 1），断言完成、至少一个构象、亲和力为负；0.4.0 构建结果
+  `-8.593 kcal/mol`、15.31 s（run `39544666349`）。这同时覆盖了进程 spawn、
+  stdout 重定向、CLI 后端与随包 Vina 二进制。
+- 同一 tag 的 Linux 资产由 run `39545746608` 构建。
 
 ---
 

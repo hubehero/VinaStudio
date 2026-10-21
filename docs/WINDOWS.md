@@ -185,13 +185,15 @@ administrator rights.
 - Real-machine walkthrough: 2026-10-20, Windows with an Intel UHD GPU
   (ANGLE / D3D11). Preparation, docking, analysis, persistence, non-ASCII paths
   and renderer diagnostics all behaved as expected.
-- Installer: `vinastudio-0.3.0-setup.exe` (development-tree build), 229,564,630
-  bytes, SHA-256
+- Development-tree installer used for the walkthrough: `vinastudio-0.3.0-setup.exe`,
+  229,564,630 bytes, SHA-256
   `ec51d3d5e8448b2ab65b4a8a02dc88c25175e86aac80dac1ae81f2c9370bbb66`.
+- **0.4.0 release installer**: `vinastudio-0.4.0-setup.exe`, 229,571,859 bytes,
+  SHA-256 `63722aca9e5566e5bc0a285aa98093e1d3ec088cc219539739b3154b5e64cd9f`,
+  built from tag `v0.4.0` (`18a6722`). It carries the same application code as the
+  walkthrough build; the version and documentation are the only differences.
 - Every Windows build docks 1iep once inside the frozen bundle (exhaustiveness 1)
-  and asserts completion, at least one pose and a negative affinity. This run:
-  `-8.593 kcal/mol` in 15.25 s. That covers process spawn, stdout redirection,
-  the CLI backend and the bundled engine.
-
-The 0.4.0 release page will carry the installer built from the tagged commit and
-its own SHA-256.
+  and asserts completion, at least one pose and a negative affinity. The 0.4.0
+  build: `-8.593 kcal/mol` in 15.31 s (run `39544666349`). That covers process
+  spawn, stdout redirection, the CLI backend and the bundled engine.
+- The Linux artifacts for the same tag were built by run `39545746608`.
