@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
+from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QFile, QIODevice, QSettings, QUrl, Slot
+from PySide6.QtCore import QFile, QIODevice, QSettings, QStandardPaths, QUrl, Slot
 from PySide6.QtGui import QAction, QActionGroup, QDesktopServices, QKeySequence
 from PySide6.QtWebChannel import QWebChannel
 from PySide6.QtWebEngineCore import (
@@ -16,7 +17,7 @@ from PySide6.QtWebEngineCore import (
     QWebEngineSettings,
 )
 from PySide6.QtWebEngineWidgets import QWebEngineView
-from PySide6.QtWidgets import QMainWindow, QMessageBox
+from PySide6.QtWidgets import QFileDialog, QMainWindow, QMessageBox
 
 from vinastudio.config import APP_NAME, app_home
 from vinastudio.desktop.bridge import Bridge
@@ -78,6 +79,10 @@ class MainWindow(QMainWindow):
             QWebEngineProfile.PersistentCookiesPolicy.ForcePersistentCookies
         )
         profile.setHttpCacheType(QWebEngineProfile.HttpCacheType.DiskHttpCache)
+        # QtWebEngine cancels a download unless a handler accepts it.  Without
+        # this, the <a download> used for the result bundle silently did
+        # nothing; text/image exports already go through the native bridge.
+        profile.downloadRequested.connect(self._on_download_requested)
 
         page = QWebEnginePage(profile)
         settings = page.settings()
@@ -90,6 +95,28 @@ class MainWindow(QMainWindow):
             QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, False
         )
         return page
+
+    @Slot(object)
+    def _on_download_requested(self, download: Any) -> None:
+        """Ask for a destination before accepting a browser download."""
+        suggested = download.downloadFileName() or "result-bundle.zip"
+        downloads = QStandardPaths.writableLocation(
+            QStandardPaths.StandardLocation.DownloadLocation
+        )
+        start = str(Path(downloads) / suggested) if downloads else str(
+            Path.home() / "Downloads" / suggested
+        )
+        title = "Save download" if self._language == "en" else "保存下载文件"
+        target, _ = QFileDialog.getSaveFileName(
+            self, title, start, "Zip (*.zip);;All files (*)"
+        )
+        if not target:
+            download.cancel()
+            return
+        path = Path(target)
+        download.setDownloadDirectory(str(path.parent))
+        download.setDownloadFileName(path.name)
+        download.accept()
 
     def _install_web_channel(self) -> None:
         """Expose ``bridge`` to the page and inject the Qt channel client."""
