@@ -1,7 +1,7 @@
 {
   "name": "vinastudio-web",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.4.1",
   "type": "module",
   "description": "Vue 3 interface for the VinaStudio docking workbench",
   "scripts": {
@@ -25,7 +25,7 @@
     "@vitejs/plugin-vue": "^6.0.9",
     "sass-embedded": "^1.104.1",
     "typescript": "^5.9.3",
-    "vite": "^8.3.0",
+    "vite": "^8.3.4",
     "vue-tsc": "^3.3.11"
   }
 }

@@ -12,6 +12,26 @@ entries about the product — no internal task ids or workflow narration.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-21
+
+依赖安全更新。功能与 0.4.0 相同；建议 0.4.0 用户升级。
+
+### 安全
+
+- 更新 `certifi` 到 2026.10.19，修复其根证书包中的 CA 问题。
+- 更新 `Pillow` 到 13.0.0，修复图像解码与编码路径上的多个高危问题
+  （堆越界、未初始化内存、递归与拒绝服务等）。
+- 更新 `Vite` 到 8.3.4（仅开发与构建期使用），修复 `launch-editor` 的高危问题。
+
+### Security
+
+- Updated `certifi` to 2026.10.19 for the root-certificate bundle advisory.
+- Updated `Pillow` to 13.0.0 for multiple high-severity image decoding and
+  encoding issues (heap overflows, uninitialised memory, recursion and denial of
+  service).
+- Updated `Vite` to 8.3.4 (development and build only) for the `launch-editor`
+  advisory.
+
 ## [0.4.0] - 2026-10-21
 
 自 v0.3.0（2026-10-14）以来的全部交付。质量基线：pytest 711 全绿 / ruff 0 /
@@ -265,5 +285,6 @@ Older releases predate this file; their notes live on the release pages:
 - **0.1.0** (2026-09-23) — first public Linux release.
   [Release notes](https://github.com/hubehero/VinaStudio/releases/tag/v0.1.0)
 
+[0.4.1]: https://github.com/hubehero/VinaStudio/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/hubehero/VinaStudio/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/hubehero/VinaStudio/compare/v0.2.0...v0.3.0

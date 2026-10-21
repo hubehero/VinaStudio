@@ -1,6 +1,6 @@
 [project]
 name = "vinastudio"
-version = "0.4.0"
+version = "0.4.1"
 description = "Modern desktop workbench for AutoDock Vina docking, built with PySide6 + Vue 3"
 readme = "README.en.md"
 requires-python = ">=3.12,<3.13"
