@@ -52,6 +52,10 @@ section, the public wording, the tracked tree, the release metadata, the commit
 identity, the workflow, and the open security alerts. Fix everything it reports —
 **do not tag** while it fails.
 
+The release tree does not ship `tests/`, so the unit suite cannot run here. Before
+tagging, run the development tree's full gate: `uv run pytest -q`,
+`uv run ruff check .`, `pnpm -C web typecheck`.
+
 ### 4. Build before tagging
 
 Push the branch and trigger the workflow manually. The release job only runs for
@@ -65,16 +69,9 @@ gh workflow run release.yml
 Wait for the build to go green. This is the cheapest place to discover a broken
 build.
 
-Build the Windows installer from the same commit and verify it before tagging:
-
-```bash
-gh workflow run windows-build.yml --ref main
-# wait for the run, then download the windows-installer artifact and check
-# the embedded 1iep docking smoke in the job log ("docking OK")
-```
-
-If `release.yml` does not build Windows yet, attach that verified installer to the
-release after it is created and record its SHA-256 in the release notes.
+`release.yml` calls `windows-build.yml`, so the tag run builds the installer and
+attaches it automatically. To test the installer alone, dispatch
+`windows-build.yml` and check its job log for `docking OK`.
 
 ### 5. Tag and push
 
@@ -132,12 +129,9 @@ asserts the result, so the packaging path is exercised before anybody downloads 
 **macOS is source-only and is not a release target** (decision, 2026-10-21).
 
 `windows-build.yml` still publishes nothing by itself — it is the on-demand test
-build. `release.yml` does not build Windows yet; 0.4.1's installer was attached
-manually. The 0.5 target is a `build-windows` job in `release.yml` (reusing the steps
-from `windows-build.yml`), so tagging produces both platforms without a manual step.
-Until then, attach the verified `windows-installer` artifact and record its SHA-256 in
-the notes. The public limitations are documented in `docs/WINDOWS.md`; keep that page
-in step with the build.
+build. `release.yml` calls it as `build-windows`, so a tag builds and attaches the
+installer automatically; 0.4.1 was the last manual attach. The public limitations are
+documented in `docs/WINDOWS.md`; keep that page in step with the build.
 
 ## What CI does
 

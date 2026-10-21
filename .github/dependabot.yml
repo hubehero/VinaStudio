@@ -1,0 +1,22 @@
+version: 2
+
+updates:
+  # uv.lock and pyproject.toml. Security alerts already cover the tree; version
+  # updates keep the lock from drifting between releases.
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  # web/package.json + pnpm-lock.yaml.
+  - package-ecosystem: "npm"
+    directory: "/web"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"

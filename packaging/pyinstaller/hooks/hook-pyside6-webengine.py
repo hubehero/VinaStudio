@@ -5,11 +5,9 @@ files (icudtl.dat, qtwebengine_resources.pak, locales/) are collected into
 the bundle.  Without these the embedded QWebEngineView crashes on launch.
 """
 
-import os
-import sys
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_dynamic_libs
+from PyInstaller.utils.hooks import collect_all
 
 # ---- Collect everything from the two QtWebEngine packages ----
 we_core_datas, we_core_bins, we_core_hiddens = collect_all(

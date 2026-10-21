@@ -156,11 +156,19 @@ jobs:
             dist/vinastudio-*-linux-amd64.tar.gz
 
   # ---------------------------------------------------------------------------
+  # Windows build: same workflow as the on-demand test build, called here so a
+  # tag produces the installer without a manual upload.
+  # ---------------------------------------------------------------------------
+  build-windows:
+    needs: [preflight]
+    uses: ./.github/workflows/windows-build.yml
+
+  # ---------------------------------------------------------------------------
   # Create GitHub Release
   # ---------------------------------------------------------------------------
   create-release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [preflight, build-linux]
+    needs: [preflight, build-linux, build-windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -169,6 +177,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: linux-build
+          path: dist/
+
+      - name: Download Windows installer
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-installer
           path: dist/
 
       - name: Set up Python
@@ -192,3 +206,4 @@ jobs:
           files: |
             dist/vinastudio_*_amd64.deb
             dist/vinastudio-*-linux-amd64.tar.gz
+            dist/vinastudio-*-setup.exe

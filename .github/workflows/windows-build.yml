@@ -1,18 +1,15 @@
 name: Windows build
 
-# M4: build the Windows desktop package — PyInstaller bundle plus Inno Setup
-# installer — and keep it as a downloadable artifact.
+# Build the Windows desktop package — PyInstaller bundle plus Inno Setup
+# installer — and upload it as an artifact.
 #
-# Nothing here is published. The Windows installer goes out only after somebody
-# has installed it on a real machine and walked through the application; until
-# then this job exists to produce the artifact that makes that walkthrough
-# possible, and to catch a broken Windows build early.
-#
-# Manual dispatch on purpose: an artifact nobody looks at is not worth burning
-# runner minutes on every push.
+# release.yml calls this workflow for a tag, so the installer is attached to the
+# release automatically. It can also be dispatched on its own for a test build.
+# Nothing here publishes on its own: the release job owns that step.
 
 on:
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   windows:

@@ -42,6 +42,9 @@ python packaging/ci/release-preflight.py
 它会列出已发布版本，然后检查版本序列、CHANGELOG 小节、公开措辞、发布树、
 版本单一来源、提交身份、发布工作流、安全告警与导入完整性。**有失败就不要打 tag。**
 
+发布树不含 `tests/`，单元测试不能在这里跑。打 tag 前在开发树跑全量门禁：
+`uv run pytest -q`、`uv run ruff check .`、`pnpm -C web typecheck`。
+
 ### 4. 先构建，再打 tag
 
 推送分支并手动触发工作流。Release 只在 tag 上真正发布，所以这一步不会对外发布：
@@ -53,16 +56,9 @@ gh workflow run release.yml
 
 等它变绿——这是发现构建问题最便宜的地方。
 
-Windows 安装包也要从同一个 commit 构建并验证：
-
-```bash
-gh workflow run windows-build.yml --ref main
-# 等运行结束，下载 windows-installer，确认日志里有 "docking OK"
-```
-
-0.4.1 的安装包是手动挂载的。0.5 的目标是把 `build-windows` 加进 `release.yml`，
-tag 后自动构建并挂载；在此之前，仍把验证过的安装包在创建 release 后手动挂上去，
-并在说明里写 SHA-256。
+`release.yml` 会调用 `windows-build.yml`，tag 后自动构建并挂载安装包。单独测试
+安装包时再手动派发 `windows-build.yml`，确认日志里有 `docking OK`。
+0.4.1 是最后一次手动挂载；从本次流程起由 `release.yml` 自动完成。
 
 ### 5. 打附注 tag 并推送
 

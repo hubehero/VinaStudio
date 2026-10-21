@@ -109,7 +109,7 @@ def update_init_py(version: str) -> None:
     if re.search(r'__version__\s*=\s*"[^"]+"', text):
         replace_in_file(path, r'(__version__\s*=\s*)"[^"]+"', rf'\1"{version}"')
     else:
-        print(f"  SKIP  vinastudio/__init__.py (no hardcoded version)")
+        print("  SKIP  vinastudio/__init__.py (no hardcoded version)")
 
 
 def update_config_py(version: str) -> None:
@@ -122,19 +122,19 @@ def update_config_py(version: str) -> None:
     if "APP_VERSION" in text and re.search(r'APP_VERSION.*"[^"]+"', text):
         replace_in_file(path, r'(APP_VERSION\s*[:=].*?)"[^"]+"', rf'\1"{version}"')
     else:
-        print(f"  SKIP  vinastudio/config.py (APP_VERSION not hardcoded)")
+        print("  SKIP  vinastudio/config.py (APP_VERSION not hardcoded)")
 
 
 def update_package_json(version: str) -> None:
     path = REPO_ROOT / "web" / "package.json"
     if not path.exists():
-        print(f"  SKIP  web/package.json (not found)")
+        print("  SKIP  web/package.json (not found)")
         return
 
     data = json.loads(path.read_text())
     data["version"] = version
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
-    print(f"  OK    web/package.json")
+    print("  OK    web/package.json")
 
 
 def update_debian_control(version: str) -> None:
@@ -198,10 +198,7 @@ def main() -> None:
     args = parser.parse_args()
 
     # Determine the target version
-    if args.version:
-        version = args.version
-    else:
-        version = read_version_from_pyproject()
+    version = args.version or read_version_from_pyproject()
 
     if not validate_version(version):
         print(f"ERROR: '{version}' does not look like a valid version string", file=sys.stderr)
@@ -226,7 +223,7 @@ def main() -> None:
     if args.dry_run:
         _real_write = Path.write_text
 
-        def _noop_write(self, *a, **kw):  # noqa: ANN001, ANN002, ANN003
+        def _noop_write(self, *a, **kw):
             return len(str(a[0])) if a else 0
 
         Path.write_text = _noop_write  # type: ignore[assignment]
@@ -235,7 +232,7 @@ def main() -> None:
                 print(f"\n  [{label}]")
                 try:
                     updater(version)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - one updater must not hide the rest
                     print(f"  ERROR {label}: {exc}", file=sys.stderr)
         finally:
             Path.write_text = _real_write  # type: ignore[assignment]
@@ -244,11 +241,11 @@ def main() -> None:
             print(f"\n  [{label}]")
             try:
                 updater(version)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - one updater must not hide the rest
                 print(f"  ERROR {label}: {exc}", file=sys.stderr)
 
     print(f"\n==> Version set to {version}")
-    print("    Remember to commit and tag: git tag v{0}".format(version))
+    print(f"    Remember to commit and tag: git tag v{version}")
 
 
 if __name__ == "__main__":
