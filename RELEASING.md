@@ -56,6 +56,10 @@ The release tree does not ship `tests/`, so the unit suite cannot run here. Befo
 tagging, run the development tree's full gate: `uv run pytest -q`,
 `uv run ruff check .`, `pnpm -C web typecheck`, `pnpm -C web test`.
 
+Commit messages are public too: the preflight scans the new release-tree commits
+and fails on development-tree markers (`AGENTS.md`, `TASK-*`, `exchange/`,
+`STATUS.md`, `PLAN.md`). Keep them out of release-tree messages.
+
 ### 4. Build before tagging
 
 Push the branch and trigger the workflow manually. The release job only runs for
