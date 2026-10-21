@@ -162,14 +162,16 @@ powershell -ExecutionPolicy Bypass -File .\vinastudio-diagnostics.ps1
   准备、对接、分析、持久化、中文路径、渲染器诊断均正常。
 - 走查用的开发树安装包：`vinastudio-0.3.0-setup.exe`，229,564,630 B，
   SHA-256 `ec51d3d5e8448b2ab65b4a8a02dc88c25175e86aac80dac1ae81f2c9370bbb66`。
-- **0.4.0 正式安装包**：`vinastudio-0.4.0-setup.exe`，229,571,859 B，
-  SHA-256 `63722aca9e5566e5bc0a285aa98093e1d3ec088cc219539739b3154b5e64cd9f`，
-  由 tag `v0.4.0`（`18a6722`）构建；应用代码与走查包相同，差异只有版本号与文档。
+- **0.4.1 正式安装包（当前）**：`vinastudio-0.4.1-setup.exe`，229,553,518 B，
+  SHA-256 `953ed0971f368b00479ed19d774fb1e776459a5da693adf7a2d80e85b287a77e`，
+  由 tag `v0.4.1`（`a508f13`）构建；应用代码与 0.4.0 相同，另含依赖安全更新；
+  0.4.0 安装包已被取代。
 - 构建内自动冒烟：每个 Windows 构建都会在冻结包里真跑一次 1iep 对接
   （穷举度 1），断言完成、至少一个构象、亲和力为负；0.4.0 构建结果
-  `-8.593 kcal/mol`、15.31 s（run `39544666349`）。这同时覆盖了进程 spawn、
-  stdout 重定向、CLI 后端与随包 Vina 二进制。
-- 同一 tag 的 Linux 资产由 run `39545746608` 构建。
+  `-8.593 kcal/mol`、15.31 s（run `39544666349`），0.4.1 构建通过同一冒烟
+  （run `39547459457`）。这同时覆盖了进程 spawn、stdout 重定向、CLI 后端与
+  随包 Vina 二进制。
+- Linux 资产：0.4.1 由 run `39554364290` 构建（0.4.0 为 `39545746608`）。
 
 ---
 
