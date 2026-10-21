@@ -62,7 +62,7 @@ VinaStudio 把两者包装成一个好用的桌面应用，同时保持科学上
 | macOS | 仅源码运行，未打包、未做发布级验证 |
 
 从源码运行需要 Python 3.12、[uv](https://docs.astral.sh/uv/)，以及
-Node.js 20+ 与 [pnpm](https://pnpm.io/)（仅用于构建界面）。Windows 安装包
+Node.js 22+ 与 [pnpm](https://pnpm.io/)（界面构建与前端测试）。Windows 安装包
 已内置这些运行时与 Vina 引擎，用户无需另装。
 
 ## 安装与运行

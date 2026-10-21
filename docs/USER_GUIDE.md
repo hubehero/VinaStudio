@@ -38,7 +38,7 @@ computed by Vina itself; the application never invents a score.
 | Operating system | Linux (x86_64), Windows 10 1809+ / 11 (x64), or macOS from source |
 | Python | 3.12 — **source installs only**; the Windows installer bundles it |
 | Package manager | [uv](https://docs.astral.sh/uv/) for source installs |
-| Node.js | 20+ and [pnpm](https://pnpm.io/), only to build the interface |
+| Node.js | 22+ and [pnpm](https://pnpm.io/), to build the interface and run frontend tests |
 | Memory | 4 GB minimum; more for large receptors |
 | Disk | About 2 GB with all dependencies |
 

@@ -51,7 +51,7 @@ VinaStudio 是一个**分子对接桌面软件**，把 AutoDock Vina（一个广
 | 操作系统 | Linux（deb / tar.gz）、Windows 10 1809+ / 11 x64（安装包，0.4.0 起）；macOS 仅源码 |
 | Python | 3.12 或更高（**仅源码运行需要**；Windows 安装包已内置）|
 | 包管理器 | [uv](https://docs.astral.sh/uv/)（源码运行）|
-| Node.js | 20 或更高（仅构建界面需要） |
+| Node.js | 22 或更高（构建界面与前端测试需要） |
 | 包管理器 | [pnpm](https://pnpm.io/)（仅构建界面需要） |
 | 内存 | 至少 4 GB（对接大分子需要更多） |
 | 磁盘空间 | 约 2 GB（包含所有依赖） |
@@ -95,14 +95,14 @@ uv --version
 ```bash
 # Linux (使用 fnm 或 nvm)
 curl -fsSL https://fnm.vercel.app/install | bash
-fnm install 20
-fnm use 20
+fnm install 22
+fnm use 22
 
 # macOS
 brew install node@20
 
 # Windows
-# 从 https://nodejs.org/ 下载 Node.js 20 LTS 安装包
+# 从 https://nodejs.org/ 下载 Node.js 22 LTS 安装包
 
 # 安装 pnpm（所有平台通用）
 npm install -g pnpm
@@ -110,7 +110,7 @@ npm install -g pnpm
 
 验证安装：
 ```bash
-node --version   # 应该显示 v20.x.x
+node --version   # 应该显示 v22.x.x
 pnpm --version   # 应该显示 9.x.x 或更高
 ```
 
