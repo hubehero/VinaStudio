@@ -12,6 +12,11 @@
 # *new* place is worth seeing — and each existing alert is triaged with a reason
 # instead of being switched off here. This file only narrows the scan to source
 # we own.
+#
+# py/command-line-injection: the application's only subprocess.run call
+# (vina_cli._run) passes an argv list with no shell; user paths are arguments,
+# not shell text. The 2026-10-21 alert on it is dismissed as a false positive on
+# the Security tab, with that reasoning attached.
 name: "VinaStudio CodeQL"
 
 paths-ignore:

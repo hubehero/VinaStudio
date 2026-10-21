@@ -112,7 +112,11 @@ def build_command(
 
 
 def _run(command: list[str], *, capture: bool = False) -> subprocess.CompletedProcess[str]:
-    """Run Vina, turning a poor start or a non-zero exit into a readable error."""
+    """Run Vina, turning a poor start or a non-zero exit into a readable error.
+
+    ``command`` is an argv list passed without a shell: user-provided paths are
+    single arguments, so shell metacharacters in a filename are never parsed.
+    """
     try:
         completed = subprocess.run(
             command,
