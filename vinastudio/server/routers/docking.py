@@ -15,8 +15,10 @@ import zipfile
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Annotated, Any
+from urllib.parse import quote
 
 from fastapi import APIRouter, File, Header, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 
 from vinastudio import __version__
 from vinastudio.config import NATIVE_MAP_SCORING, SCORING_WEIGHT_COUNT, max_upload_bytes
@@ -44,6 +46,8 @@ from vinastudio.core.paths import (
     JOB_LOG_FILENAME,
     POSES_SDF_FILENAME,
     job_dir,
+    resolve_within,
+    slugify,
     workspace_root,
 )
 from vinastudio.core.report import render_report, svg_is_safe
@@ -92,7 +96,6 @@ from vinastudio.schemas.preparation import Artifact
 from vinastudio.server.job_manager import JobState
 from vinastudio.server.job_manager import batch_results_csv_text as _batch_csv_text
 from vinastudio.server.job_manager import manager as job_manager
-from vinastudio.server.routers.artifacts import ARTIFACT_URL_PREFIX
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/docking", tags=["docking"])
@@ -1078,6 +1081,23 @@ def _svg_document(svg: str) -> str:
     return '<?xml version="1.0" encoding="UTF-8"?>\n' + svg
 
 
+def _result_bundles_dir() -> Path:
+    """The dedicated, user-facing workspace directory for exported bundles.
+
+    Keep this outside ``jobs/`` so people can find the files without knowing a
+    job id.  With no active workspace (tests, first-run fallback) mirror the
+    fallback layout beside ``workspace_root()``.
+    """
+    from vinastudio.core.workspace import exports_dir
+    from vinastudio.server.routers.workspace import get_active_workspace
+
+    ws = get_active_workspace()
+    root = (exports_dir(ws) if ws is not None else workspace_root().parent / "exports")
+    target = root / "result-bundles"
+    target.mkdir(parents=True, exist_ok=True)
+    return target
+
+
 def _bundle_params(params: dict[str, Any]) -> dict[str, Any]:
     """Drop inline structure payloads; a bundle carries files, not megabyte strings."""
     return {key: value for key, value in params.items() if key not in _BUNDLE_INLINE_KEYS}
@@ -1220,21 +1240,39 @@ def export_bundle(job_id: str, request: ExportBundleRequest) -> Artifact:
     manifest = _bundle_manifest(state, [name for name, _ in members] + ["manifest.json"])
     members.insert(0, ("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2)))
 
-    export_dir = job_dir(job_id) / "export"
-    export_dir.mkdir(parents=True, exist_ok=True)
-    zip_path = export_dir / "result-bundle.zip"
+    export_root = _result_bundles_dir()
+    stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
+    label = slugify(state.label or "result", fallback="result", limit=40)
+    base = f"{stamp}-{state.job_id}-{label}"
+    zip_path = export_root / f"{base}.zip"
+    counter = 1
+    while zip_path.exists():
+        zip_path = export_root / f"{base}-{counter}.zip"
+        counter += 1
     with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
         for name, content in members:
             bundle.writestr(name, content)
 
-    relative = zip_path.relative_to(workspace_root()).as_posix()
     return Artifact(
         name=zip_path.name,
         path=str(zip_path),
-        url=f"{ARTIFACT_URL_PREFIX}/{relative}",
+        url=f"/api/docking/result-bundles/{quote(zip_path.name)}",
         bytes=zip_path.stat().st_size,
         kind="zip",
     )
+
+
+@router.get("/result-bundles/{filename}")
+def download_result_bundle(filename: str) -> FileResponse:
+    """Serve a bundle from the dedicated exports directory."""
+    root = _result_bundles_dir()
+    try:
+        path = resolve_within(root, filename)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="result bundle not found") from None
+    if not path.is_file() or path.suffix.lower() != ".zip":
+        raise HTTPException(status_code=404, detail="result bundle not found")
+    return FileResponse(str(path), media_type="application/zip", filename=path.name)
 
 
 def _read_result_bundle(payload: bytes) -> dict[str, bytes]:

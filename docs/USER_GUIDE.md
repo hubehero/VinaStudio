@@ -224,6 +224,10 @@ best-scoring pose, in kcal/mol.
 report records the parameters the run actually used, so it can be pasted into a
 methods section without guessing.
 
+Result bundles are written to the workspace's `exports/result-bundles/` folder
+with a timestamped name, and the success message shows the absolute path. Use
+the same folder when importing a bundle someone shared with you.
+
 ### 9.1 Importing a result bundle
 
 Use **Import bundle** on the report page and choose a zip exported by

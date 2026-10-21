@@ -514,7 +514,7 @@ export default {
       svgMissing: 'No 2D interaction diagram found (open the 2D view first)',
       cancel: 'Cancel',
       confirm: 'Export',
-      success: 'Results bundle exported',
+      success: 'Results bundle saved to: {path}',
       error: 'Failed to export the results bundle',
     },
     importBundle: {

@@ -155,7 +155,7 @@ async function exportBundle(): Promise<void> {
     })
     await downloadBundle(artifact)
     bundleVisible.value = false
-    ElMessage.success(t('docking.exportBundle.success'))
+    ElMessage.success(t('docking.exportBundle.success', { path: artifact.path }))
   } catch {
     ElMessage.error(t('docking.exportBundle.error'))
   } finally {

@@ -514,7 +514,7 @@ export default {
       svgMissing: '未检测到 2D 相互作用图（打开 2D 视图后可包含）',
       cancel: '取消',
       confirm: '导出',
-      success: '结果包已导出',
+      success: '结果包已保存到：{path}',
       error: '导出结果包失败',
     },
     importBundle: {

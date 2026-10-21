@@ -18,6 +18,8 @@ entries about the product — no internal task ids or workflow narration.
   释放页面，不下载、不安装。
 - **导入结果包**：报告页可导入 VinaStudio 导出的 zip，作为新的只读结果打开，
   可查看构象、参数与日志；不覆盖当前项目。
+- **结果包保存位置**：导出结果包写入工作区 `exports/result-bundles/`，文件名带
+  时间与 jobId；每次导出新增文件，成功提示显示绝对路径。
 
 ### Added
 
@@ -27,6 +29,9 @@ entries about the product — no internal task ids or workflow narration.
 - **Import result bundle**: the report page opens a zip exported by VinaStudio
   as a new read-only result with its poses, parameters and log; the current
   project is never overwritten.
+- **Result bundle location**: exports are written to the workspace's
+  `exports/result-bundles/` folder with a timestamped name; each export adds a
+  new file and the success message shows the absolute path.
 
 ## [0.4.1] - 2026-10-21
 
