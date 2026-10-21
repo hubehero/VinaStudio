@@ -13,7 +13,7 @@ from typing import Final, Literal
 
 APP_NAME: Final = "VinaStudio"
 APP_ID: Final = "vinastudio"
-APP_VERSION: Final = "0.3.0"
+APP_VERSION: Final = "0.4.0"
 
 PACKAGE_DIR: Final = Path(__file__).resolve().parent
 STATIC_DIR: Final = PACKAGE_DIR / "server" / "static"
