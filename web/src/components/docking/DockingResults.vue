@@ -261,7 +261,7 @@ async function runCluster(): Promise<void> {
 </script>
 
 <template>
-  <div v-if="docking.hasResult && docking.poses.length > 0" class="vs-card">
+  <div v-if="docking.hasResult && docking.poses.length > 0" class="vs-card results-card">
     <div class="vs-card__header">
       <div><div class="vs-card__title">{{ t('docking.results') }}</div></div>
       <div class="header-actions">
@@ -529,8 +529,17 @@ async function runCluster(): Promise<void> {
 </template>
 
 <style scoped>
+.results-card :deep(.vs-card__header) {
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
 .header-actions {
   display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
   align-items: center;
 }

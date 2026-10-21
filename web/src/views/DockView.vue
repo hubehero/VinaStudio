@@ -59,9 +59,12 @@ onMounted(() => {
     </section>
 
     <aside class="docking-view__side">
+      <!-- Results first: after a run completes this is the card the user came
+           for.  It renders nothing while no result exists, so the form still
+           occupies the top of the sidebar before the first run. -->
+      <DockingResults />
       <DockingForm />
       <DockingLog />
-      <DockingResults />
       <DockingInteractions v-model="interactions" />
       <DockingWorkbench />
     </aside>
