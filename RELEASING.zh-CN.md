@@ -48,6 +48,11 @@ python packaging/ci/release-preflight.py
 提交信息同样是公开文本：预检会扫描发布树的新提交，出现 `AGENTS.md`、`TASK-*`、
 `exchange/`、`STATUS.md`、`PLAN.md` 等开发树标记就会失败。发布树的提交信息里不要写它们。
 
+GitHub 的 **squash merge** 会用账号默认邮箱作为作者；即使 PR 里的提交身份正确，
+预检也会失败。发布树 PR 应在本地用项目身份合并（fast-forward，或
+`git -c user.name=… -c user.email=… merge --no-ff`）后再推送；不要用网页的
+squash 按钮。
+
 ### 4. 先构建，再打 tag
 
 推送分支并手动触发工作流。Release 只在 tag 上真正发布，所以这一步不会对外发布：

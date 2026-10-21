@@ -60,6 +60,12 @@ Commit messages are public too: the preflight scans the new release-tree commits
 and fails on development-tree markers (`AGENTS.md`, `TASK-*`, `exchange/`,
 `STATUS.md`, `PLAN.md`). Keep them out of release-tree messages.
 
+GitHub's **squash merge** uses the account's default email as the author, which
+fails this gate even when the PR commits are clean. Merge release-tree PRs
+locally with the project identity (fast-forward, or
+`git -c user.name=… -c user.email=… merge --no-ff`) and push; do not use the web
+squash button.
+
 ### 4. Build before tagging
 
 Push the branch and trigger the workflow manually. The release job only runs for
