@@ -409,7 +409,7 @@ jobs:
             Select-Object Name, @{N="MB";E={[math]::Round($_.Length / 1MB, 1)}}
 
       - name: Upload the installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-installer
           path: dist/vinastudio-*-setup.exe
