@@ -27,6 +27,7 @@ import type {
   ExportPoseResponse,
   FileFilters,
   Health,
+  ImportBundleResponse,
   UpdateCheck,
   IfpGroupRequest,
   PocketsRequest,
@@ -360,6 +361,11 @@ export const api = {
     request<Artifact>(`/api/docking/jobs/${jobId}/export-bundle`, {
       method: 'POST',
       body: JSON.stringify(body),
+    }),
+  importBundle: (path: string) =>
+    request<ImportBundleResponse>('/api/docking/import-bundle', {
+      method: 'POST',
+      body: JSON.stringify({ path }),
     }),
   vinaInfo: () => request<VinaInfoResponse>('/api/docking/info'),
   vinaCite: (scoring: string = 'vina') =>

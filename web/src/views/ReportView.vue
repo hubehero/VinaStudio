@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { Document, Position, Refresh } from '@element-plus/icons-vue'
+import { Document, Position, Refresh, Upload } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
+import { api } from '@/api/http'
 import DockingReport from '@/components/docking/DockingReport.vue'
 import JobHistory from '@/components/docking/JobHistory.vue'
 import MethodsDialog from '@/components/docking/MethodsDialog.vue'
@@ -13,6 +15,8 @@ const { t } = useI18n()
 const router = useRouter()
 const docking = useDockingStore()
 const methodsOpen = ref(false)
+const importInput = ref<HTMLInputElement | null>(null)
+const importing = ref(false)
 
 onMounted(async () => {
   // Land on an actual report rather than the empty state: history is this
@@ -37,6 +41,26 @@ function inspectInDock(): void {
   // the docking view, against whatever job is active here.
   if (docking.activeJobId) void router.push('/docking')
 }
+
+async function onImportFile(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0] ?? null
+  input.value = ''
+  if (!file) return
+  importing.value = true
+  try {
+    const saved = await api.upload(file)
+    const result = await api.importBundle(saved.path)
+    await docking.fetchJobs()
+    const job = docking.jobSummaries.find((summary) => summary.jobId === result.jobId)
+    if (job) await docking.openHistoryJob(job)
+    ElMessage.success(t('docking.importBundle.success'))
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : t('docking.importBundle.error'))
+  } finally {
+    importing.value = false
+  }
+}
 </script>
 
 <template>
@@ -47,6 +71,20 @@ function inspectInDock(): void {
         <p class="vs-page__subtitle">{{ t('docking.resultsReport.subtitle') }}</p>
       </div>
       <div class="report-view__actions">
+        <el-button
+          :icon="Upload"
+          :loading="importing"
+          @click="importInput?.click()"
+        >
+          {{ t('docking.importBundle.button') }}
+        </el-button>
+        <input
+          ref="importInput"
+          type="file"
+          accept=".zip,application/zip"
+          class="report-view__import-input"
+          @change="onImportFile"
+        />
         <el-button
           :icon="Document"
           :disabled="!docking.hasResult"
@@ -88,6 +126,10 @@ function inspectInDock(): void {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.report-view__import-input {
+  display: none;
 }
 
 /* The card is tuned for the 380px docking sidebar: on this wide column its

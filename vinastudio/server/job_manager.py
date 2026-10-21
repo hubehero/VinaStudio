@@ -671,6 +671,20 @@ class JobManager:
         with self._lock:
             return list(self._jobs.values())
 
+    def register_imported(self, state: JobState) -> None:
+        """Expose a completed job restored from a result bundle.
+
+        The caller has already written the payload files into the job
+        directory.  Registration is in-memory plus the same ``job.json`` write
+        funnel a normal completion uses, so the imported run also lands in the
+        results index and survives a restart.  It never starts a worker.
+        """
+        with self._lock:
+            if state.job_id in self._jobs:
+                raise ValueError(f"job {state.job_id} already exists")
+            self._jobs[state.job_id] = state
+        _write_job_json(state.job_id, _job_json_payload(state))
+
     def restore_history(self) -> None:
         """Rebuild the in-memory job list from ``job.json`` files on disk.
 

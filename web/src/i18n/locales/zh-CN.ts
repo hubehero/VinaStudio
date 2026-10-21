@@ -517,6 +517,11 @@ export default {
       success: '结果包已导出',
       error: '导出结果包失败',
     },
+    importBundle: {
+      button: '导入结果包',
+      success: '结果包已导入为新的结果，未覆盖当前项目',
+      error: '导入结果包失败：请选择 VinaStudio 导出的 zip',
+    },
     exportPose: '导出',
     openReport: '查看完整报告',
     errorNoPdbqt: '未找到已准备的 PDBQT 文件',

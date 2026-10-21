@@ -224,6 +224,13 @@ best-scoring pose, in kcal/mol.
 report records the parameters the run actually used, so it can be pasted into a
 methods section without guessing.
 
+### 9.1 Importing a result bundle
+
+Use **Import bundle** on the report page and choose a zip exported by
+VinaStudio. The bundle is restored as a new read-only result in the current
+workspace, with its poses, parameters and log; it never overwrites the current
+project.
+
 ---
 
 ## 10. Advanced workflows

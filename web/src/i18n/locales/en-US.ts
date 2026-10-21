@@ -517,6 +517,11 @@ export default {
       success: 'Results bundle exported',
       error: 'Failed to export the results bundle',
     },
+    importBundle: {
+      button: 'Import bundle',
+      success: 'Imported as a new result; the current project was not overwritten',
+      error: 'Could not import the bundle. Choose a zip exported by VinaStudio.',
+    },
     exportPose: 'Export',
     openReport: 'Open full report',
     errorNoPdbqt: 'Prepared PDBQT files not found',

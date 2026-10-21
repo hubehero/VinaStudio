@@ -33,7 +33,11 @@ log = logging.getLogger(__name__)
 router = APIRouter(prefix="/files", tags=["files"])
 
 #: Extensions the upload endpoint will accept.
-ALLOWED_UPLOAD_SUFFIXES = frozenset(LIGAND_SUFFIXES) | frozenset(RECEPTOR_SUFFIXES)
+#: ``.zip`` is the result-bundle carrier; the import endpoint validates its
+#: contents, so accepting it here only makes the bytes reachable.
+ALLOWED_UPLOAD_SUFFIXES = (
+    frozenset(LIGAND_SUFFIXES) | frozenset(RECEPTOR_SUFFIXES) | frozenset({".zip"})
+)
 
 
 @router.get("/filters")
@@ -142,9 +146,14 @@ async def upload(
 
     ws = get_active_workspace()
     if ws is not None:
-        from vinastudio.core.workspace import ligands_dir, receptors_dir
+        from vinastudio.core.workspace import exports_dir, ligands_dir, receptors_dir
 
-        dest_dir = receptors_dir(ws) if suffix in RECEPTOR_SUFFIXES else ligands_dir(ws)
+        if suffix == ".zip":
+            dest_dir = exports_dir(ws)
+        elif suffix in RECEPTOR_SUFFIXES:
+            dest_dir = receptors_dir(ws)
+        else:
+            dest_dir = ligands_dir(ws)
         # Handle filename collisions by appending a counter.
         target_path = dest_dir / name
         counter = 1

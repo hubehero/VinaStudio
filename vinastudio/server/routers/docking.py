@@ -6,15 +6,19 @@ import hashlib
 import json
 import logging
 import os
+import shutil
 import tempfile
+import time
+import uuid
 import zipfile
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
-from vinastudio.config import NATIVE_MAP_SCORING
+from vinastudio import __version__
+from vinastudio.config import NATIVE_MAP_SCORING, SCORING_WEIGHT_COUNT, max_upload_bytes
 from vinastudio.core.chem.ifp import (
     CONTACT_TYPES,
     butina_clustering,
@@ -36,7 +40,10 @@ from vinastudio.core.errors import (
 from vinastudio.core.paths import (
     ANALYSIS_CACHE_FILENAME,
     BATCH_RESULTS_CSV_FILENAME,
+    JOB_LOG_FILENAME,
+    POSES_SDF_FILENAME,
     job_dir,
+    resolve_within,
     workspace_root,
 )
 from vinastudio.core.report import render_report, svg_is_safe
@@ -65,9 +72,12 @@ from vinastudio.schemas.docking import (
     IfpJobRequest,
     IfpJobResponse,
     IfpResidue,
+    ImportBundleRequest,
+    ImportBundleResponse,
     OptimizeRequest,
     OptimizeResponse,
     PoseFindingModel,
+    PoseInfo,
     PoseValidationItem,
     RandomizeRequest,
     RandomizeResponse,
@@ -88,6 +98,22 @@ from vinastudio.server.routers.artifacts import ARTIFACT_URL_PREFIX
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/docking", tags=["docking"])
 
+#: Result bundle v1 is self-contained enough to rebuild a read-only result:
+#: the sanitized job payload, the pose SDF, and the log.  Optional members
+#: mirror the export dialog.  The import endpoint accepts only these names.
+BUNDLE_FORMAT = "vinastudio-result-bundle"
+BUNDLE_VERSION = 1
+BUNDLE_REQUIRED = frozenset({"manifest.json", "job.json", "poses.sdf"})
+BUNDLE_OPTIONAL = frozenset(
+    {"job.log", "config.txt", "results.csv", "report.html", "interactions-2d.svg"}
+)
+BUNDLE_MEMBERS = BUNDLE_REQUIRED | BUNDLE_OPTIONAL
+BUNDLE_MAX_ENTRIES = 64
+_BUNDLE_INLINE_KEYS = frozenset({
+    "ligandPdbqtString", "receptorPdbqtString", "pdbqtString",
+    "ligand_pdbqt_string", "receptor_pdbqt_string", "pdbqt_string",
+})
+
 
 @router.get("/defaults", response_model=DockingDefaultsResponse)
 def get_defaults() -> DockingDefaultsResponse:
@@ -100,8 +126,6 @@ def get_info() -> VinaInfoResponse:
     """Return Vina library version and capabilities."""
     import multiprocessing
 
-    from vinastudio.config import SCORING_WEIGHT_COUNT
-
     return VinaInfoResponse(
         version="autoDockVina",
         supportedScoringFunctions=list(SCORING_WEIGHT_COUNT.keys()),
@@ -113,7 +137,6 @@ def get_info() -> VinaInfoResponse:
 @router.get("/cite", response_model=CitationResponse)
 def get_citation(scoring: str = "vina") -> CitationResponse:
     """Return citation text for the selected scoring function."""
-    from vinastudio.config import SCORING_WEIGHT_COUNT
 
     if scoring not in SCORING_WEIGHT_COUNT:
         raise InvalidInputError(f"unknown scoring function: {scoring}")
@@ -1056,6 +1079,40 @@ def _svg_document(svg: str) -> str:
     return '<?xml version="1.0" encoding="UTF-8"?>\n' + svg
 
 
+def _bundle_params(params: dict[str, Any]) -> dict[str, Any]:
+    """Drop inline structure payloads; a bundle carries files, not megabyte strings."""
+    return {key: value for key, value in params.items() if key not in _BUNDLE_INLINE_KEYS}
+
+
+def _bundle_job_payload(state: JobState) -> dict[str, Any]:
+    """Machine-readable result snapshot; paths and large strings do not travel."""
+    return {
+        "schemaVersion": 1,
+        "jobId": state.job_id,
+        "status": "completed",
+        "scoring": state.scoring,
+        "createdAt": state.created_at,
+        "label": state.label,
+        "params": _bundle_params(state.params),
+        "poses": [dict(pose) for pose in state.poses],
+        "bestAffinity": state.best_affinity,
+        "nPoses": state.n_poses,
+        "elapsedMs": state.elapsed_ms,
+    }
+
+
+def _bundle_manifest(state: JobState, members: list[str]) -> dict[str, Any]:
+    return {
+        "format": BUNDLE_FORMAT,
+        "version": BUNDLE_VERSION,
+        "appVersion": __version__,
+        "createdAt": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "jobId": state.job_id,
+        "label": state.label,
+        "members": sorted(members),
+    }
+
+
 def _bundle_csv(state: JobState) -> str:
     """Pose table for the bundle — the reference-free subset of export-csv."""
     import csv
@@ -1156,6 +1213,14 @@ def export_bundle(job_id: str, request: ExportBundleRequest) -> Artifact:
     if not members:
         raise InvalidInputError("nothing to export: the requested members produced no files")
 
+    # Always ship the import metadata: a bundle without job.json/log can be
+    # read as a report, but cannot be restored as a result.  The optional
+    # members stay driven by the dialog.
+    members.append(("job.json", json.dumps(_bundle_job_payload(state), ensure_ascii=False, indent=2)))
+    members.append(("job.log", "\n".join(state.log) + ("\n" if state.log else "")))
+    manifest = _bundle_manifest(state, [name for name, _ in members] + ["manifest.json"])
+    members.insert(0, ("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2)))
+
     export_dir = job_dir(job_id) / "export"
     export_dir.mkdir(parents=True, exist_ok=True)
     zip_path = export_dir / "result-bundle.zip"
@@ -1171,3 +1236,172 @@ def export_bundle(job_id: str, request: ExportBundleRequest) -> Artifact:
         bytes=zip_path.stat().st_size,
         kind="zip",
     )
+
+
+def _read_result_bundle(source: Path) -> dict[str, bytes]:
+    """Read a v1 bundle with no path traversal, symlinks or zip bombs."""
+    try:
+        with zipfile.ZipFile(source) as bundle:
+            infos = bundle.infolist()
+            if len(infos) > BUNDLE_MAX_ENTRIES:
+                raise InvalidInputError("result bundle has too many members")
+            contents: dict[str, bytes] = {}
+            total = 0
+            for info in infos:
+                name = info.filename
+                pure = PurePosixPath(name)
+                if (
+                    not name
+                    or pure.is_absolute()
+                    or ".." in pure.parts
+                    or "\\" in name
+                    or name.endswith("/")
+                    or name in contents
+                    or name not in BUNDLE_MEMBERS
+                ):
+                    raise InvalidInputError(f"result bundle member rejected: {name}")
+                # A symlink entry is not a file this reader will follow.
+                if (info.external_attr >> 16) & 0o170000 == 0o120000:
+                    raise InvalidInputError(f"result bundle symlink rejected: {name}")
+                total += info.file_size
+                if total > max_upload_bytes():
+                    raise InvalidInputError("result bundle expands beyond the upload limit")
+                contents[name] = bundle.read(name)
+    except InvalidInputError:
+        raise
+    except (zipfile.BadZipFile, OSError, RuntimeError) as exc:
+        raise InvalidInputError(f"not a readable result bundle: {exc}") from exc
+
+    missing = BUNDLE_REQUIRED - contents.keys()
+    if missing:
+        raise InvalidInputError(
+            "result bundle is missing: " + ", ".join(sorted(missing))
+        )
+    return contents
+
+
+def _import_result_bundle(source: Path) -> ImportBundleResponse:
+    contents = _read_result_bundle(source)
+
+    try:
+        manifest = json.loads(contents["manifest.json"].decode("utf-8"))
+        job = json.loads(contents["job.json"].decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise InvalidInputError("result bundle metadata is not valid JSON") from exc
+    if not isinstance(manifest, dict) or not isinstance(job, dict):
+        raise InvalidInputError("result bundle metadata is not an object")
+    if manifest.get("format") != BUNDLE_FORMAT or manifest.get("version") != BUNDLE_VERSION:
+        raise InvalidInputError("unsupported result bundle format")
+
+    if job.get("status") != "completed":
+        raise InvalidInputError("result bundle is not a completed run")
+    if job.get("isBatch") or job.get("isScreening") or job.get("isSiteScreening"):
+        raise InvalidInputError("only single docking results can be imported")
+
+    params = job.get("params")
+    if not isinstance(params, dict):
+        raise InvalidInputError("result bundle has no parameter record")
+    scoring = job.get("scoring")
+    if scoring not in SCORING_WEIGHT_COUNT:
+        raise InvalidInputError(f"unsupported scoring function: {scoring}")
+
+    raw_poses = job.get("poses")
+    if not isinstance(raw_poses, list) or not raw_poses:
+        raise InvalidInputError("result bundle has no poses")
+    try:
+        poses = [PoseInfo.model_validate(pose).model_dump() for pose in raw_poses]
+    except ValueError as exc:
+        raise InvalidInputError("result bundle poses are malformed") from exc
+
+    try:
+        created_at = float(job.get("createdAt") or time.time())
+    except (TypeError, ValueError) as exc:
+        raise InvalidInputError("result bundle has an invalid creation time") from exc
+    elapsed = job.get("elapsedMs")
+    try:
+        elapsed_ms = int(elapsed) if elapsed is not None else None
+    except (TypeError, ValueError) as exc:
+        raise InvalidInputError("result bundle has an invalid elapsed time") from exc
+    best = job.get("bestAffinity")
+    try:
+        best_affinity = (
+            float(best)
+            if best is not None
+            else min(float(pose["affinity"]) for pose in poses)
+        )
+    except (TypeError, ValueError) as exc:
+        raise InvalidInputError("result bundle has an invalid best affinity") from exc
+
+    try:
+        poses_sdf = contents["poses.sdf"].decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise InvalidInputError("poses.sdf is not UTF-8") from exc
+    log_text = contents.get("job.log", b"").decode("utf-8", errors="replace")
+
+    stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
+    target: Path | None = None
+    for _ in range(3):
+        candidate = job_dir(f"import-{stamp}-{uuid.uuid4().hex[:6]}")
+        if not candidate.exists():
+            target = candidate
+            break
+    if target is None:
+        raise InvalidInputError("could not allocate a directory for the imported result")
+
+    label = str(job.get("label") or "").strip()
+    label = f"{label} (imported)" if label else "Imported result"
+    target.mkdir(parents=True)
+    try:
+        (target / POSES_SDF_FILENAME).write_text(poses_sdf, encoding="utf-8")
+        if log_text:
+            (target / JOB_LOG_FILENAME).write_text(log_text, encoding="utf-8")
+        for name in BUNDLE_OPTIONAL:
+            if name in contents and name != "job.log":
+                (target / name).write_bytes(contents[name])
+        state = JobState(
+            job_id=target.name,
+            status="completed",
+            progress=100,
+            log=log_text.splitlines(),
+            scoring=scoring,
+            created_at=created_at,
+            elapsed_ms=elapsed_ms,
+            label=label,
+            params=params,
+            poses=poses,
+            best_affinity=best_affinity,
+            n_poses=len(poses),
+            poses_sdf=poses_sdf,
+        )
+        job_manager.register_imported(state)
+    except Exception:
+        shutil.rmtree(target, ignore_errors=True)
+        raise
+    return ImportBundleResponse(jobId=state.job_id, label=state.label)
+
+
+@router.post("/import-bundle", response_model=ImportBundleResponse)
+def import_bundle(request: ImportBundleRequest) -> ImportBundleResponse:
+    """Restore a result bundle as a new, read-only completed job.
+
+    The path must be an uploaded zip inside the active workspace; the source
+    is never overwritten and the imported run gets a fresh id, so the current
+    project and its results stay untouched.
+    """
+    from vinastudio.server.routers.workspace import get_active_workspace
+
+    # Uploads with an active workspace land in <ws>/exports or <ws>/ligands,
+    # while job directories live in <ws>/jobs; the containment check therefore
+    # uses the workspace root, not workspace_root() (the jobs directory).
+    source_root = get_active_workspace() or workspace_root()
+    try:
+        source = resolve_within(source_root, request.path)
+    except ValueError as exc:
+        raise InvalidInputError("result bundle path escapes the workspace") from exc
+    if not source.is_file():
+        raise InvalidInputError("result bundle not found")
+    if source.suffix.lower() != ".zip":
+        raise InvalidInputError("result bundle must be a .zip file")
+    if source.stat().st_size > max_upload_bytes():
+        raise InvalidInputError("result bundle exceeds the upload limit")
+    return _import_result_bundle(source)

@@ -16,12 +16,17 @@ entries about the product — no internal task ids or workflow narration.
 
 - **设置 → 通用 → 检查更新**：手动检查 GitHub Releases；有新版本时打开官方
   释放页面，不下载、不安装。
+- **导入结果包**：报告页可导入 VinaStudio 导出的 zip，作为新的只读结果打开，
+  可查看构象、参数与日志；不覆盖当前项目。
 
 ### Added
 
 - **Settings → General → Check for updates**: manually checks GitHub Releases
   and opens the official release page when a newer version exists, without
   downloading or installing anything.
+- **Import result bundle**: the report page opens a zip exported by VinaStudio
+  as a new read-only result with its poses, parameters and log; the current
+  project is never overwritten.
 
 ## [0.4.1] - 2026-10-21
 
