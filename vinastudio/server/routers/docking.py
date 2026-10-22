@@ -15,7 +15,6 @@ import zipfile
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Annotated, Any
-from urllib.parse import quote
 
 from fastapi import APIRouter, File, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse
@@ -46,7 +45,6 @@ from vinastudio.core.paths import (
     JOB_LOG_FILENAME,
     POSES_SDF_FILENAME,
     job_dir,
-    resolve_within,
     slugify,
     workspace_root,
 )
@@ -115,6 +113,13 @@ _BUNDLE_INLINE_KEYS = frozenset({
     "ligandPdbqtString", "receptorPdbqtString", "pdbqtString",
     "ligand_pdbqt_string", "receptor_pdbqt_string", "pdbqt_string",
 })
+
+#: Download tokens map to server-generated files; the URL never carries a
+#: path, so a request cannot express a filesystem location.  The small cap
+#: means the mapping is a convenience for the current session, not storage —
+#: the file itself lives on in exports/result-bundles/.
+_BUNDLE_DOWNLOADS: dict[str, Path] = {}
+_BUNDLE_DOWNLOAD_LIMIT = 128
 
 
 @router.get("/defaults", response_model=DockingDefaultsResponse)
@@ -1253,24 +1258,25 @@ def export_bundle(job_id: str, request: ExportBundleRequest) -> Artifact:
         for name, content in members:
             bundle.writestr(name, content)
 
+    token = uuid.uuid4().hex
+    _BUNDLE_DOWNLOADS[token] = zip_path
+    while len(_BUNDLE_DOWNLOADS) > _BUNDLE_DOWNLOAD_LIMIT:
+        _BUNDLE_DOWNLOADS.pop(next(iter(_BUNDLE_DOWNLOADS)))
+
     return Artifact(
         name=zip_path.name,
         path=str(zip_path),
-        url=f"/api/docking/result-bundles/{quote(zip_path.name)}",
+        url=f"/api/docking/result-bundles/{token}",
         bytes=zip_path.stat().st_size,
         kind="zip",
     )
 
 
-@router.get("/result-bundles/{filename}")
-def download_result_bundle(filename: str) -> FileResponse:
-    """Serve a bundle from the dedicated exports directory."""
-    root = _result_bundles_dir()
-    try:
-        path = resolve_within(root, filename)
-    except ValueError:
-        raise HTTPException(status_code=404, detail="result bundle not found") from None
-    if not path.is_file() or path.suffix.lower() != ".zip":
+@router.get("/result-bundles/{token}")
+def download_result_bundle(token: str) -> FileResponse:
+    """Serve a bundle by its server-issued download token."""
+    path = _BUNDLE_DOWNLOADS.get(token)
+    if path is None or not path.is_file() or path.suffix.lower() != ".zip":
         raise HTTPException(status_code=404, detail="result bundle not found")
     return FileResponse(str(path), media_type="application/zip", filename=path.name)
 
