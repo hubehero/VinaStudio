@@ -116,6 +116,12 @@ class JobState:
     # molecules — None until one lands, so the summary can say "nothing yet".
     is_screening: bool = False
     screening_best: float | None = None
+    # Ensemble: one ligand docked into several receptor conformations. Rows
+    # stay in the index (small) and the terminal event carries the winning
+    # conformation's poses.
+    is_ensemble: bool = False
+    ensemble_results: list[dict[str, Any]] = field(default_factory=list)
+    best_receptor: str | None = None
     # Site screening (S2): one ligand docked into several candidate boxes. Rows
     # live in ``sites.jsonl``; the box counters reuse the batch generics
     # (``total_ligands`` / ``completed_ligands`` / ``failed_ligands``) because
@@ -303,6 +309,42 @@ class JobManager:
             job_id,
             state.label,
             len(state._processes),
+        )
+        return job_id
+
+    def start_ensemble_job(self, params: dict[str, Any]) -> str:
+        """Spawn an ensemble: one ligand against several receptor conformations.
+
+        A single worker keeps the ranking and the winning pose in one place;
+        the number of conformers is small. The box is shared because the
+        conformers must be in the same coordinate frame.
+        """
+        job_id = uuid.uuid4().hex[:12]
+        job_dir = workspace_root() / job_id
+        job_dir.mkdir(parents=True, exist_ok=True)
+
+        receptors = list(params.get("receptors", []))
+        state = JobState(
+            job_id=job_id,
+            status="running",
+            scoring=params.get("scoring", "vina"),
+            is_ensemble=True,
+            total_ligands=len(receptors),
+            label=str(params.get("label") or "ensemble"),
+            params=_persistable_params(params),
+        )
+        self._jobs[job_id] = state
+
+        worker_params = dict(params)
+        worker_params["job_id"] = job_id
+        worker_params["output_dir"] = str(job_dir)
+
+        self._launch(job_id, _ensemble_worker_entry, [worker_params])
+        self._persist(state)
+        log.info(
+            "started ensemble job %s (%d receptor conformations)",
+            job_id,
+            len(receptors),
         )
         return job_id
 
@@ -565,6 +607,29 @@ class JobManager:
                         (state.completed_ligands + state.failed_ligands)
                         / state.total_ligands * 100
                     )
+            elif kind == "ensemble_progress":
+                state.current_ligand = event.get("label", "")
+            elif kind == "ensemble_completed":
+                if event.get("status") == "completed":
+                    state.completed_ligands += 1
+                else:
+                    state.failed_ligands += 1
+                state.ensemble_results.append({
+                    "receptorIndex": event.get("receptorIndex", 0),
+                    "label": event.get("label", ""),
+                    "receptorPath": event.get("receptorPath", ""),
+                    "status": event.get("status", "failed"),
+                    "bestAffinity": event.get("bestAffinity"),
+                    "nPoses": event.get("nPoses", 0),
+                    "elapsedMs": event.get("elapsedMs"),
+                    "outDir": event.get("outDir", ""),
+                    "error": event.get("error", ""),
+                })
+                if state.total_ligands > 0:
+                    state.progress = int(
+                        (state.completed_ligands + state.failed_ligands)
+                        / state.total_ligands * 100
+                    )
             elif kind == "site_progress":
                 # Label only, exactly like ``batch_progress``: the running box
                 # is display state, not a counter.
@@ -597,6 +662,8 @@ class JobManager:
                     state.n_poses = event.get("nPoses", 0)
                     state.poses_pdbqt = event.get("posesPdbqt", "")
                     state.poses_sdf = event.get("posesSdf", "")
+                    if state.is_ensemble:
+                        state.best_receptor = event.get("bestReceptor")
                     # The pipe carried the only copy of the SDF; writing it
                     # here is what makes a restarted session replay results.
                     _write_poses_sdf(job_id, state.poses_sdf)
@@ -1073,6 +1140,9 @@ def _job_json_payload(state: JobState, *, now: float | None = None) -> dict[str,
         "isBatch": state.is_batch,
         "isScreening": state.is_screening,
         "isSiteScreening": state.is_site_screening,
+        "isEnsemble": state.is_ensemble,
+        "bestReceptor": state.best_receptor,
+        "ensembleResults": list(state.ensemble_results),
         "totalLigands": state.total_ligands,
         "completedLigands": state.completed_ligands,
         "failedLigands": state.failed_ligands,
@@ -1226,6 +1296,9 @@ def _state_from_payload(data: dict[str, Any], job_id: str) -> JobState:
         is_batch=bool(data.get("isBatch")),
         is_screening=bool(data.get("isScreening")),
         is_site_screening=bool(data.get("isSiteScreening")),
+        is_ensemble=bool(data.get("isEnsemble")),
+        ensemble_results=list(data.get("ensembleResults") or []),
+        best_receptor=data.get("bestReceptor"),
         total_ligands=int(data.get("totalLigands") or 0),
         completed_ligands=int(data.get("completedLigands") or 0),
         failed_ligands=int(data.get("failedLigands") or 0),
@@ -1330,6 +1403,12 @@ def _screening_worker_entry(params: dict[str, Any], pipe: Any) -> None:
     from vinastudio.core.worker import screening_worker
 
     screening_worker(params, pipe)
+
+
+def _ensemble_worker_entry(params: dict[str, Any], pipe: Any) -> None:
+    from vinastudio.core.worker import ensemble_worker
+
+    ensemble_worker(params, pipe)
 
 
 def _site_screening_worker_entry(params: dict[str, Any], pipe: Any) -> None:

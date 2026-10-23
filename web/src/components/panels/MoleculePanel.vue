@@ -44,7 +44,20 @@ function handleSelect(id: string): void {
   store.setActive(id)
 }
 
-function handleRemove(id: string): void {
+async function handleRemove(id: string): Promise<void> {
+  const molecule = store.molecules.find((m) => m.id === id)
+  try {
+    await ElMessageBox.confirm(
+      t('molecules.removeConfirm', { name: molecule?.name ?? '' }),
+      {
+        type: 'warning',
+        confirmButtonText: t('common.delete'),
+        cancelButtonText: t('common.cancel'),
+      },
+    )
+  } catch {
+    return
+  }
   store.removeItem(id)
 }
 

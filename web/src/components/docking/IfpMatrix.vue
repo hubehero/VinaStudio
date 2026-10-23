@@ -56,8 +56,12 @@ const HEADER_H = 64
 const SUB_W = 8
 const SUB_GAP = 1
 const GRP_GAP = 6
-const CELL_W = SUB_W * 3 + SUB_GAP * 2
-const COL_W = CELL_W + GRP_GAP
+const CELL_W = computed(
+  () =>
+    SUB_W * Math.max(props.types.length, 1) +
+    SUB_GAP * Math.max(props.types.length - 1, 0),
+)
+const COL_W = computed(() => CELL_W.value + GRP_GAP)
 const LABEL_W_JOB = 44
 const LABEL_W_GROUP = 150
 
@@ -65,6 +69,9 @@ const TYPE_TOKEN: Record<IfpType, string> = {
   ionic: '--vs-danger',
   hydrogen_bond: '--vs-info',
   hydrophobic: '--vs-success',
+  halogen_bond: '--vs-accent',
+  metal_coordination: '--vs-warning',
+  water_mediated: '--vs-info',
 }
 
 /** Canvas cannot inherit CSS custom properties; read them from the root. */
@@ -136,7 +143,7 @@ function draw(): void {
     return
   }
   const dpr = window.devicePixelRatio || 1
-  const w = Math.max(headerW.value + props.residues.length * COL_W - GRP_GAP, headerW.value)
+  const w = Math.max(headerW.value + props.residues.length * COL_W.value - GRP_GAP, headerW.value)
   const h = HEADER_H + props.rows.length * ROW_H
   canvas.width = Math.round(w * dpr)
   canvas.height = Math.round(h * dpr)
@@ -172,8 +179,8 @@ function draw(): void {
     const y = HEADER_H + i * ROW_H
     const pairs = new Set(row.pairs.map((pair) => pair[0] * 10 + pair[1]))
     for (let resIdx = 0; resIdx < props.residues.length; resIdx++) {
-      const groupX = headerW.value + resIdx * COL_W
-      for (let ty = 0; ty < 3; ty++) {
+      const groupX = headerW.value + resIdx * COL_W.value
+      for (let ty = 0; ty < props.types.length; ty++) {
         const typeName = props.types[ty]
         const on = pairs.has(resIdx * 10 + ty) && typeName !== undefined
         ctx.fillStyle = on ? cssVar(TYPE_TOKEN[typeName]) : cssVar('--vs-bg-sunken')
@@ -187,7 +194,7 @@ function draw(): void {
   ctx.fillRect(0, 0, w, HEADER_H)
   ctx.fillStyle = cssVar('--vs-border')
   for (let r = 1; r < props.residues.length; r++) {
-    ctx.fillRect(headerW.value + r * COL_W - Math.ceil(GRP_GAP / 2), 0, 1, h)
+    ctx.fillRect(headerW.value + r * COL_W.value - Math.ceil(GRP_GAP / 2), 0, 1, h)
   }
   ctx.fillRect(0, HEADER_H - 1, w, 1)
 
@@ -201,7 +208,7 @@ function draw(): void {
     if (!residue) {
       continue
     }
-    const cx = headerW.value + r * COL_W + CELL_W / 2
+    const cx = headerW.value + r * COL_W.value + CELL_W.value / 2
     ctx.save()
     ctx.translate(cx, HEADER_H - 4)
     ctx.rotate(-Math.PI / 2)
@@ -305,5 +312,17 @@ onMounted(() => draw())
 }
 .ifp-dot--hydrophobic {
   background: var(--vs-success);
+}
+
+.ifp-dot--halogen_bond {
+  background: var(--vs-accent);
+}
+
+.ifp-dot--metal_coordination {
+  background: var(--vs-warning);
+}
+
+.ifp-dot--water_mediated {
+  background: var(--vs-info);
 }
 </style>

@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { DataAnalysis, Download, RefreshRight, VideoPause, VideoPlay } from '@element-plus/icons-vue'
 import { ElButton, ElInput, ElInputNumber, ElMessage, ElOption, ElProgress, ElSelect, ElSlider, ElSwitch } from 'element-plus'
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
+import HelpLink from '@/components/HelpLink.vue'
 import MoleculeSelect from '@/components/common/MoleculeSelect.vue'
 import { downloadTextFile } from '@/utils/download'
 import { useBoxStore } from '@/stores/box'
@@ -42,10 +43,43 @@ const weightsRaw = ref('')
 const hasReceptor = computed(() => molecules.hasReceptor)
 const hasLigand = computed(() => molecules.hasLigand)
 
-const canDock = computed(
-  () => hasReceptor.value && hasLigand.value && !docking.isRunning
-    && (scoring.value !== 'ad4' || mapPathsRaw.value.trim().length > 0),
+const ensembleMode = ref(false)
+const ensembleReceptorIds = ref<string[]>([])
+
+const selectedEnsembleReceptors = computed(() =>
+  molecules.usableReceptors.filter((mol) => ensembleReceptorIds.value.includes(mol.id)),
 )
+
+function flexPathFor(mol: (typeof molecules.usableReceptors)[number]): string | null {
+  return mol.artifacts.find((artifact) => artifact.name.endsWith('_flex.pdbqt'))?.path ?? null
+}
+
+function ensureEnsembleSelection(): void {
+  if (!ensembleMode.value) return
+  const usable = molecules.usableReceptors
+  if (ensembleReceptorIds.value.length >= 2) return
+  const preferred = molecules.pipelineReceptor
+  const ids = preferred ? [preferred.id] : []
+  for (const mol of usable) {
+    if (ids.length >= 2) break
+    if (!ids.includes(mol.id)) ids.push(mol.id)
+  }
+  ensembleReceptorIds.value = ids
+}
+
+onMounted(() => {
+  if (molecules.pipelineReceptor) {
+    ensembleReceptorIds.value = [molecules.pipelineReceptor.id]
+  }
+})
+
+const canDock = computed(() => {
+  if (!hasReceptor.value || !hasLigand.value || docking.isRunning) return false
+  if (ensembleMode.value) {
+    return selectedEnsembleReceptors.value.length >= 2 && scoring.value !== 'ad4'
+  }
+  return scoring.value !== 'ad4' || mapPathsRaw.value.trim().length > 0
+})
 
 const statusLabel = computed(() => {
   const s = docking.status
@@ -64,8 +98,73 @@ function formatMs(ms: number | null): string {
   return `${m}m ${Math.round(s % 60)}s`
 }
 
+function preparationSummary(): Record<string, unknown> | null {
+  const report = molecules.receptorReport
+  if (!report) return null
+  return {
+    inputResidues: report.inputResidues,
+    outputAtoms: report.outputAtoms,
+    validResidues: report.validResidues,
+    deletedWaters: report.deletedWaters?.length ?? 0,
+    deletedHetero: report.deletedHetero?.length ?? 0,
+    keptWaters: report.keptWaters?.length ?? 0,
+    keptHetero: report.keptHetero?.length ?? 0,
+    ignoredResidues: report.ignoredResidues?.length ?? 0,
+    histidineStates: report.histidineStates ?? [],
+    altlocPolicy: report.altlocPolicy ?? 'blank/default',
+    removedAltlocResidues: report.removedAltlocResidues?.length ?? 0,
+    assumptions: report.assumptions ?? [],
+  }
+}
+
+async function startEnsemble(): Promise<void> {
+  const ligandPath = molecules.ligandPdbqtPath
+  if (!ligandPath) {
+    ElMessage.error(t('docking.errorNoPdbqt'))
+    return
+  }
+  const receptors = selectedEnsembleReceptors.value.map((mol, index) => ({
+    index,
+    label: mol.name,
+    path: molecules.rigidPdbqtPath(mol) ?? '',
+    flexPath: flexPathFor(mol),
+  }))
+  if (receptors.length < 2 || receptors.some((item) => !item.path)) {
+    ElMessage.error(t('docking.ensemble.needTwo'))
+    return
+  }
+  const jobId = await docking.startEnsemble({
+    receptors,
+    ligandPath,
+    ligandPdbqtString: null,
+    center: box.center as [number, number, number],
+    size: box.size as [number, number, number],
+    scoring: scoring.value,
+    exhaustiveness: exhaustiveness.value,
+    nPoses: nPoses.value,
+    energyRange: energyRange.value,
+    minRmsd: minRmsd.value,
+    maxEvals: maxEvals.value,
+    cpu: cpu.value,
+    seed: seed.value,
+    noRefine: noRefine.value,
+    verbosity: verbosity.value,
+    spacing: box.spacing,
+    forceEvenVoxels: box.forceEvenVoxels,
+    weights: weightsRaw.value.trim()
+      ? weightsRaw.value.split(',').map((s) => parseFloat(s.trim())).filter((n) => !Number.isNaN(n))
+      : null,
+    mapPaths: null,
+  })
+  if (!jobId) ElMessage.error(t('docking.errorStartFailed'))
+}
+
 async function startDocking(): Promise<void> {
   if (!canDock.value) return
+  if (ensembleMode.value) {
+    await startEnsemble()
+    return
+  }
 
   const receptorPath = molecules.receptorPdbqtPath
   const ligandPath = molecules.ligandPdbqtPath
@@ -99,6 +198,7 @@ async function startDocking(): Promise<void> {
     mapPaths: mapPathsRaw.value.trim()
       ? [mapPathsRaw.value.trim()]
       : null,
+    preparation: preparationSummary(),
   }
 
   const jobId = await docking.startDocking(params)
@@ -157,6 +257,30 @@ function openReport(): void {
 
       <!-- Form (idle state) -->
       <div v-else-if="!docking.isRunning && !docking.isCompleted" class="form">
+        <div class="form__field form__inline">
+          <ElSwitch v-model="ensembleMode" @change="ensureEnsembleSelection" />
+          <span class="form__option-label">{{ t('docking.ensemble.toggle') }}</span>
+        </div>
+        <div v-if="ensembleMode" class="form__field">
+          <label class="form__label">{{ t('docking.ensemble.receptors') }}</label>
+          <ElSelect
+            v-model="ensembleReceptorIds"
+            multiple
+            collapse-tags
+            size="small"
+            style="width: 100%"
+            :placeholder="t('docking.ensemble.select')"
+          >
+            <ElOption
+              v-for="mol in molecules.usableReceptors"
+              :key="mol.id"
+              :label="mol.name"
+              :value="mol.id"
+            />
+          </ElSelect>
+          <div class="form__hint">{{ t('docking.ensemble.hint') }}</div>
+        </div>
+
         <div class="form__field">
           <label class="form__label">{{ t('docking.scoringFunction') }}</label>
           <ElSelect v-model="scoring" size="small" style="width: 100%">
@@ -216,6 +340,9 @@ function openReport(): void {
         <div v-if="scoring === 'ad4'" class="form__field">
           <label class="form__label">{{ t('docking.mapPaths') }}</label>
           <ElInput v-model="mapPathsRaw" size="small" :placeholder="t('docking.mapPathsNote')" />
+          <div class="form__hint">
+            <HelpLink topic="ad4Maps" />
+          </div>
         </div>
 
         <div class="form__field">
@@ -251,6 +378,32 @@ function openReport(): void {
         <div v-if="docking.bestAffinity !== null" class="completed__best">
           {{ t('docking.bestAffinity') }}:
           <strong>{{ Number(docking.bestAffinity).toFixed(2) }}</strong> kcal/mol
+        </div>
+        <div
+          v-if="docking.jobResult?.ensembleRows?.length"
+          class="ensemble-results"
+        >
+          <div class="ensemble-results__best">
+            {{ t('docking.ensemble.best', { name: docking.jobResult.bestReceptor ?? '—' }) }}
+          </div>
+          <table class="ensemble-results__table">
+            <thead>
+              <tr>
+                <th>{{ t('docking.ensemble.colReceptor') }}</th>
+                <th>{{ t('docking.ensemble.colStatus') }}</th>
+                <th>{{ t('docking.ensemble.colAffinity') }}</th>
+                <th>{{ t('docking.ensemble.colPoses') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in docking.jobResult.ensembleRows" :key="row.receptorIndex">
+                <td :title="row.receptorPath">{{ row.label }}</td>
+                <td :title="row.error">{{ t(`docking.status.${row.status}`) }}</td>
+                <td>{{ row.bestAffinity === null ? '—' : row.bestAffinity.toFixed(2) }}</td>
+                <td>{{ row.nPoses }}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
         <div class="completed__actions">
           <ElButton size="small" :icon="Download" @click="downloadPdbqt">{{ t('docking.exportPdbqt') }}</ElButton>
@@ -402,6 +555,36 @@ function openReport(): void {
 .completed__actions {
   display: flex;
   gap: 8px;
+}
+
+.ensemble-results {
+  margin: 10px 0;
+  border-top: 1px solid var(--vs-border);
+  padding-top: 8px;
+}
+
+.ensemble-results__best {
+  margin-bottom: 6px;
+  font-size: 11.5px;
+  color: var(--vs-text-muted);
+}
+
+.ensemble-results__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.ensemble-results__table th,
+.ensemble-results__table td {
+  padding: 3px 5px;
+  border-bottom: 1px solid var(--vs-border);
+  text-align: left;
+}
+
+.ensemble-results__table th {
+  color: var(--vs-text-faint);
+  font-weight: 500;
 }
 
 .completed__report {

@@ -66,6 +66,8 @@ from vinastudio.schemas.docking import (
     DockingJobStatus,
     DockingJobSummary,
     DockingRequest,
+    EnsembleDockingRequest,
+    EnsembleRow,
     ExportBundleRequest,
     ExportPoseRequest,
     ExportPoseResponse,
@@ -219,9 +221,61 @@ def start_docking(request: DockingRequest) -> DockingJobCreated:
         "map_paths": request.mapPaths,
         "flex_pdbqt_path": request.flexReceptorPath,
         "engine": request.engine,
+        "preparation": request.preparation,
     }
 
     job_id = job_manager.start_job(params)
+    return DockingJobCreated(jobId=job_id, status="queued")
+
+
+@router.post("/ensemble", response_model=DockingJobCreated)
+def start_ensemble_docking(request: EnsembleDockingRequest) -> DockingJobCreated:
+    """Dock one ligand into several receptor conformations (TASK-60-B).
+
+    Conformers must share the coordinate frame; the same box is used for each.
+    This is ensemble docking, not induced fit. AD4 is rejected because maps are
+    per-receptor and the current request has one map prefix.
+    """
+    if len(request.receptors) < 2:
+        raise InvalidInputError("ensemble docking requires at least two receptors")
+    if request.scoring == "ad4":
+        raise InvalidInputError(
+            "ensemble docking currently supports vina/vinardo; AD4 maps are per-receptor"
+        )
+    if not request.ligandPath and not request.ligandPdbqtString:
+        raise InvalidInputError("either ligandPath or ligandPdbqtString must be provided")
+
+    for receptor in request.receptors:
+        if not Path(receptor.path).exists():
+            raise InvalidInputError(f"receptor file not found: {receptor.path}")
+        if receptor.flexPath and not Path(receptor.flexPath).exists():
+            raise InvalidInputError(f"flex receptor file not found: {receptor.flexPath}")
+    if request.ligandPath and not Path(request.ligandPath).exists():
+        raise InvalidInputError(f"ligand file not found: {request.ligandPath}")
+
+    job_id = job_manager.start_ensemble_job({
+        "receptors": [receptor.model_dump() for receptor in request.receptors],
+        "ligand_path": request.ligandPath,
+        "ligand_pdbqt_string": request.ligandPdbqtString,
+        "center": list(request.center),
+        "size": list(request.size),
+        "scoring": request.scoring,
+        "exhaustiveness": request.exhaustiveness,
+        "n_poses": request.nPoses,
+        "energy_range": request.energyRange,
+        "min_rmsd": request.minRmsd,
+        "max_evals": request.maxEvals,
+        "cpu": request.cpu,
+        "seed": request.seed,
+        "no_refine": request.noRefine,
+        "verbosity": request.verbosity,
+        "spacing": request.spacing,
+        "force_even_voxels": request.forceEvenVoxels,
+        "weights": request.weights,
+        "map_paths": request.mapPaths,
+        "engine": request.engine,
+        "label": "ensemble",
+    })
     return DockingJobCreated(jobId=job_id, status="queued")
 
 
@@ -296,6 +350,7 @@ def list_jobs() -> list[DockingJobSummary]:
             label=j.label,
             bestAffinity=_summary_best_affinity(j),
             isBatch=j.is_batch,
+            isEnsemble=j.is_ensemble,
         )
         for j in sorted(jobs, key=lambda j: j.created_at, reverse=True)
     ]
@@ -348,6 +403,9 @@ def get_job_result(job_id: str) -> DockingJobResult:
         elapsedMs=state.elapsed_ms or 0,
         artifacts=state.artifacts,
         params=params,
+        isEnsemble=state.is_ensemble,
+        bestReceptor=state.best_receptor,
+        ensembleRows=[EnsembleRow(**row) for row in state.ensemble_results],
     )
 
 

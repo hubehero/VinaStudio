@@ -10,6 +10,11 @@
 
 使用方法:
     uv run python scripts/validate_experiment.py
+
+
+**Legacy (2026-10-22):** this one-off script is kept for historical comparison.
+The canonical reproducible harness is ``scripts/validate_benchmark.py``; see
+``docs/VALIDATION.md``. Do not use its old summary as current evidence.
 """
 
 from __future__ import annotations

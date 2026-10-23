@@ -23,6 +23,7 @@ import type {
   DockingJobStatus,
   DockingJobSummary,
   DockingRequest,
+  EnsembleDockingRequest,
   ExportBundleRequest,
   ExportPoseResponse,
   FileFilters,
@@ -68,6 +69,11 @@ import type {
   ReceptorPreview,
   ResultRunDetail,
   ResultRunSummary,
+  RunUpdateResponse,
+  BulkUpdateResponse,
+  SavedView,
+  SavedViewCreate,
+  TagCount,
   SampleFile,
   SavedUpload,
   ScreeningRunStatus,
@@ -296,6 +302,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(request_body),
     }),
+  startEnsembleDocking: (request_body: EnsembleDockingRequest) =>
+    request<DockingJobCreated>('/api/docking/ensemble', {
+      method: 'POST',
+      body: JSON.stringify(request_body),
+    }),
   batchDocking: (request_body: BatchDockingRequest) =>
     request<BatchJobCreated>('/api/docking/batch', {
       method: 'POST',
@@ -485,14 +496,45 @@ export const api = {
     }),
 
   // -- results index (cross-project search) ---------------------------------
-  resultsSearch: (q: string, limit?: number) =>
-    request<ResultRunSummary[]>(
-      `/api/results/search?q=${encodeURIComponent(q)}${limit != null ? `&limit=${limit}` : ''}`,
-    ),
+  resultsSearch: (
+    q: string,
+    options?: { limit?: number; offset?: number; favorites?: boolean; tags?: string[] },
+  ) => {
+    const params = new URLSearchParams({ q })
+    if (options?.limit != null) params.set('limit', String(options.limit))
+    if (options?.offset != null) params.set('offset', String(options.offset))
+    if (options?.favorites) params.set('favorites', 'true')
+    if (options?.tags && options.tags.length > 0) params.set('tags', options.tags.join(','))
+    return request<ResultRunSummary[]>(`/api/results/search?${params.toString()}`)
+  },
   resultsCompare: (runIds: string[]) =>
     request<ResultRunDetail[]>(
       `/api/results/compare?runIds=${encodeURIComponent(runIds.join(','))}`,
     ),
+  resultsTags: () => request<TagCount[]>('/api/results/tags'),
+  resultsUpdateRun: (jobId: string, body: { favorite?: boolean; tags?: string[] }) =>
+    request<RunUpdateResponse>(`/api/results/runs/${encodeURIComponent(jobId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  resultsBulkUpdate: (body: {
+    runIds: string[]
+    favorite?: boolean
+    addTags?: string[]
+    removeTags?: string[]
+  }) =>
+    request<BulkUpdateResponse>('/api/results/runs/bulk', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  resultsViews: () => request<SavedView[]>('/api/results/views'),
+  resultsSaveView: (body: SavedViewCreate) =>
+    request<SavedView>('/api/results/views', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  resultsDeleteView: (id: number) =>
+    request<void>(`/api/results/views/${id}`, { method: 'DELETE' }),
 
   // -- virtual screening (TASK-13) ------------------------------------------
   screeningLibraries: () => request<LibrarySummary[]>('/api/screening/libraries'),

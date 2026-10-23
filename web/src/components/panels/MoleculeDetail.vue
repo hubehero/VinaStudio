@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ArrowRight, Delete, InfoFilled, MagicStick, RefreshRight, View, WarningFilled } from '@element-plus/icons-vue'
-import { ElAlert, ElButton, ElMessage, ElInput, ElTag, ElSelect, ElOption } from 'element-plus'
+import { ElAlert, ElButton, ElMessage, ElMessageBox, ElInput, ElTag, ElSelect, ElOption } from 'element-plus'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import HelpLink from '@/components/HelpLink.vue'
 import DruglikenessPanel from '@/components/panels/DruglikenessPanel.vue'
 import MoleculeOptions from '@/components/panels/MoleculeOptions.vue'
 import SequenceView from '@/components/panels/SequenceView.vue'
@@ -239,8 +240,13 @@ const REPORT_LABELS: Record<string, string> = {
   totalCharge: 'molecules.reportCharge',
   deletedWaters: 'molecules.reportWaters',
   deletedHetero: 'molecules.reportHetero',
+  keptWaters: 'molecules.reportKeptWaters',
+  keptHetero: 'molecules.reportKeptHetero',
   ignoredResidues: 'molecules.reportIgnored',
   flexibleResidues: 'molecules.reportFlexible',
+  altlocPolicy: 'molecules.reportAltlocPolicy',
+  removedAltlocResidues: 'molecules.reportAltlocRemoved',
+  histidineStates: 'molecules.reportHistidines',
 }
 
 /** Booleans read as a tick rather than as `true`, which no user parses. */
@@ -264,7 +270,10 @@ const reportRows = computed(() => {
   return Object.entries(report as Record<string, unknown>)
     // `source` is the file the panel is already showing; the rest have their
     // own sections (SMILES, chips, the residue picker, warning alerts).
-    .filter(([key]) => !['source', 'smiles', 'atomTypes', 'residueList', 'warnings'].includes(key))
+    .filter(
+      ([key]) =>
+        !['source', 'smiles', 'atomTypes', 'residueList', 'warnings', 'assumptions'].includes(key),
+    )
     .filter(
       ([, value]) =>
         ['string', 'number', 'boolean'].includes(typeof value) ||
@@ -283,6 +292,39 @@ const reportRows = computed(() => {
 const reportWarnings = computed(() => {
   const report = mol.value?.report
   return report && 'warnings' in report ? report.warnings : []
+})
+
+const reportHistidines = computed(() => {
+  const report = mol.value?.report
+  return report && 'histidineStates' in report && Array.isArray(report.histidineStates)
+    ? report.histidineStates
+    : []
+})
+
+const reportAltlocRemoved = computed(() => {
+  const report = mol.value?.report
+  return report && 'removedAltlocResidues' in report && Array.isArray(report.removedAltlocResidues)
+    ? report.removedAltlocResidues
+    : []
+})
+
+const reportKeptGroups = computed(() => {
+  const report = mol.value?.report
+  if (!report || !('keptWaters' in report)) return []
+  return [...(report.keptWaters ?? []), ...(report.keptHetero ?? [])]
+})
+
+const reportDeletedGroups = computed(() => {
+  const report = mol.value?.report
+  if (!report || !('deletedWaters' in report)) return []
+  return [...(report.deletedWaters ?? []), ...(report.deletedHetero ?? [])]
+})
+
+const reportAssumptions = computed(() => {
+  const report = mol.value?.report
+  return report && 'assumptions' in report && Array.isArray(report.assumptions)
+    ? report.assumptions
+    : []
 })
 
 const reportChips = computed(() => {
@@ -315,8 +357,21 @@ function handleAssignType(kind: 'receptor' | 'ligand'): void {
   if (mol.value) store.assignType(mol.value.id, kind)
 }
 
-function handleRemove(): void {
-  if (mol.value) store.removeItem(mol.value.id)
+async function handleRemove(): Promise<void> {
+  if (!mol.value) return
+  try {
+    await ElMessageBox.confirm(
+      t('molecules.removeConfirm', { name: mol.value.name }),
+      {
+        type: 'warning',
+        confirmButtonText: t('common.delete'),
+        cancelButtonText: t('common.cancel'),
+      },
+    )
+  } catch {
+    return
+  }
+  store.removeItem(mol.value.id)
 }
 
 // -- alias & category editing ------------------------------------------------
@@ -518,6 +573,9 @@ function handleSetCategory(cat: string | null): void {
           </div>
         </template>
       </ElAlert>
+      <div class="detail__help">
+        <HelpLink topic="prepFailed" />
+      </div>
     </div>
 
     <div v-for="(note, i) in notes" :key="i" class="detail__alert">
@@ -585,11 +643,44 @@ function handleSetCategory(cat: string | null): void {
         </div>
       </dl>
 
+      <div v-if="reportKeptGroups.length > 0" class="report-decisions">
+        <span class="report-decisions__label">{{ t('molecules.reportKeptGroups') }}</span>
+        <span v-for="group in reportKeptGroups.slice(0, 12)" :key="group" class="chip">
+          {{ group }}
+        </span>
+        <span v-if="reportKeptGroups.length > 12" class="vs-faint">
+          +{{ reportKeptGroups.length - 12 }}
+        </span>
+      </div>
+      <div v-if="reportDeletedGroups.length > 0" class="report-decisions">
+        <span class="report-decisions__label">{{ t('molecules.reportDeletedGroups') }}</span>
+        <span v-for="group in reportDeletedGroups.slice(0, 12)" :key="group" class="chip">
+          {{ group }}
+        </span>
+        <span v-if="reportDeletedGroups.length > 12" class="vs-faint">
+          +{{ reportDeletedGroups.length - 12 }}
+        </span>
+      </div>
+      <div v-if="reportHistidines.length > 0" class="report-decisions">
+        <span class="report-decisions__label">{{ t('molecules.reportHistidines') }}</span>
+        <span v-for="state in reportHistidines" :key="state" class="chip">{{ state }}</span>
+      </div>
+      <div v-if="reportAltlocRemoved.length > 0" class="report-decisions">
+        <span class="report-decisions__label">{{ t('molecules.reportAltlocRemoved') }}</span>
+        <span v-for="residue in reportAltlocRemoved" :key="residue" class="chip">
+          {{ residue }}
+        </span>
+      </div>
       <div v-if="reportChips" class="chips">
         <span v-for="[atomType, count] in reportChips" :key="atomType" class="chip">
           {{ atomType }} × {{ count }}
         </span>
       </div>
+      <ul v-if="reportAssumptions.length > 0" class="report-assumptions">
+        <li v-for="code in reportAssumptions" :key="code">
+          {{ t(`molecules.assumption.${code}`) }}
+        </li>
+      </ul>
     </details>
   </div>
 
@@ -830,6 +921,28 @@ function handleSetCategory(cat: string | null): void {
   font-size: 11px;
   line-height: 1.5;
   word-break: break-all;
+  color: var(--vs-text-muted);
+}
+
+.report-decisions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.report-decisions__label {
+  margin-right: 4px;
+  font-size: 11px;
+  color: var(--vs-text-faint);
+}
+
+.report-assumptions {
+  margin: 10px 0 0;
+  padding-left: 16px;
+  font-size: 11.5px;
+  line-height: 1.6;
   color: var(--vs-text-muted);
 }
 

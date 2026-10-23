@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
 import { desktopBridge } from '@/api/bridge'
+import { i18n } from '@/i18n'
 import { api } from '@/api/http'
 import {
   DEFAULT_LIGAND_OPTIONS,
@@ -23,6 +24,7 @@ import type {
   MoleculeStatus,
   MoleculeType,
 } from '@/types/molecule'
+import { useUndoStore } from '@/stores/undo'
 import { getEffectiveType } from '@/types/molecule'
 
 let nextId = 0
@@ -312,6 +314,11 @@ export const useMoleculeStore = defineStore('molecules', () => {
   function removeItem(id: string): void {
     const idx = molecules.value.findIndex((m) => m.id === id)
     if (idx === -1) return
+    const removed = molecules.value[idx]
+    if (!removed) return
+    const previousActive = activeId.value
+    const previousReceptor = pipelineReceptorId.value
+    const previousLigand = pipelineLigandId.value
     molecules.value.splice(idx, 1)
     if (activeId.value === id) {
       // Prefer the neighbour that takes the removed row's place.
@@ -322,9 +329,27 @@ export const useMoleculeStore = defineStore('molecules', () => {
     scheduleSave()
     // Persist removal (fire-and-forget; auto-save will also pick this up).
     void api.deleteMolecule(id).catch(() => {})
+    // Only the manifest entry is deleted, never the file, so this is reversible.
+    useUndoStore().push(
+      i18n.global.t('undo.deleteMolecule', { name: removed.name }),
+      () => {
+        if (!molecules.value.some((m) => m.id === removed.id)) {
+          molecules.value.splice(Math.min(idx, molecules.value.length), 0, removed)
+        }
+        if (previousActive === removed.id) activeId.value = removed.id
+        if (previousReceptor === removed.id) pipelineReceptorId.value = removed.id
+        if (previousLigand === removed.id) pipelineLigandId.value = removed.id
+        scheduleSave()
+      },
+    )
   }
 
   function clearAll(): void {
+    if (molecules.value.length === 0) return
+    const snapshot = molecules.value.slice()
+    const previousActive = activeId.value
+    const previousReceptor = pipelineReceptorId.value
+    const previousLigand = pipelineLigandId.value
     molecules.value = []
     activeId.value = null
     pipelineReceptorId.value = null
@@ -332,6 +357,26 @@ export const useMoleculeStore = defineStore('molecules', () => {
     scheduleSave()
     // Persist clear (fire-and-forget; auto-save will also pick this up).
     void api.clearMolecules().catch(() => {})
+    useUndoStore().push(
+      i18n.global.t('undo.clearMolecules', { count: snapshot.length }),
+      () => {
+        const existing = new Set(molecules.value.map((m) => m.id))
+        molecules.value = [
+          ...snapshot.filter((m) => !existing.has(m.id)),
+          ...molecules.value,
+        ]
+        if (previousActive && molecules.value.some((m) => m.id === previousActive)) {
+          activeId.value = previousActive
+        }
+        if (previousReceptor && molecules.value.some((m) => m.id === previousReceptor)) {
+          pipelineReceptorId.value = previousReceptor
+        }
+        if (previousLigand && molecules.value.some((m) => m.id === previousLigand)) {
+          pipelineLigandId.value = previousLigand
+        }
+        scheduleSave()
+      },
+    )
   }
 
   function findByPath(path: string): MoleculeItem | undefined {
@@ -561,6 +606,14 @@ export const useMoleculeStore = defineStore('molecules', () => {
     const mol = molecules.value.find((m) => m.id === id)
     if (!mol) return
     mol.receptorOptions.flexibleResidues = residues
+    scheduleSave()
+  }
+
+  /** Water/hetero groups to keep despite the delete switches. */
+  function setKeepResidues(id: string, residues: string[]): void {
+    const mol = molecules.value.find((m) => m.id === id)
+    if (!mol) return
+    mol.receptorOptions.keepResidues = residues
     scheduleSave()
   }
 
@@ -939,6 +992,7 @@ export const useMoleculeStore = defineStore('molecules', () => {
     prepareMolecule,
     allowRejectedResiduesAndRetry,
     setFlexibleResidues,
+    setKeepResidues,
     loadFiles,
     loadPaths,
     loadFromSmiles,

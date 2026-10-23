@@ -7,16 +7,19 @@
  * to the page where the action happens. Deep technical material stays in
  * `docs/`; this page only covers what someone hits while working.
  */
-import { ElButton } from 'element-plus'
-import { ref } from 'vue'
+import { ElButton, ElInput } from 'element-plus'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import GlossaryDialog from '@/components/common/GlossaryDialog.vue'
 
 const { t } = useI18n()
 const router = useRouter()
+const route = useRoute()
 const glossaryOpen = ref(false)
+const query = ref('')
+const openKey = ref<string | null>(null)
 
 interface HelpItem {
   key: string
@@ -36,6 +39,8 @@ const SECTIONS: HelpSection[] = [
     items: [
       { key: 'whereToStart', to: '/workbench', navKey: 'nav.workbench' },
       { key: 'example', to: '/workbench', navKey: 'nav.workbench' },
+      { key: 'commandPalette' },
+      { key: 'undoShortcuts' },
     ],
   },
   {
@@ -43,6 +48,8 @@ const SECTIONS: HelpSection[] = [
     items: [
       { key: 'typeWrong', to: '/molecules', navKey: 'nav.molecules' },
       { key: 'prepFailed', to: '/molecules', navKey: 'nav.molecules' },
+      { key: 'prepDecisions', to: '/molecules', navKey: 'nav.molecules' },
+      { key: 'fileMissing', to: '/molecules', navKey: 'nav.molecules' },
       { key: 'atomCount' },
     ],
   },
@@ -52,6 +59,8 @@ const SECTIONS: HelpSection[] = [
       { key: 'boxSize', to: '/box', navKey: 'nav.box' },
       { key: 'noSiteFound', to: '/box', navKey: 'nav.box' },
       { key: 'siteScreen', to: '/box', navKey: 'nav.box' },
+      { key: 'ad4Maps', to: '/docking', navKey: 'nav.docking' },
+      { key: 'dockingFailed', to: '/docking', navKey: 'nav.docking' },
       { key: 'exhaustiveness', to: '/docking', navKey: 'nav.docking' },
       { key: 'reproduce' },
     ],
@@ -62,6 +71,10 @@ const SECTIONS: HelpSection[] = [
       { key: 'trustPose', to: '/report', navKey: 'nav.report' },
       { key: 'zeroEnergy' },
       { key: 'compareEnergy' },
+      { key: 'interactionTypes' },
+      { key: 'exportBundle' },
+      { key: 'importBundle', to: '/report', navKey: 'nav.report' },
+      { key: 'figureCaption' },
     ],
   },
   {
@@ -73,9 +86,48 @@ const SECTIONS: HelpSection[] = [
   },
   {
     key: 'platform',
-    items: [{ key: 'windows' }, { key: 'offline' }],
+    items: [
+      { key: 'windows' },
+      { key: 'smartScreen' },
+      { key: 'aaFlicker' },
+      { key: 'updateCheck' },
+      { key: 'offline' },
+    ],
   },
 ]
+const filteredSections = computed(() => {
+  const needle = query.value.trim().toLowerCase()
+  if (!needle) return SECTIONS
+  return SECTIONS.map((section) => ({
+    ...section,
+    items: section.items.filter((item) =>
+      `${t(`help.items.${item.key}.q`)} ${t(`help.items.${item.key}.a`)}`
+        .toLowerCase()
+        .includes(needle),
+    ),
+  })).filter((section) => section.items.length > 0)
+})
+
+function openTopic(topic: string): void {
+  const exists = SECTIONS.some((section) => section.items.some((item) => item.key === topic))
+  if (!exists) return
+  query.value = ''
+  openKey.value = topic
+  void nextTick(() => {
+    document.getElementById(`help-${topic}`)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    })
+  })
+}
+
+function applyRouteTopic(): void {
+  const topic = typeof route.query.topic === 'string' ? route.query.topic : ''
+  if (topic) openTopic(topic)
+}
+
+onMounted(applyRouteTopic)
+watch(() => route.query.topic, applyRouteTopic)
 </script>
 
 <template>
@@ -88,12 +140,27 @@ const SECTIONS: HelpSection[] = [
       <ElButton size="small" @click="glossaryOpen = true">{{ t('glossary.button') }}</ElButton>
     </div>
 
-    <section v-for="section in SECTIONS" :key="section.key" class="vs-card">
+    <section class="vs-card help-view__search-card">
+      <el-input
+        v-model="query"
+        clearable
+        :placeholder="t('help.searchPlaceholder')"
+        :aria-label="t('help.searchPlaceholder')"
+      />
+    </section>
+
+    <section v-for="section in filteredSections" :key="section.key" class="vs-card">
       <div class="vs-card__header">
         <div class="vs-card__title">{{ t(`help.sections.${section.key}`) }}</div>
       </div>
       <div class="vs-card__body">
-        <details v-for="item in section.items" :key="item.key" class="help-item">
+        <details
+          v-for="item in section.items"
+          :id="`help-${item.key}`"
+          :key="item.key"
+          class="help-item"
+          :open="openKey === item.key || undefined"
+        >
           <summary class="help-item__q">{{ t(`help.items.${item.key}.q`) }}</summary>
           <div class="help-item__panel">
             <p class="help-item__a">{{ t(`help.items.${item.key}.a`) }}</p>
@@ -111,11 +178,25 @@ const SECTIONS: HelpSection[] = [
       </div>
     </section>
 
+    <p v-if="filteredSections.length === 0" class="help-view__empty">
+      {{ t('help.noResults') }}
+    </p>
+
     <GlossaryDialog v-model="glossaryOpen" />
   </div>
 </template>
 
 <style scoped>
+.help-view__search-card {
+  padding: 12px 18px;
+}
+
+.help-view__empty {
+  padding: 12px 4px;
+  font-size: 13px;
+  color: var(--vs-text-faint);
+}
+
 .help-item {
   border-bottom: 1px solid var(--vs-border);
   padding: 2px 0;

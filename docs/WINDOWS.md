@@ -155,6 +155,9 @@ on the operating system.
 
 ## 5. Troubleshooting
 
+The in-app Help (search it, or follow a failure card's help link) covers
+SmartScreen and antialiasing flicker with the same safe advice.
+
 | Symptom | What to do |
 |---|---|
 | Docking stays at 0% with near-zero CPU | Fixed in 0.4.0 (the frozen-process start-up defect). Confirm you are on 0.4.0+ and check the SHA-256 |

@@ -63,6 +63,8 @@ class ReceptorPrepOptions:
     """Group each residue's atoms together; see the module docstring."""
     default_altloc: str = ""
     """Default alternate location indicator when multiple conformations exist."""
+    keep_residues: tuple[str, ...] = ()
+    """Water/hetero residue keys to keep even when the delete switches are on."""
 
 
 @dataclass(slots=True)
@@ -75,6 +77,8 @@ class ReceptorReport:
     input_residues: int
     deleted_waters: list[str] = field(default_factory=list)
     deleted_hetero: list[str] = field(default_factory=list)
+    kept_waters: list[str] = field(default_factory=list)
+    kept_hetero: list[str] = field(default_factory=list)
     normalised_atom_order: bool = False
     valid_residues: int = 0
     ignored_residues: list[str] = field(default_factory=list)
@@ -85,6 +89,14 @@ class ReceptorReport:
     warnings: list[str] = field(default_factory=list)
     residue_list: list[str] = field(default_factory=list)
     """All valid residue identifiers (e.g. ``A:42``) for the flexible selector."""
+    altloc_policy: str = "blank/default"
+    """How alternate conformations were selected (Meeko's ``default_altloc``)."""
+    removed_altloc_residues: list[str] = field(default_factory=list)
+    """Residues dropped because their altloc could not be resolved."""
+    histidine_states: list[str] = field(default_factory=list)
+    """Explicit HIS -> HID/HIE/HIP decisions, as ``A:42 HIE`` strings."""
+    assumptions: list[str] = field(default_factory=list)
+    """Stable codes for science that was *not* modelled (protonation, missing atoms)."""
 
 
 @dataclass(slots=True)
@@ -285,7 +297,7 @@ def inspect_receptor(path: str | Path) -> ReceptorInspection:
 # --------------------------------------------------------------------------
 
 
-def _resolve_histidine_ambiguity(text: str) -> str:
+def _resolve_histidine_ambiguity(text: str) -> tuple[str, list[str]]:
     """Rename plain ``HIS`` residues to HID/HIE/HIP from their imidazole H.
 
     Meeko's automatic protonation-state selection raises a ``RuntimeError``
@@ -316,6 +328,7 @@ def _resolve_histidine_ambiguity(text: str) -> str:
         elif atom == "HE2":
             has_he2[key] = True
 
+    states: dict[str, str] = {}
     for i, key in his_line_keys:
         hd1 = has_hd1.get(key, False)
         he2 = has_he2.get(key, False)
@@ -325,9 +338,10 @@ def _resolve_histidine_ambiguity(text: str) -> str:
             state = "HID"
         else:
             state = "HIE"  # HE2 present, or neither (safe docking default)
+        states[key] = state
         line = lines[i]
         lines[i] = line[:17] + state + line[20:]
-    return "\n".join(lines)
+    return "\n".join(lines), [f"{key} {states[key]}" for key in sorted(states)]
 
 
 # --------------------------------------------------------------------------
@@ -388,13 +402,30 @@ def prepare_receptor(
     # Resolve ambiguous histidine protonation (HIS → HID/HIE/HIP by HD1/HE2)
     # so meeko does not raise a RuntimeError when templates tie, and so
     # doubly-protonated residues are not forced onto the HIE template.
-    text = _resolve_histidine_ambiguity(text)
+    text, histidine_states = _resolve_histidine_ambiguity(text)
 
+    requested_keep = {key.strip() for key in options.keep_residues if key.strip()}
+    known_solvent = set(waters) | set(hetero)
+    unknown_keep = sorted(requested_keep - known_solvent)
+    if unknown_keep:
+        warnings.append(
+            "keep_residues did not match any water/hetero group: "
+            + ", ".join(unknown_keep)
+        )
+    kept_waters = (
+        sorted(waters) if not options.delete_waters
+        else sorted(key for key in waters if key in requested_keep)
+    )
+    kept_hetero = (
+        sorted(hetero) if not options.delete_hetero
+        else sorted(key for key in hetero if key in requested_keep)
+    )
     to_delete: list[str] = []
     if options.delete_waters:
-        to_delete.extend(waters)
+        to_delete.extend(key for key in waters if key not in set(kept_waters))
     if options.delete_hetero:
-        to_delete.extend(hetero)
+        to_delete.extend(key for key in hetero if key not in set(kept_hetero))
+    removed_altloc: list[str] = []
 
     try:
         polymer = Polymer.from_pdb_string(
@@ -480,6 +511,7 @@ def prepare_receptor(
                         allow_bad_res=options.allow_bad_residues,
                         default_altloc=options.default_altloc or None,
                     )
+                    removed_altloc.extend(offenders)
                     warnings.append(
                         f"Removed {len(offenders)} residue(s) with alternate locations: "
                         f"{', '.join(sorted(offenders))}"
@@ -572,8 +604,14 @@ def prepare_receptor(
             input_format=detect_format(file_path) or file_path.suffix.lstrip("."),
             input_atoms=sum(entry.atoms for entry in residues.values()),
             input_residues=len(residues),
-            deleted_waters=sorted(waters) if options.delete_waters else [],
-            deleted_hetero=sorted(hetero) if options.delete_hetero else [],
+            deleted_waters=sorted(
+                key for key in waters if key not in set(kept_waters)
+            ) if options.delete_waters else [],
+            deleted_hetero=sorted(
+                key for key in hetero if key not in set(kept_hetero)
+            ) if options.delete_hetero else [],
+            kept_waters=kept_waters,
+            kept_hetero=kept_hetero,
             normalised_atom_order=normalised,
             valid_residues=len(valid),
             ignored_residues=ignored,
@@ -583,5 +621,13 @@ def prepare_receptor(
             include_hydrogens=any(atom.is_polar_hydrogen for atom in pose.atoms),
             warnings=warnings,
             residue_list=residue_list,
+            altloc_policy=options.default_altloc or "blank/default",
+            removed_altloc_residues=sorted(set(removed_altloc)),
+            histidine_states=histidine_states,
+            assumptions=[
+                "protonation_from_input_and_templates",
+                "charges_from_meeko_templates",
+                "missing_atoms_not_rebuilt",
+            ],
         ),
     )

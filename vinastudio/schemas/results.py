@@ -30,6 +30,8 @@ class ResultRunSummary(BaseModel):
     status: Literal["completed", "failed", "cancelled"]
     bestAffinity: float | None = None
     isBatch: bool
+    favorite: bool = False
+    tags: list[str] = Field(default_factory=list)
     matchedLigand: str | None = None
 
 
@@ -40,6 +42,62 @@ class ResultRunDetail(ResultRunSummary):
     nPoses: int = 0
     elapsedMs: int | None = None
     poses: list[PoseInfo] = Field(default_factory=list)
+
+
+# ── organisation: favourites / tags / saved views (TASK-49) ─────────────────
+
+
+class TagCount(BaseModel):
+    tag: str
+    count: int
+
+
+class RunUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    favorite: bool | None = None
+    tags: list[str] | None = Field(default=None, max_length=20)
+
+
+class RunUpdateResponse(BaseModel):
+    jobId: str
+    favorite: bool
+    tags: list[str]
+
+
+class BulkUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    runIds: list[str] = Field(min_length=1, max_length=200)
+    favorite: bool | None = None
+    addTags: list[str] | None = Field(default=None, max_length=20)
+    removeTags: list[str] | None = Field(default=None, max_length=20)
+
+
+class BulkUpdateResponse(BaseModel):
+    updated: int
+
+
+class SavedViewFilters(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    q: str = ""
+    favorites: bool = False
+    tags: list[str] = Field(default_factory=list, max_length=20)
+
+
+class SavedViewCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=60)
+    filters: SavedViewFilters
+
+
+class SavedView(BaseModel):
+    id: int
+    name: str
+    filters: SavedViewFilters
+    createdAt: float
 
 
 # ── interaction-fingerprint grouping (TASK-16) ──────────────────────────────

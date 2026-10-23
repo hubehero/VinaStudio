@@ -90,7 +90,7 @@ def _find_interactions(
     for r_atom, l_atom, dist, inter_type in find_contacts(
         receptor_atoms, ligand_atoms, distance_cutoff
     ):
-        interactions.append({
+        row = {
             "type": inter_type,
             "receptorResidue": r_atom.get("residue", ""),
             "receptorChain": r_atom.get("chain", ""),
@@ -104,7 +104,21 @@ def _find_interactions(
             "ligandY": l_atom["y"],
             "ligandZ": l_atom["z"],
             "distance": round(dist, 2),
-        })
+        }
+        water = r_atom.get("water")
+        if isinstance(water, dict):
+            row.update({
+                "waterResidue": water.get("residue", ""),
+                "waterChain": water.get("chain", ""),
+                "waterResSeq": water.get("resSeq", ""),
+                "waterAtom": water.get("atom", ""),
+                "waterX": water.get("x"),
+                "waterY": water.get("y"),
+                "waterZ": water.get("z"),
+                "waterDistance": r_atom.get("waterDistance"),
+                "bridgeDistance": r_atom.get("bridgeDistance"),
+            })
+        interactions.append(row)
 
     # Sort by distance
     interactions.sort(key=lambda x: x["distance"])

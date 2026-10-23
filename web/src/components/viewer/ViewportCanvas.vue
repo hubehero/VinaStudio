@@ -5,6 +5,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { saveImage } from '@/api/bridge'
+import HelpLink from '@/components/HelpLink.vue'
 import {
   DEFAULT_VIEWER_STYLE,
   rendererInfo,
@@ -38,6 +39,8 @@ const props = withDefaults(
     receptorUrl?: string | null
     ligandUrl?: string | null
     poseSdfContent?: string | null
+    /** SDF records to overlay; empty means use poseSdfContent. */
+    overlaySdfContents?: string[]
     interactions?: InteractionData[]
     box?: BoxGeometry | null
     style?: ViewerStyle
@@ -49,6 +52,7 @@ const props = withDefaults(
     receptorUrl: null,
     ligandUrl: null,
     poseSdfContent: null,
+    overlaySdfContents: () => [],
     interactions: () => [],
     box: null,
     style: undefined,
@@ -76,6 +80,8 @@ const hasMolecule = ref(false)
 const dragging = ref(false)
 /** Session-level dismissal of the software-renderer warning pill. */
 const rendererWarnDismissed = ref(false)
+const pngDialogVisible = ref(false)
+const pngScale = ref(2)
 
 /**
  * Surface kind and opacity live in ``settings.viewer`` as the single source of
@@ -189,7 +195,9 @@ async function applyMolecules(): Promise<void> {
     }
 
     // --- ligand / pose ---
-    if (props.poseSdfContent) {
+    if (props.overlaySdfContents.length > 0) {
+      instance.loadOverlayPoses(props.overlaySdfContents)
+    } else if (props.poseSdfContent) {
       instance.loadPoseFromSdf(props.poseSdfContent)
     } else if (props.ligandUrl) {
       await instance.loadLigand(props.ligandUrl)
@@ -223,7 +231,8 @@ async function applyMolecules(): Promise<void> {
 
 // Trigger on any molecule-prop change or viewer becoming ready.
 watch(
-  [ready, () => props.receptorUrl, () => props.ligandUrl, () => props.poseSdfContent],
+  [ready, () => props.receptorUrl, () => props.ligandUrl, () => props.poseSdfContent,
+    () => props.overlaySdfContents],
   () => void applyMolecules(),
   { immediate: true },
 )
@@ -483,13 +492,23 @@ function resetView(): void {
   updateAxes()
 }
 
+function openPngDialog(): void {
+  pngDialogVisible.value = true
+}
+
 async function exportPng(): Promise<void> {
   const instance = viewer.value
   if (!instance) {
     return
   }
   try {
-    if (await saveImage(instance.pngDataUrl(), 'vinastudio-view.png')) {
+    const suffix = pngScale.value > 1 ? `@${pngScale.value}x` : ''
+    const saved = await saveImage(
+      instance.pngDataUrl(pngScale.value),
+      `vinastudio-view${suffix}.png`,
+    )
+    if (saved) {
+      pngDialogVisible.value = false
       ElMessage.success(t('common.success'))
     }
   } catch {
@@ -625,6 +644,7 @@ defineExpose({ highlightResidues })
       <div class="viewport__sw-warn__text">
         <strong>{{ t('viewport.softwareRenderer') }}</strong>
         <span>{{ t('viewport.softwareRendererHint', { renderer: rendererInfo.renderer }) }}</span>
+        <HelpLink topic="aaFlicker" />
       </div>
       <el-button
         size="small"
@@ -643,11 +663,27 @@ defineExpose({ highlightResidues })
         </el-button>
       </el-tooltip>
       <el-tooltip :content="t('viewport.exportPng')" placement="bottom">
-        <el-button size="small" text :disabled="!ready" @click="exportPng">
+        <el-button size="small" text :disabled="!ready" @click="openPngDialog">
           <el-icon><Download /></el-icon>
         </el-button>
       </el-tooltip>
     </div>
+
+    <el-dialog v-model="pngDialogVisible" :title="t('viewport.exportPngTitle')" width="360px">
+      <div class="png-export">
+        <span class="png-export__label">{{ t('viewport.pngScale') }}</span>
+        <el-radio-group v-model="pngScale">
+          <el-radio :value="1">1×</el-radio>
+          <el-radio :value="2">2×</el-radio>
+          <el-radio :value="3">3×</el-radio>
+        </el-radio-group>
+        <p class="png-export__hint">{{ t('viewport.exportPngHint') }}</p>
+      </div>
+      <template #footer>
+        <el-button @click="pngDialogVisible = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="exportPng">{{ t('viewport.exportPng') }}</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -697,6 +733,24 @@ defineExpose({ highlightResidues })
 
 .viewport__canvas.is-dragging {
   cursor: move;
+}
+
+.png-export {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.png-export__label {
+  font-size: 13px;
+  color: var(--vs-text-muted);
+}
+
+.png-export__hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--vs-text-faint);
 }
 
 .viewport__overlay {

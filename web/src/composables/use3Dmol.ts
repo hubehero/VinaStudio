@@ -198,7 +198,13 @@ export function probeStandaloneRenderer(): void {
 
 /** Interaction data for 3D visualization. */
 export interface InteractionData {
-  type: 'hydrogen_bond' | 'hydrophobic' | 'ionic'
+  type:
+    | 'hydrogen_bond'
+    | 'hydrophobic'
+    | 'ionic'
+    | 'halogen_bond'
+    | 'metal_coordination'
+    | 'water_mediated'
   receptorX: number
   receptorY: number
   receptorZ: number
@@ -244,6 +250,18 @@ export interface ViewerStyle {
   surfaceOpacity: number
 }
 
+/** Distinct, accessible-ish colours for overlaid poses. */
+const OVERLAY_POSE_COLOURS = [
+  '#4fd1c5',
+  '#f6ad55',
+  '#63b3ed',
+  '#f687b3',
+  '#9f7aea',
+  '#68d391',
+  '#f6e05e',
+  '#fc8181',
+] as const
+
 export const DEFAULT_VIEWER_STYLE: ViewerStyle = {
   receptor: 'cartoon',
   receptorColour: 'spectrum',
@@ -283,6 +301,8 @@ export class MoleculeViewer {
   private boxShapes: $3Dmol.GLShape[] = []
   private receptorModel: $3Dmol.GLModel | null = null
   private ligandModel: $3Dmol.GLModel | null = null
+  /** Models used by the multi-pose overlay; empty when showing one pose. */
+  private overlayModels: $3Dmol.GLModel[] = []
   private surfaceId: number | null = null
   private style: ViewerStyle = { ...DEFAULT_VIEWER_STYLE }
   private pendingBox: BoxGeometry | null = null
@@ -795,10 +815,36 @@ export class MoleculeViewer {
     this.scheduleRender()
   }
 
-  /** Base64 PNG of the current framebuffer, for the export action. */
-  pngDataUrl(): string {
-    this.raw.render()
-    return this.raw.pngURI()
+  /**
+   * Base64 PNG of the current framebuffer.
+   *
+   * 3Dmol has no width/height argument on ``pngURI``; a larger export is made
+   * by temporarily giving the container a larger layout box and asking the
+   * renderer to resize. The box is restored in ``finally`` so an export never
+   * leaves the live viewport stretched.
+   */
+  pngDataUrl(scale = 1): string {
+    const factor = Number.isFinite(scale) ? Math.min(4, Math.max(1, Math.round(scale))) : 1
+    if (factor === 1) {
+      this.raw.render()
+      return this.raw.pngURI()
+    }
+    const width = this.container.clientWidth || 800
+    const height = this.container.clientHeight || 600
+    const previousWidth = this.container.style.width
+    const previousHeight = this.container.style.height
+    this.container.style.width = `${Math.round(width * factor)}px`
+    this.container.style.height = `${Math.round(height * factor)}px`
+    try {
+      this.raw.resize()
+      this.raw.render()
+      return this.raw.pngURI()
+    } finally {
+      this.container.style.width = previousWidth
+      this.container.style.height = previousHeight
+      this.raw.resize()
+      this.raw.render()
+    }
   }
 
   // -- molecules ---------------------------------------------------------
@@ -827,13 +873,15 @@ export class MoleculeViewer {
    */
   async loadLigand(url: string): Promise<void> {
     const text = await fetchMolecule(url)
+    this.removeOverlayModels()
     this.ligandModel = this.raw.addModel(text, 'sdf')
     this.applyLigandStyle()
     this.scheduleRender()
   }
 
-  /** Remove the ligand, leaving the receptor in place. */
+  /** Remove every ligand model, leaving the receptor in place. */
   removeLigand(): void {
+    this.removeOverlayModels()
     if (this.ligandModel !== null) {
       this.raw.removeModel(this.ligandModel)
       this.ligandModel = null
@@ -841,6 +889,43 @@ export class MoleculeViewer {
       // tick, and one drawn frame beats two back-to-back full passes.
       this.scheduleRender()
     }
+  }
+
+  private removeOverlayModels(): void {
+    if (this.overlayModels.length === 0) return
+    for (const model of this.overlayModels) {
+      this.raw.removeModel(model)
+    }
+    this.overlayModels = []
+    this.scheduleRender()
+  }
+
+  /**
+   * Show several docked poses at once, each in its own colour.
+   *
+   * The models stay at their docked coordinates, so the overlay compares
+   * binding modes without inventing an alignment.  The caller caps the array;
+   * this method only refuses empty records.  Interactions remain owned by the
+   * selected pose and are drawn separately.
+   */
+  loadOverlayPoses(sdfContents: string[]): void {
+    this.removeOverlayModels()
+    if (this.ligandModel !== null) {
+      this.raw.removeModel(this.ligandModel)
+      this.ligandModel = null
+    }
+    sdfContents.forEach((sdf, index) => {
+      if (!sdf.trim()) return
+      const model = this.raw.addModel(sdf, 'sdf')
+      model.setStyle({}, {
+        stick: {
+          color: OVERLAY_POSE_COLOURS[index % OVERLAY_POSE_COLOURS.length],
+          radius: 0.15,
+        },
+      })
+      this.overlayModels.push(model)
+    })
+    this.scheduleRender()
   }
 
   /**
@@ -853,6 +938,7 @@ export class MoleculeViewer {
    * Callers must remove any existing ligand before calling this method.
    */
   loadPoseFromSdf(sdfContent: string): void {
+    this.removeOverlayModels()
     this.ligandModel = this.raw.addModel(sdfContent, 'sdf')
     this.applyLigandStyle()
     this.scheduleRender()
@@ -878,12 +964,13 @@ export class MoleculeViewer {
    * Interaction types and their visual representation:
    * - hydrogen_bond: green dashed cylinder + sphere at receptor atom
    * - hydrophobic: purple dashed cylinder
-   * - ionic: blue dashed cylinder
+   * - ionic: blue dashed cylinder (salt-bridge candidate)
+   * - halogen_bond: cyan dashed cylinder (distance candidate)
+   * - metal_coordination: pink dashed cylinder
+   * - water_mediated: teal dashed cylinder
    *
-   * The visualization follows standard structural biology conventions:
-   * - Green for hydrogen bonds (N/O atoms within 3.5 Å)
-   * - Purple for hydrophobic contacts (C-C/C-S within 4.0 Å)
-   * - Blue for contacts with a charged side chain
+   * New types are drawn only when the analysis returned them; no geometry is
+   * invented in the viewer.
    */
   drawInteractions(interactions: InteractionData[]): void {
     this.removeInteractions()
@@ -942,6 +1029,48 @@ export class MoleculeViewer {
             dashed: true,
             dashLength: 0.2,
             gapLength: 0.1,
+            fromCap: 2,
+            toCap: 2,
+          }))
+          break
+
+        case 'halogen_bond':
+          shapes.push(this.raw.addCylinder({
+            start,
+            end,
+            color: '#06b6d4',
+            radius: 0.05,
+            dashed: true,
+            dashLength: 0.22,
+            gapLength: 0.1,
+            fromCap: 2,
+            toCap: 2,
+          }))
+          break
+
+        case 'metal_coordination':
+          shapes.push(this.raw.addCylinder({
+            start,
+            end,
+            color: '#ec4899',
+            radius: 0.06,
+            dashed: true,
+            dashLength: 0.16,
+            gapLength: 0.08,
+            fromCap: 2,
+            toCap: 2,
+          }))
+          break
+
+        case 'water_mediated':
+          shapes.push(this.raw.addCylinder({
+            start,
+            end,
+            color: '#14b8a6',
+            radius: 0.05,
+            dashed: true,
+            dashLength: 0.2,
+            gapLength: 0.12,
             fromCap: 2,
             toCap: 2,
           }))
@@ -1070,7 +1199,7 @@ export class MoleculeViewer {
 
   /** True once anything other than the empty-state box is on screen. */
   get hasMolecule(): boolean {
-    return this.receptorModel !== null || this.ligandModel !== null
+    return this.receptorModel !== null || this.ligandModel !== null || this.overlayModels.length > 0
   }
 
   dispose(): void {

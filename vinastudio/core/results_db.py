@@ -15,6 +15,7 @@ import json
 import logging
 import sqlite3
 import threading
+import time
 from contextlib import closing
 from pathlib import Path
 from typing import Any
@@ -56,7 +57,7 @@ _PARAMS_JSON_DROP = frozenset({
     "entries",
 })
 
-_SCHEMA_VERSION = 1
+_SCHEMA_VERSION = 2
 
 #: sqlite connections are created per call and closed immediately; the lock
 #: only serialises writers inside this process (event-loop thread vs the
@@ -94,7 +95,8 @@ _TABLE_DDL = (
         elapsed_ms INTEGER,
         params_json TEXT,
         params_hash TEXT,
-        n_poses INTEGER NOT NULL DEFAULT 0
+        n_poses INTEGER NOT NULL DEFAULT 0,
+        favorite INTEGER NOT NULL DEFAULT 0
     )""",
     """CREATE TABLE IF NOT EXISTS poses (
         run_id TEXT NOT NULL REFERENCES runs(job_id) ON DELETE CASCADE,
@@ -118,6 +120,17 @@ _TABLE_DDL = (
         ligand_smiles TEXT,
         affinity REAL
     )""",
+    """CREATE TABLE IF NOT EXISTS run_tags (
+        run_id TEXT NOT NULL REFERENCES runs(job_id) ON DELETE CASCADE,
+        tag TEXT NOT NULL,
+        PRIMARY KEY (run_id, tag)
+    )""",
+    """CREATE TABLE IF NOT EXISTS saved_views (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        filters_json TEXT NOT NULL,
+        created REAL NOT NULL
+    )""",
 )
 
 
@@ -128,26 +141,34 @@ def _connect(db_path: Path) -> sqlite3.Connection:
     return conn
 
 
-def _migrate(conn: sqlite3.Connection) -> None:
-    """Record/validate the schema version (task book §8, v1 first).
+def _ensure_schema(conn: sqlite3.Connection) -> None:
+    """Create or migrate the index; refuse a schema newer than this build.
 
-    A newer file is refused instead of guessed at — half-understanding a
-    future schema would corrupt rows the app cannot rebuild.
+    v2 adds favourites, tags and saved views.  The migration is additive:
+    an existing v1 database gains a ``favorite`` column and the two new
+    tables, while ingest never rewrites favourite/tags, so rebuilding the
+    index cannot erase a user's organisation.
     """
+    conn.execute("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)")
     row = conn.execute("SELECT version FROM schema_version").fetchone()
-    if row is None:
-        conn.execute("INSERT INTO schema_version (version) VALUES (?)", (_SCHEMA_VERSION,))
-        return
-    version = int(row["version"])
+    version = int(row["version"]) if row is not None else 0
     if version > _SCHEMA_VERSION:
         raise ResultsDbError(f"results schema v{version} newer than supported v{_SCHEMA_VERSION}")
 
-
-def _ensure_schema(conn: sqlite3.Connection) -> None:
-    conn.execute("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)")
-    _migrate(conn)
     for ddl in _TABLE_DDL:
         conn.execute(ddl)
+
+    # ``CREATE TABLE IF NOT EXISTS`` does not add a column to an old table.
+    columns = {item[1] for item in conn.execute("PRAGMA table_info(runs)")}
+    if "favorite" not in columns:
+        conn.execute("ALTER TABLE runs ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0")
+
+    if row is None:
+        conn.execute(
+            "INSERT INTO schema_version (version) VALUES (?)", (_SCHEMA_VERSION,)
+        )
+    elif version < _SCHEMA_VERSION:
+        conn.execute("UPDATE schema_version SET version = ?", (_SCHEMA_VERSION,))
     conn.commit()
 
 
@@ -510,7 +531,9 @@ def ingest_job_payload(
 
 _SEARCH_SQL = """
 SELECT r.job_id, r.label, r.created, r.receptor, r.scoring, r.status,
-       r.best_affinity, r.is_batch,
+       r.best_affinity, r.is_batch, r.favorite,
+       (SELECT GROUP_CONCAT(t.tag, char(31)) FROM run_tags t
+        WHERE t.run_id = r.job_id) AS tags_concat,
        CASE
          WHEN :needle = '' OR instr(lower(r.label), :needle) > 0 THEN NULL
          ELSE (
@@ -531,7 +554,8 @@ SELECT r.job_id, r.label, r.created, r.receptor, r.scoring, r.status,
          )
        END AS matched_ligand
 FROM runs r
-WHERE :needle = ''
+WHERE (
+   :needle = ''
    OR instr(lower(r.label), :needle) > 0
    OR instr(lower(r.receptor), :needle) > 0
    OR EXISTS (
@@ -548,8 +572,12 @@ WHERE :needle = ''
               OR (s2.ligand_smiles IS NOT NULL
                   AND instr(lower(s2.ligand_smiles), :needle) > 0))
    )
+)
+AND (:favorites = 0 OR r.favorite = 1)
+/*TAG_FILTER*/
 ORDER BY r.created DESC, r.job_id DESC
 LIMIT :limit
+OFFSET :offset
 """
 
 
@@ -566,24 +594,65 @@ def _summary(row: sqlite3.Row) -> dict[str, Any]:
         "status": row["status"],
         "bestAffinity": row["best_affinity"],
         "isBatch": bool(row["is_batch"]),
+        "favorite": bool(row["favorite"]),
+        "tags": _split_tags(row["tags_concat"]),
         "matchedLigand": row["matched_ligand"],
     }
 
 
-def search_runs(q: str = "", *, limit: int = DEFAULT_LIMIT, db_path: Path | None = None) -> list[dict[str, Any]]:
+def _split_tags(value: str | None) -> list[str]:
+    return [tag for tag in (value or "").split(chr(31)) if tag]
+
+
+def search_runs(
+    q: str = "",
+    *,
+    limit: int = DEFAULT_LIMIT,
+    offset: int = 0,
+    favorites: bool = False,
+    tags: list[str] | None = None,
+    db_path: Path | None = None,
+) -> list[dict[str, Any]]:
     """Latest-first substring search over label ∪ receptor ∪ poses.
 
-    Missing DB → warning + ``[]``; a corrupt file raises so the router can
-    degrade it to ``[]`` too (design §3, never a 500).
+    ``tags`` uses AND semantics: every requested tag must be present.  Missing
+    DB → warning + ``[]``; a corrupt file raises so the router can degrade it
+    to ``[]`` too (design §3, never a 500).  ``offset`` pages the same stable
+    ordering (``created`` then ``job_id``, both descending).
     """
     db = db_path or results_db_path()
     bounded = max(1, min(int(limit), MAX_LIMIT))
+    bounded_offset = max(0, int(offset))
     if not db.is_file():
         log.warning("results db missing at %s — returning no rows", db)
         return []
     needle = (q or "").lower()
+    wanted = list(dict.fromkeys(tag for tag in (tags or []) if tag))
+    params: dict[str, Any] = {
+        "needle": needle,
+        "limit": bounded,
+        "offset": bounded_offset,
+        "favorites": int(bool(favorites)),
+    }
+    tag_filter = ""
+    if wanted:
+        placeholders = []
+        for index, tag in enumerate(wanted):
+            key = f"tag{index}"
+            placeholders.append(f":{key}")
+            params[key] = tag
+        params["tag_count"] = len(wanted)
+        tag_filter = (
+            "AND r.job_id IN ("
+            "SELECT rt.run_id FROM run_tags rt "
+            f"WHERE rt.tag IN ({', '.join(placeholders)}) "
+            "GROUP BY rt.run_id HAVING COUNT(DISTINCT rt.tag) = :tag_count)"
+        )
     with closing(_connect(db)) as conn:
-        rows = conn.execute(_SEARCH_SQL, {"needle": needle, "limit": bounded}).fetchall()
+        _ensure_schema(conn)
+        rows = conn.execute(
+            _SEARCH_SQL.replace("/*TAG_FILTER*/", tag_filter), params
+        ).fetchall()
     return [_summary(row) for row in rows]
 
 
@@ -609,6 +678,14 @@ def _detail(conn: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]:
         "status": row["status"],
         "bestAffinity": row["best_affinity"],
         "isBatch": bool(row["is_batch"]),
+        "favorite": bool(row["favorite"]),
+        "tags": [
+            item["tag"]
+            for item in conn.execute(
+                "SELECT tag FROM run_tags WHERE run_id = ? ORDER BY tag",
+                (row["job_id"],),
+            ).fetchall()
+        ],
         "matchedLigand": None,
         "params": params,
         "nPoses": row["n_poses"],
@@ -641,6 +718,7 @@ def compare_runs(run_ids: list[str], *, db_path: Path | None = None) -> list[dic
         return []
     details: list[dict[str, Any]] = []
     with closing(_connect(db)) as conn:
+        _ensure_schema(conn)
         for run_id in ordered:
             row = conn.execute("SELECT * FROM runs WHERE job_id = ?", (run_id,)).fetchone()
             if row is None:
@@ -730,3 +808,214 @@ def _backfill_one(index: Path, payload: Any, *, db_path: Path, scan_root: Path) 
         # One bad run must not stop the rest of the scan.
         log.warning("results backfill failed for %s: %s", job_id, exc, exc_info=True)
         return False
+
+
+# ── organisation: favourites, tags, saved views (TASK-49) ────────────────────
+
+_MAX_TAGS_PER_RUN = 20
+_MAX_TAG_LENGTH = 40
+
+
+def _normalise_tags(tags: list[str]) -> list[str]:
+    """Trim, drop empties, dedupe, and enforce the small per-run bounds."""
+    normalised: list[str] = []
+    for raw in tags:
+        tag = str(raw).strip()
+        if not tag:
+            continue
+        if len(tag) > _MAX_TAG_LENGTH:
+            raise ValueError(f"tag is longer than {_MAX_TAG_LENGTH} characters")
+        if "," in tag:
+            raise ValueError("tag may not contain commas")
+        if tag not in normalised:
+            normalised.append(tag)
+    if len(normalised) > _MAX_TAGS_PER_RUN:
+        raise ValueError(f"at most {_MAX_TAGS_PER_RUN} tags per run")
+    return normalised
+
+
+def set_run_favorite(
+    job_id: str, favorite: bool, *, db_path: Path | None = None
+) -> bool:
+    """Set the favourite flag; False when the run is not indexed."""
+    db = db_path or results_db_path()
+    with _WRITE_LOCK, closing(_connect(db)) as conn:
+        _ensure_schema(conn)
+        conn.execute("BEGIN IMMEDIATE")
+        cursor = conn.execute(
+            "UPDATE runs SET favorite = ? WHERE job_id = ?",
+            (int(bool(favorite)), job_id),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+
+
+def set_run_tags(job_id: str, tags: list[str], *, db_path: Path | None = None) -> bool:
+    """Replace all tags for one run; False when the run is not indexed."""
+    normalised = _normalise_tags(tags)
+    db = db_path or results_db_path()
+    with _WRITE_LOCK, closing(_connect(db)) as conn:
+        _ensure_schema(conn)
+        conn.execute("BEGIN IMMEDIATE")
+        exists = conn.execute(
+            "SELECT 1 FROM runs WHERE job_id = ?", (job_id,)
+        ).fetchone()
+        if exists is None:
+            conn.rollback()
+            return False
+        conn.execute("DELETE FROM run_tags WHERE run_id = ?", (job_id,))
+        conn.executemany(
+            "INSERT INTO run_tags (run_id, tag) VALUES (?, ?)",
+            [(job_id, tag) for tag in normalised],
+        )
+        conn.commit()
+        return True
+
+
+def bulk_update_runs(
+    run_ids: list[str],
+    *,
+    favorite: bool | None = None,
+    add_tags: list[str] | None = None,
+    remove_tags: list[str] | None = None,
+    db_path: Path | None = None,
+) -> int:
+    """Apply a favourite/tag operation to the existing runs only.
+
+    Tags are idempotent; adding an existing tag or removing a missing one is
+    not an error.  Returns the number of indexed runs the request matched.
+    """
+    ids = list(dict.fromkeys(run_id for run_id in run_ids if run_id))
+    if not ids:
+        return 0
+    add = _normalise_tags(add_tags or [])
+    remove = _normalise_tags(remove_tags or [])
+    db = db_path or results_db_path()
+    placeholders = ", ".join("?" for _ in ids)
+    with _WRITE_LOCK, closing(_connect(db)) as conn:
+        _ensure_schema(conn)
+        conn.execute("BEGIN IMMEDIATE")
+        existing = [
+            row["job_id"]
+            for row in conn.execute(
+                f"SELECT job_id FROM runs WHERE job_id IN ({placeholders})", ids
+            ).fetchall()
+        ]
+        if favorite is not None and existing:
+            conn.executemany(
+                "UPDATE runs SET favorite = ? WHERE job_id = ?",
+                [(int(bool(favorite)), run_id) for run_id in existing],
+            )
+        if add:
+            conn.executemany(
+                "INSERT OR IGNORE INTO run_tags (run_id, tag) VALUES (?, ?)",
+                [(run_id, tag) for run_id in existing for tag in add],
+            )
+        if remove:
+            conn.executemany(
+                "DELETE FROM run_tags WHERE run_id = ? AND tag = ?",
+                [(run_id, tag) for run_id in existing for tag in remove],
+            )
+        conn.commit()
+        return len(existing)
+
+
+def list_tags(*, db_path: Path | None = None) -> list[dict[str, Any]]:
+    """Distinct tags with their run counts, alphabetical."""
+    db = db_path or results_db_path()
+    if not db.is_file():
+        return []
+    with closing(_connect(db)) as conn:
+        _ensure_schema(conn)
+        rows = conn.execute(
+            "SELECT tag, COUNT(*) AS count FROM run_tags GROUP BY tag ORDER BY lower(tag)"
+        ).fetchall()
+    return [{"tag": row["tag"], "count": int(row["count"])} for row in rows]
+
+
+def get_run_organization(
+    job_id: str, *, db_path: Path | None = None
+) -> dict[str, Any] | None:
+    """Favourite + tags for one run, or None when it is not indexed."""
+    db = db_path or results_db_path()
+    if not db.is_file():
+        return None
+    with closing(_connect(db)) as conn:
+        _ensure_schema(conn)
+        row = conn.execute(
+            "SELECT favorite FROM runs WHERE job_id = ?", (job_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        tags = [
+            item["tag"]
+            for item in conn.execute(
+                "SELECT tag FROM run_tags WHERE run_id = ? ORDER BY tag", (job_id,)
+            ).fetchall()
+        ]
+    return {"favorite": bool(row["favorite"]), "tags": tags}
+
+
+def _view_row(row: sqlite3.Row) -> dict[str, Any]:
+    try:
+        parsed = json.loads(row["filters_json"])
+        filters = parsed if isinstance(parsed, dict) else {}
+    except json.JSONDecodeError:
+        filters = {}
+    return {
+        "id": int(row["id"]),
+        "name": str(row["name"]),
+        "filters": filters,
+        "createdAt": float(row["created"]),
+    }
+
+
+def save_view(
+    name: str, filters: dict[str, Any], *, db_path: Path | None = None
+) -> dict[str, Any]:
+    """Create or replace a saved filter view by name."""
+    clean_name = name.strip()
+    if not clean_name or len(clean_name) > 60:
+        raise ValueError("view name must be 1–60 characters")
+    db = db_path or results_db_path()
+    payload = json.dumps(filters, ensure_ascii=False, sort_keys=True)
+    with _WRITE_LOCK, closing(_connect(db)) as conn:
+        _ensure_schema(conn)
+        conn.execute("BEGIN IMMEDIATE")
+        conn.execute(
+            """INSERT INTO saved_views (name, filters_json, created)
+               VALUES (?, ?, ?)
+               ON CONFLICT(name) DO UPDATE SET
+                   filters_json = excluded.filters_json,
+                   created = excluded.created""",
+            (clean_name, payload, time.time()),
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT id, name, filters_json, created FROM saved_views WHERE name = ?",
+            (clean_name,),
+        ).fetchone()
+    assert row is not None
+    return _view_row(row)
+
+
+def list_views(*, db_path: Path | None = None) -> list[dict[str, Any]]:
+    db = db_path or results_db_path()
+    if not db.is_file():
+        return []
+    with closing(_connect(db)) as conn:
+        _ensure_schema(conn)
+        rows = conn.execute(
+            "SELECT id, name, filters_json, created FROM saved_views ORDER BY name"
+        ).fetchall()
+    return [_view_row(row) for row in rows]
+
+
+def delete_view(view_id: int, *, db_path: Path | None = None) -> bool:
+    db = db_path or results_db_path()
+    with _WRITE_LOCK, closing(_connect(db)) as conn:
+        _ensure_schema(conn)
+        conn.execute("BEGIN IMMEDIATE")
+        cursor = conn.execute("DELETE FROM saved_views WHERE id = ?", (view_id,))
+        conn.commit()
+        return cursor.rowcount > 0

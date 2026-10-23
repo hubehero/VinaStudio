@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ArrowLeft, ArrowRight, Download, InfoFilled, Search } from '@element-plus/icons-vue'
-import { ElButton, ElCheckbox, ElCheckboxGroup, ElDialog, ElIcon, ElMessage, ElOption, ElSelect, ElSlider, ElTooltip } from 'element-plus'
+import { ArrowLeft, ArrowRight, Document, Download, InfoFilled, Search } from '@element-plus/icons-vue'
+import { ElButton, ElCheckbox, ElCheckboxGroup, ElDialog, ElIcon, ElMessage, ElOption, ElSelect, ElSlider, ElSwitch, ElTooltip } from 'element-plus'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -141,6 +141,24 @@ async function downloadBundle(artifact: Artifact): Promise<void> {
   anchor.click()
   anchor.remove()
   window.setTimeout(() => URL.revokeObjectURL(url), 0)
+}
+
+async function exportSvg(): Promise<void> {
+  const svg = currentSvgSource()
+  if (!svg) {
+    ElMessage.warning(t('docking.exportSvg.missing'))
+    return
+  }
+  try {
+    const saved = await saveTextFile(svg, {
+      filename: 'interactions-2d.svg',
+      mime: 'image/svg+xml',
+      saveTitle: t('docking.saveFile.title'),
+    })
+    if (saved) ElMessage.success(t('docking.exportSvg.success'))
+  } catch {
+    ElMessage.error(t('docking.exportSvg.error'))
+  }
 }
 
 async function exportBundle(): Promise<void> {
@@ -341,6 +359,9 @@ async function runCluster(): Promise<void> {
         <ElButton size="small" :icon="Download" @click="openBundleDialog">
           {{ t('docking.exportBundle.button') }}
         </ElButton>
+        <ElButton size="small" :icon="Document" @click="exportSvg">
+          {{ t('docking.exportSvg.button') }}
+        </ElButton>
       </div>
     </div>
     <div class="vs-card__body">
@@ -367,6 +388,26 @@ async function runCluster(): Promise<void> {
           :disabled="docking.currentPoseIndex >= docking.poses.length - 1"
           @click="docking.nextPose()"
         />
+      </div>
+
+      <div class="overlay-toggle">
+        <ElSwitch
+          v-model="docking.overlayPoses"
+          size="small"
+          :disabled="docking.poseSdfStrings.length < 2"
+        />
+        <span>{{ t('docking.overlay.label') }}</span>
+        <span
+          v-if="docking.overlayPoses && docking.poseSdfStrings.length > docking.overlayPoseLimit"
+          class="overlay-toggle__hint"
+        >
+          {{
+            t('docking.overlay.capped', {
+              shown: docking.overlayPoseLimit,
+              total: docking.poseSdfStrings.length,
+            })
+          }}
+        </span>
       </div>
 
       <p v-if="docking.validation" class="validate-note">
@@ -542,6 +583,19 @@ async function runCluster(): Promise<void> {
   justify-content: flex-end;
   gap: 8px;
   align-items: center;
+}
+
+.overlay-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+  color: var(--vs-text-muted);
+}
+
+.overlay-toggle__hint {
+  color: var(--vs-text-faint);
 }
 
 .pose-table-wrap {

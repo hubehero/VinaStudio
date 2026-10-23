@@ -279,6 +279,8 @@ export interface ReceptorOptions {
   flexibleResidues: string[]
   allowBadResidues: boolean
   normaliseAtomOrder: boolean
+  /** Water/hetero residue keys kept even when the delete switches are on. */
+  keepResidues: string[]
 }
 
 export interface ReceptorReport {
@@ -288,6 +290,8 @@ export interface ReceptorReport {
   inputResidues: number
   deletedWaters: string[]
   deletedHetero: string[]
+  keptWaters: string[]
+  keptHetero: string[]
   normalisedAtomOrder: boolean
   validResidues: number
   ignoredResidues: string[]
@@ -297,6 +301,10 @@ export interface ReceptorReport {
   atomTypes: Record<string, number>
   includeHydrogens: boolean
   warnings: string[]
+  altlocPolicy: string
+  removedAltlocResidues: string[]
+  histidineStates: string[]
+  assumptions: string[]
 }
 
 export interface ReceptorPreparation {
@@ -490,6 +498,48 @@ export interface WriteMapsResponse {
 
 export type DockingStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled'
 
+export interface EnsembleReceptor {
+  index: number
+  label: string
+  path: string
+  flexPath: string | null
+}
+
+export interface EnsembleDockingRequest {
+  receptors: EnsembleReceptor[]
+  ligandPath: string | null
+  ligandPdbqtString: string | null
+  center: [number, number, number]
+  size: [number, number, number]
+  scoring: ScoringFunction
+  exhaustiveness: number
+  nPoses: number
+  energyRange: number
+  minRmsd: number
+  maxEvals: number
+  cpu: number
+  seed: number
+  noRefine: boolean
+  verbosity: number
+  spacing: number
+  forceEvenVoxels: boolean
+  weights: number[] | null
+  mapPaths: string[] | null
+  engine?: 'vina' | 'vina-cli'
+}
+
+export interface EnsembleRow {
+  receptorIndex: number
+  label: string
+  receptorPath: string
+  status: string
+  bestAffinity: number | null
+  nPoses: number
+  elapsedMs: number | null
+  outDir: string
+  error: string
+}
+
 export interface DockingRequest {
   receptorPath: string
   flexReceptorPath: string | null
@@ -553,6 +603,7 @@ export interface DockingJobSummary {
   label: string
   bestAffinity: number | null
   isBatch: boolean
+  isEnsemble?: boolean
 }
 
 export interface PoseInfo {
@@ -579,6 +630,9 @@ export interface DockingJobResult {
    * paragraph is generated from these values.
    */
   params: Record<string, unknown> | null
+  isEnsemble?: boolean
+  bestReceptor?: string | null
+  ensembleRows?: EnsembleRow[]
 }
 
 export interface ResultRunSummary {
@@ -590,6 +644,8 @@ export interface ResultRunSummary {
   status: 'completed' | 'failed' | 'cancelled'
   bestAffinity: number | null
   isBatch: boolean
+  favorite: boolean
+  tags: string[]
   matchedLigand: string | null  // q 命中某 poses 行的 ligand_name 时回填
                                 // （批量 job 或命中即 label 本身时为 null）
 }
@@ -598,6 +654,51 @@ export interface ResultRunDetail extends ResultRunSummary {
   nPoses: number
   elapsedMs: number | null
   poses: PoseInfo[]        // 复用既有 PoseInfo（index/affinity/rmsdLower/rmsdUpper）
+}
+
+export interface TagCount {
+  tag: string
+  count: number
+}
+
+export interface RunUpdateRequest {
+  favorite?: boolean
+  tags?: string[]
+}
+
+export interface RunUpdateResponse {
+  jobId: string
+  favorite: boolean
+  tags: string[]
+}
+
+export interface BulkUpdateRequest {
+  runIds: string[]
+  favorite?: boolean
+  addTags?: string[]
+  removeTags?: string[]
+}
+
+export interface BulkUpdateResponse {
+  updated: number
+}
+
+export interface SavedViewFilters {
+  q: string
+  favorites: boolean
+  tags: string[]
+}
+
+export interface SavedView {
+  id: number
+  name: string
+  filters: SavedViewFilters
+  createdAt: number
+}
+
+export interface SavedViewCreate {
+  name: string
+  filters: SavedViewFilters
 }
 
 /** WebSocket event from a docking job. */
@@ -960,7 +1061,13 @@ export interface Detection {
 }
 
 export interface InteractionData {
-  type: 'hydrogen_bond' | 'hydrophobic' | 'ionic'
+  type:
+    | 'hydrogen_bond'
+    | 'hydrophobic'
+    | 'ionic'
+    | 'halogen_bond'
+    | 'metal_coordination'
+    | 'water_mediated'
   receptorResidue: string
   receptorChain: string
   receptorResSeq: string
@@ -973,6 +1080,16 @@ export interface InteractionData {
   ligandY: number
   ligandZ: number
   distance: number
+  /** Water-mediated rows: the bridge residue is receptorResidue; these name the water. */
+  waterResidue?: string
+  waterChain?: string
+  waterResSeq?: string
+  waterAtom?: string
+  waterX?: number
+  waterY?: number
+  waterZ?: number
+  waterDistance?: number
+  bridgeDistance?: number
 }
 
 /** One atom of the 2D interaction-map depiction (TASK-06).
@@ -1294,7 +1411,13 @@ export interface RankingResponse {
 
 // interaction fingerprints (TASK-16)
 
-export type IfpType = 'ionic' | 'hydrogen_bond' | 'hydrophobic'
+export type IfpType =
+  | 'ionic'
+  | 'hydrogen_bond'
+  | 'hydrophobic'
+  | 'halogen_bond'
+  | 'metal_coordination'
+  | 'water_mediated'
 
 /** One receptor-residue column of the fingerprint matrix. */
 export interface IfpResidue {

@@ -16,6 +16,7 @@ import type {
   DockingJobSummary,
   DockingRequest,
   DockingStatus,
+  EnsembleDockingRequest,
   InteractionData,
   PoseInfo,
   PoseValidationItem,
@@ -42,6 +43,8 @@ export const useDockingStore = defineStore('docking', () => {
 
   // -- pose navigation -----------------------------------------------------
   const currentPoseIndex = ref<number>(0)
+  /** Overlay every pose (capped) instead of showing only the selected one. */
+  const overlayPoses = ref(false)
 
   // -- geometric pose validation (TASK-02) ---------------------------------
   // Report-only health check: never re-docks or edits coordinates.
@@ -184,6 +187,12 @@ export const useDockingStore = defineStore('docking', () => {
     return strings[idx] ?? null
   })
 
+  /** Hard cap keeps a 100-pose result from creating 100 WebGL models. */
+  const OVERLAY_POSE_LIMIT = 20
+  const overlayPoseSdfs = computed<string[]>(() =>
+    overlayPoses.value ? poseSdfStrings.value.slice(0, OVERLAY_POSE_LIMIT) : [],
+  )
+
   /** Validation item for the selected pose (1-based poseIndex on the wire). */
   const currentPoseValidation = computed<PoseValidationItem | null>(() => {
     const result = validation.value
@@ -217,6 +226,28 @@ export const useDockingStore = defineStore('docking', () => {
       const result = await api.startDocking(params)
       activeJobId.value = result.jobId
       activeJobLabel.value = params.ligandPath ? basename(params.ligandPath) : ''
+      jobStatus.value = {
+        jobId: result.jobId,
+        status: 'running',
+        progress: 0,
+        stage: null,
+        log: [],
+        error: null,
+        elapsedMs: null,
+      }
+      jobResult.value = null
+      startPolling(result.jobId, 'job')
+      return result.jobId
+    } catch {
+      return null
+    }
+  }
+
+  async function startEnsemble(params: EnsembleDockingRequest): Promise<string | null> {
+    try {
+      const result = await api.startEnsembleDocking(params)
+      activeJobId.value = result.jobId
+      activeJobLabel.value = params.ligandPath ? basename(params.ligandPath) : 'ensemble'
       jobStatus.value = {
         jobId: result.jobId,
         status: 'running',
@@ -269,6 +300,7 @@ export const useDockingStore = defineStore('docking', () => {
     jobStatus.value = null
     jobResult.value = null
     currentPoseIndex.value = 0
+    overlayPoses.value = false
     validation.value = null
     validating.value = false
     validationError.value = null
@@ -576,6 +608,9 @@ export const useDockingStore = defineStore('docking', () => {
     currentPose,
     poseSdfStrings,
     currentPoseSdf,
+    overlayPoses,
+    overlayPoseSdfs,
+    overlayPoseLimit: OVERLAY_POSE_LIMIT,
     selectPose,
     nextPose,
     prevPose,
@@ -604,6 +639,7 @@ export const useDockingStore = defineStore('docking', () => {
     clearClusters,
     loadDefaults,
     startDocking,
+    startEnsemble,
     refreshStatus,
     cancel,
     reset,

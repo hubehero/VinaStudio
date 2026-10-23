@@ -61,6 +61,13 @@ class DockingRequest(BaseModel):
             "command-line binary); 'vina-cli' asks for the binary explicitly."
         ),
     )
+    preparation: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Compact receptor-preparation summary persisted in job.json for the "
+            "Methods text; it is metadata only and never changes docking."
+        ),
+    )
 
 
 class PoseInfo(BaseModel):
@@ -109,6 +116,9 @@ class DockingJobResult(BaseModel):
     #: text is generated from these values, so they must be the real ones
     #: rather than whatever the form currently shows.
     params: dict[str, Any] | None = None
+    isEnsemble: bool = False
+    bestReceptor: str | None = None
+    ensembleRows: list[EnsembleRow] = Field(default_factory=list)
 
 
 class DockingJobSummary(BaseModel):
@@ -129,6 +139,7 @@ class DockingJobSummary(BaseModel):
     label: str = ""
     bestAffinity: float | None = None
     isBatch: bool = False
+    isEnsemble: bool = False
 
 
 class DockingDefaultsResponse(BaseModel):
@@ -433,8 +444,15 @@ class ClusterResponse(BaseModel):
 
 # ── interaction fingerprints (TASK-16) ──────────────────────────────────────
 
-#: The three contact types, in fingerprint bit order (ionic=0, …).
-IfpType = Literal["ionic", "hydrogen_bond", "hydrophobic"]
+#: Contact types in fingerprint bit order; old indices stay stable.
+IfpType = Literal[
+    "ionic",
+    "hydrogen_bond",
+    "hydrophobic",
+    "halogen_bond",
+    "metal_coordination",
+    "water_mediated",
+]
 
 
 class IfpJobRequest(BaseModel):
@@ -511,6 +529,60 @@ class CitationResponse(BaseModel):
 
     function: str
     citation: str
+
+
+class EnsembleReceptor(BaseModel):
+    """One receptor conformation in an ensemble."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    index: int = 0
+    path: str
+    label: str = ""
+    flexPath: str | None = None
+
+
+class EnsembleDockingRequest(BaseModel):
+    """One ligand docked into several receptor conformations (TASK-60-B).
+
+    The conformers must share the coordinate frame; the same box is used for
+    every run. This is ensemble docking, not induced fit.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    receptors: list[EnsembleReceptor]
+    ligandPath: str | None = None
+    ligandPdbqtString: str | None = None
+    center: tuple[float, float, float]
+    size: tuple[float, float, float]
+    scoring: ScoringFunction = "vina"
+    exhaustiveness: int = Field(default=8, ge=1, le=512)
+    nPoses: int = Field(default=20, ge=1, le=100)
+    energyRange: float = 3.0
+    minRmsd: float = 1.0
+    maxEvals: int = 0
+    cpu: int = 0
+    seed: int = 0
+    noRefine: bool = False
+    verbosity: int = 1
+    spacing: float = 0.375
+    forceEvenVoxels: bool = False
+    weights: list[float] | None = None
+    mapPaths: list[str] | None = None
+    engine: Literal["vina", "vina-cli"] = "vina"
+
+
+class EnsembleRow(BaseModel):
+    receptorIndex: int
+    label: str
+    receptorPath: str
+    status: str
+    bestAffinity: float | None = None
+    nPoses: int = 0
+    elapsedMs: int | None = None
+    outDir: str = ""
+    error: str = ""
 
 
 class BatchLigandItem(BaseModel):

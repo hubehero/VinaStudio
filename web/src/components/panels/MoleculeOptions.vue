@@ -23,6 +23,25 @@ const availableResidues = computed(() => {
 const selected = computed(() => new Set(props.mol.receptorOptions.flexibleResidues))
 const selectedCount = computed(() => props.mol.receptorOptions.flexibleResidues.length)
 
+/** Solvent groups offered by the preview; the keep field accepts their keys. */
+const solventGroups = computed(() => {
+  const preview = props.mol.preview
+  if (!preview || !('waters' in preview)) return []
+  return [...preview.waters, ...preview.hetero]
+})
+
+const keepText = computed(() =>
+  (props.mol.receptorOptions.keepResidues ?? []).join(', '),
+)
+
+function updateKeep(value: string): void {
+  const keys = value
+    .split(/[,;\s]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+  store.setKeepResidues(props.mol.id, [...new Set(keys)])
+}
+
 function toggleResidue(residue: string): void {
   const current = props.mol.receptorOptions.flexibleResidues
   const next = selected.value.has(residue)
@@ -108,6 +127,18 @@ function applySequenceRange(from: string, to: string): void {
           <span>{{ t('molecules.optionAllowBad') }}</span>
           <el-switch v-model="mol.receptorOptions.allowBadResidues" size="small" />
         </label>
+        <label class="options__item options__item--wide options__item--keep">
+          <span>{{ t('molecules.optionKeep') }}</span>
+          <el-input
+            :model-value="keepText"
+            size="small"
+            :placeholder="t('molecules.optionKeepPlaceholder')"
+            @update:model-value="updateKeep"
+          />
+        </label>
+        <p class="vs-faint option-note">
+          {{ t('molecules.optionKeepNote', { n: solventGroups.length }) }}
+        </p>
       </template>
       <template v-else>
         <label class="options__item">
@@ -216,6 +247,15 @@ function applySequenceRange(from: string, to: string): void {
 
 .options__item--wide {
   justify-content: flex-start;
+}
+
+.options__item--keep {
+  align-items: flex-start;
+}
+
+.options__item--keep :deep(.el-input) {
+  flex: 1;
+  min-width: 0;
 }
 
 .option-note {

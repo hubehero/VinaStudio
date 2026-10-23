@@ -35,6 +35,8 @@ def _to_report(report) -> ReceptorReport:  # type: ignore[no-untyped-def]
         inputResidues=report.input_residues,
         deletedWaters=list(report.deleted_waters),
         deletedHetero=list(report.deleted_hetero),
+        keptWaters=list(report.kept_waters),
+        keptHetero=list(report.kept_hetero),
         normalisedAtomOrder=report.normalised_atom_order,
         validResidues=report.valid_residues,
         ignoredResidues=list(report.ignored_residues),
@@ -44,6 +46,10 @@ def _to_report(report) -> ReceptorReport:  # type: ignore[no-untyped-def]
         includeHydrogens=report.include_hydrogens,
         warnings=list(report.warnings),
         residueList=list(report.residue_list),
+        altlocPolicy=report.altloc_policy,
+        removedAltlocResidues=list(report.removed_altloc_residues),
+        histidineStates=list(report.histidine_states),
+        assumptions=list(report.assumptions),
     )
 
 
@@ -93,6 +99,7 @@ def prepare(request: ReceptorPrepareRequest) -> ReceptorPreparationResponse:
             flexible_residues=tuple(chosen.flexibleResidues),
             allow_bad_residues=chosen.allowBadResidues,
             normalise_atom_order=chosen.normaliseAtomOrder,
+            keep_residues=tuple(chosen.keepResidues),
         ),
     )
 

@@ -10,6 +10,7 @@ import { useDockingStore } from '@/stores/docking'
 import { useMoleculeStore } from '@/stores/molecules'
 import { useSettingsStore } from '@/stores/settings'
 import type { DepictData, InteractionData } from '@/types/api'
+import { downloadTextFile } from '@/utils/download'
 
 import Interactions2D from './Interactions2D.vue'
 
@@ -55,7 +56,7 @@ const interactionError = ref<string | null>(null)
  */
 const depict = ref<DepictData | null>(null)
 const fullInteractions = ref<InteractionData[]>([])
-const view = ref<'table' | '2d'>('table')
+const view = ref<'table' | 'residues' | '2d'>('table')
 const selectedResidue = ref<string | null>(null)
 const map2d = ref<{ exportSvg: () => void } | null>(null)
 
@@ -147,6 +148,73 @@ const selectedResidueLabel = computed(() => {
   return row ? formatResidue(row) : ''
 })
 
+interface ResidueSummaryRow {
+  key: string
+  label: string
+  types: InteractionData['type'][]
+  count: number
+  minDistance: number
+}
+
+const residueSummary = computed<ResidueSummaryRow[]>(() => {
+  const groups = new Map<string, ResidueSummaryRow>()
+  for (const row of interactions.value) {
+    const key = residueKey(row)
+    const existing = groups.get(key)
+    if (existing) {
+      existing.count += 1
+      existing.minDistance = Math.min(existing.minDistance, row.distance)
+      if (!existing.types.includes(row.type)) existing.types.push(row.type)
+    } else {
+      groups.set(key, {
+        key,
+        label: formatResidue(row),
+        types: [row.type],
+        count: 1,
+        minDistance: row.distance,
+      })
+    }
+  }
+  return [...groups.values()].sort((a, b) => a.minDistance - b.minDistance)
+})
+
+function exportInteractionsCsv(): void {
+  const header = [
+    'type',
+    'receptorResidue',
+    'receptorChain',
+    'receptorResSeq',
+    'receptorAtom',
+    'ligandAtom',
+    'distance',
+    'waterResidue',
+    'waterDistance',
+  ]
+  const escape = (value: unknown): string => {
+    const text = value === undefined || value === null ? '' : String(value)
+    return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
+  }
+  const lines = [header.join(',')]
+  for (const row of fullInteractions.value) {
+    lines.push(
+      [
+        row.type,
+        row.receptorResidue,
+        row.receptorChain,
+        row.receptorResSeq,
+        row.receptorAtom,
+        row.ligandAtom,
+        row.distance.toFixed(2),
+        row.waterResidue ?? '',
+        row.waterDistance?.toFixed(2) ?? '',
+      ]
+        .map(escape)
+        .join(','),
+    )
+  }
+  downloadTextFile(lines.join('\n') + '\n', 'interactions.csv', 'text/csv')
+}
+
 function clearInteractions(): void {
   interactions.value = []
   fullInteractions.value = []
@@ -178,11 +246,25 @@ function clearInteractions(): void {
           {{ t('docking.interactions.clear') }}
         </ElButton>
         <ElButton
+          v-if="fullInteractions.length > 0"
+          size="small"
+          @click="view = view === 'residues' ? 'table' : 'residues'"
+        >
+          {{ view === 'residues' ? t('docking.interactions.contactView') : t('docking.interactions.residueView') }}
+        </ElButton>
+        <ElButton
           v-if="depict && interactions.length > 0"
           size="small"
           @click="view = view === '2d' ? 'table' : '2d'"
         >
           {{ view === '2d' ? t('docking.interactions2d.viewTable') : t('docking.interactions2d.view2d') }}
+        </ElButton>
+        <ElButton
+          v-if="fullInteractions.length > 0"
+          size="small"
+          @click="exportInteractionsCsv"
+        >
+          {{ t('docking.interactions.exportCsv') }}
         </ElButton>
         <ElButton
           v-if="view === '2d' && depict && interactions.length > 0"
@@ -223,6 +305,35 @@ function clearInteractions(): void {
           :selected-key="selectedResidue"
           @select-residue="selectResidue"
         />
+        <div v-else-if="view === 'residues'" class="interactions__table-wrap">
+          <table class="interactions__table">
+            <thead>
+              <tr>
+                <th>{{ t('docking.interactions.table.residue') }}</th>
+                <th>{{ t('docking.interactions.table.types') }}</th>
+                <th>{{ t('docking.interactions.table.contacts') }}</th>
+                <th>{{ t('docking.interactions.table.minDistance') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in residueSummary" :key="row.key">
+                <td>{{ row.label }}</td>
+                <td>
+                  <span
+                    v-for="type in row.types"
+                    :key="type"
+                    class="interactions__type-badge"
+                    :class="`interactions__type-badge--${type}`"
+                  >
+                    {{ t(`docking.interactions.types.${type}`) }}
+                  </span>
+                </td>
+                <td>{{ row.count }}</td>
+                <td>{{ row.minDistance.toFixed(2) }} Å</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         <div v-else class="interactions__table-wrap">
           <table class="interactions__table">
             <thead>

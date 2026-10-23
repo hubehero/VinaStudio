@@ -30,6 +30,7 @@ export const DEFAULT_RECEPTOR_OPTIONS: ReceptorOptions = {
   flexibleResidues: [],
   allowBadResidues: false,
   normaliseAtomOrder: true,
+  keepResidues: [],
 }
 
 export function describeFailure(error: unknown): PreparationFailure {

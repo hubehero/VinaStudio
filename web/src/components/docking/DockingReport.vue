@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { DataAnalysis, Download } from '@element-plus/icons-vue'
 import { ElButton, ElIcon, ElMessage, ElProgress } from 'element-plus'
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { saveTextFile } from '@/api/bridge'
 import { api } from '@/api/http'
+import HelpLink from '@/components/HelpLink.vue'
 import StatusPill from '@/components/StatusPill.vue'
 import DockingCharts from '@/components/docking/analysis/DockingCharts.vue'
 import IfpSection from '@/components/docking/IfpSection.vue'
@@ -178,6 +179,55 @@ const clusterRows = computed(() =>
 
 const logExcerpt = computed(() => docking.logLines.slice(-8))
 
+// -- figure caption (TASK-47-C) ---------------------------------------------
+// The caption is deliberately explicit about what the figure is not: the
+// numbers are scoring-function estimates, overlays are colours only, and no
+// electrostatic potential is drawn.
+const appVersion = ref('')
+
+onMounted(async () => {
+  try {
+    appVersion.value = (await api.systemInfo()).app.version
+  } catch {
+    // Keep the caption usable; the version is not a scientific result.
+  }
+})
+
+function paramText(key: string): string {
+  const value = docking.jobResult?.params?.[key]
+  if (value === undefined || value === null || value === '') return '—'
+  return String(value)
+}
+
+function vectorText(key: string): string {
+  const value = docking.jobResult?.params?.[key]
+  if (!Array.isArray(value) || value.length !== 3) return '—'
+  return value.map((item) => Number(item).toFixed(3)).join(', ')
+}
+
+const figureCaption = computed(() =>
+  t('docking.figureCaption.text', {
+    label: jobLabel.value,
+    version: appVersion.value || '—',
+    scoring: scoringText.value,
+    exhaustiveness: paramText('exhaustiveness'),
+    seed: paramText('seed'),
+    center: vectorText('center'),
+    size: vectorText('size'),
+    poses: docking.poses.length,
+    best: docking.bestAffinity === null ? '—' : docking.bestAffinity.toFixed(2),
+  }),
+)
+
+async function copyCaption(): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(figureCaption.value)
+    ElMessage.success(t('docking.figureCaption.copied'))
+  } catch {
+    ElMessage.error(t('docking.figureCaption.failed'))
+  }
+}
+
 // -- actions -----------------------------------------------------------------
 
 async function downloadCsv(): Promise<void> {
@@ -217,6 +267,9 @@ async function downloadCsv(): Promise<void> {
     </div>
 
     <div class="vs-card__body report__body">
+      <div v-if="docking.status === 'failed'" class="report__help">
+        <HelpLink topic="dockingFailed" />
+      </div>
       <!-- Empty: nothing run yet. -->
       <div v-if="!docking.hasResult && !docking.isRunning" class="report__empty">
         <ElIcon :size="26"><DataAnalysis /></ElIcon>
@@ -399,6 +452,14 @@ async function downloadCsv(): Promise<void> {
           <summary>{{ t('docking.resultsReport.logTitle') }}</summary>
           <pre>{{ logExcerpt.join('\n') }}</pre>
         </details>
+
+        <section class="report-section report-caption">
+          <h4 class="report-section__title">{{ t('docking.figureCaption.title') }}</h4>
+          <p class="report-caption__text">{{ figureCaption }}</p>
+          <ElButton size="small" @click="copyCaption">
+            {{ t('docking.figureCaption.copy') }}
+          </ElButton>
+        </section>
 
         <!-- Footer action -->
         <ElButton
@@ -729,6 +790,14 @@ async function downloadCsv(): Promise<void> {
   cursor: pointer;
   font-size: 11.5px;
   color: var(--vs-text-muted);
+}
+
+.report-caption__text {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--vs-text-muted);
+  white-space: pre-wrap;
 }
 
 .report-log pre {

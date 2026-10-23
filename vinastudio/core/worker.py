@@ -534,3 +534,129 @@ def site_screening_worker(params: dict[str, Any], pipe: Connection) -> None:
         reader.join(timeout=2.0)
         os.close(read_fd)
         pipe.close()
+
+
+def ensemble_worker(params: dict[str, Any], pipe: Connection) -> None:
+    """Dock one ligand into several receptor conformations (TASK-60-B).
+
+    One worker keeps the ranking and winning pose in one place. Each
+    conformation writes its own directory; the terminal event carries only the
+    winning conformation's poses, while every row records its outDir so the
+    summary remains auditable.
+    """
+    from pathlib import Path
+
+    params = dict(params)
+    params.pop("job_id", "unknown")
+    output_dir = params.pop("output_dir", "")
+    receptors = list(params.get("receptors", []))
+
+    read_fd, saved_stdout = _capture_stdout()
+    import threading
+
+    reader = threading.Thread(target=_read_and_parse, args=(pipe, read_fd), daemon=True)
+    reader.start()
+
+    _emit(pipe, "stage", {"stage": "docking", "totalLigands": len(receptors)})
+    best_result = None
+    best_affinity: float | None = None
+    best_receptor: str | None = None
+    elapsed_total = 0
+
+    try:
+        from vinastudio.core.docking import DockingParams, run_docking
+
+        for position, receptor in enumerate(receptors):
+            index = int(receptor.get("index", position))
+            label = str(receptor.get("label") or f"conformer-{index}")
+            receptor_path = str(receptor.get("path") or "")
+            _emit(pipe, "ensemble_progress", {
+                "receptorIndex": index, "label": label, "status": "running",
+            })
+            try:
+                run_dir = (
+                    Path(output_dir) / f"conformer-{index:03d}"
+                    if output_dir else Path(f"conformer-{index:03d}")
+                )
+                run_dir.mkdir(parents=True, exist_ok=True)
+                result = run_docking(
+                    DockingParams(
+                        receptor_path=receptor_path,
+                        flex_pdbqt_path=receptor.get("flexPath") or params.get("flex_pdbqt_path"),
+                        ligand_path=params.get("ligand_path"),
+                        ligand_pdbqt_string=params.get("ligand_pdbqt_string"),
+                        center=tuple(params.get("center", (0.0, 0.0, 0.0))),
+                        size=tuple(params.get("size", (20.0, 20.0, 20.0))),
+                        scoring=params.get("scoring", "vina"),
+                        exhaustiveness=params.get("exhaustiveness", 8),
+                        n_poses=params.get("n_poses", 10),
+                        energy_range=params.get("energy_range", 3.0),
+                        min_rmsd=params.get("min_rmsd", 1.0),
+                        max_evals=params.get("max_evals", 0),
+                        cpu=params.get("cpu", 0),
+                        seed=params.get("seed", 0),
+                        no_refine=params.get("no_refine", False),
+                        verbosity=params.get("verbosity", 1),
+                        spacing=params.get("spacing", 0.375),
+                        force_even_voxels=params.get("force_even_voxels", False),
+                        weights=params.get("weights"),
+                        map_paths=receptor.get("mapPaths") or params.get("map_paths"),
+                        engine=params.get("engine", "vina"),
+                    ),
+                    str(run_dir),
+                )
+            except Exception as exc:  # one bad conformer must not sink the ensemble
+                log.exception("ensemble docking failed for %s", label)
+                _emit(pipe, "ensemble_completed", {
+                    "receptorIndex": index,
+                    "label": label,
+                    "receptorPath": receptor_path,
+                    "status": "failed",
+                    "error": str(exc),
+                })
+            else:
+                affinity = min((pose.affinity for pose in result.poses), default=None)
+                elapsed_total += result.elapsed_ms
+                if affinity is not None and (best_affinity is None or affinity < best_affinity):
+                    best_affinity = affinity
+                    best_result = result
+                    best_receptor = label
+                _emit(pipe, "ensemble_completed", {
+                    "receptorIndex": index,
+                    "label": label,
+                    "receptorPath": receptor_path,
+                    "status": "completed",
+                    "bestAffinity": affinity,
+                    "nPoses": result.n_poses,
+                    "elapsedMs": result.elapsed_ms,
+                    "outDir": f"conformer-{index:03d}",
+                })
+            _emit(pipe, "progress", {
+                "percent": int((position + 1) / max(1, len(receptors)) * 100),
+            })
+
+        _emit(pipe, "completed", {
+            "poses": [
+                {
+                    "index": pose.index,
+                    "affinity": pose.affinity,
+                    "rmsdLower": pose.rmsd_lower,
+                    "rmsdUpper": pose.rmsd_upper,
+                }
+                for pose in (best_result.poses if best_result else [])
+            ],
+            "bestAffinity": best_affinity if best_affinity is not None else 0.0,
+            "nPoses": best_result.n_poses if best_result else 0,
+            "elapsedMs": elapsed_total,
+            "posesPdbqt": best_result.poses_pdbqt if best_result else "",
+            "posesSdf": best_result.poses_sdf if best_result else "",
+            "bestReceptor": best_receptor,
+        })
+    except Exception as exc:
+        log.exception("ensemble worker failed")
+        _emit(pipe, "failed", {"error": str(exc)})
+    finally:
+        _restore_stdout(saved_stdout)
+        reader.join(timeout=2.0)
+        os.close(read_fd)
+        pipe.close()

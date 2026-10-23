@@ -123,12 +123,17 @@ A receptor is the protein you dock into. VinaStudio accepts PDB and mmCIF files.
 2. The manager inspects the file and proposes a type. If it guesses wrong, set it
    to **Receptor** explicitly.
 3. Open the preparation options. The defaults remove waters and non-polymer
-   groups; keep them unless you have a reason not to. Flexible side chains can be
-   picked here as well.
+   groups; keep them unless you have a reason not to. To retain a structural
+   water or metal, enter its residue key (for example `B:601`) in **Keep selected
+   water/metal**. Flexible side chains can be picked here as well.
 4. Run the preparation. The result is a **PDBQT** file — the format Vina reads.
 5. Check the summary: residue and atom counts, any ignored residues, and the
    warnings. A drop in atom count is expected: PDBQT keeps heavy atoms and polar
-   hydrogens only.
+   hydrogens only. The report lists every water/hetero group deleted or kept,
+   HID/HIE/HIP histidine states, the altloc policy, and residues removed for
+   altloc. Protonation and formal charges follow the input and Meeko templates;
+   missing atoms/loops are not rebuilt. Those assumptions are shown in the
+   report and in the Methods text for a single docking run.
 
 If Meeko rejects residues because their atoms are split across the file, the
 application offers to normalise the atom order and retry. This changes nothing
@@ -196,6 +201,12 @@ Press **Run**. The job starts in a separate process, so the interface stays
 responsive; progress and the engine log stream into the panel, and **Cancel**
 actually stops the run by terminating that process.
 
+If you have several receptor conformers, enable **Ensemble conformers**, select
+at least two prepared receptors and run. Each conformer is docked separately
+with the same box; the result lists its best affinity and marks the winning
+conformer. This is ensemble docking, not induced fit/IFD, and the conformers
+must already share a coordinate frame.
+
 Docking time depends on the box, the ligand and the exhaustiveness. A small
 1iep run takes seconds; a large box with high exhaustiveness can take minutes.
 The time is shown when the job finishes.
@@ -212,13 +223,18 @@ best-scoring pose, in kcal/mol.
 - **RMSD (lower/upper bound)** describes how different a pose is from the best
   one.
 - The **3D viewport** draws the selected pose with the receptor. Pose navigation
-  swaps the ligand without moving your camera.
+  swaps the ligand without moving your camera. **Overlay all poses** shows the
+  first 20 poses in distinct colours (a visual comparison, not an alignment or
+  an energy scale).
 - The **analysis** panels add geometric validation, redocking RMSD against a
   reference, clustering and interaction detection. These are report-only: they
   never re-dock or edit coordinates.
-- **Interactions** are shown for the pose you selected, using geometric cutoffs
-  for ionic contacts, hydrogen bonds and hydrophobic contacts. The 2D diagram
-  gives the same contacts as a readable map.
+- **Interactions** are shown for the pose you selected: ionic/salt-bridge
+  candidates, hydrogen bonds, hydrophobic contacts, halogen bonds (a
+  distance-only candidate), metal coordination and water-mediated contacts.
+  Metals/waters must have been retained during receptor preparation. The 2D
+  diagram gives the same contacts as a readable map; the residue summary groups
+  them and the CSV export keeps the raw rows. There is no π-stacking.
 
 **Export** provides CSV, a self-contained HTML report, and a result bundle. The
 report records the parameters the run actually used, so it can be pasted into a
@@ -234,6 +250,27 @@ Use **Import bundle** on the report page and choose a zip exported by
 VinaStudio. The bundle is restored as a new read-only result in the current
 workspace, with its poses, parameters and log; it never overwrites the current
 project.
+
+### 9.2 Searchable help
+
+Open **Help** and search by symptom (preparation failure, missing files, AD4 maps,
+no candidate site, failed jobs, Windows SmartScreen, flicker). Failure cards and
+warnings link straight to the matching entry. Deeper references: `docs/USER_GUIDE.md`
+and `docs/WINDOWS.md`.
+
+### 9.3 Keyboard and undo
+
+Press **Ctrl/Cmd+K** for the command palette (pages, settings, theme and language).
+**Ctrl/Cmd+Z** undoes the last destructive action (delete a molecule, clear the
+list, delete a saved view); deletions ask first. Press **?** for the full shortcut
+list. Text fields keep their own Ctrl/Cmd+Z.
+
+### 9.4 Organising results
+
+**Results Search** supports favourites, tags, bulk tagging and saved filter
+views. The index upgrades automatically; re-indexing a run keeps its tags and
+favourite. Results load 50 at a time; press **Load more** for older runs, and a
+new search or filter resets to the first page.
 
 ---
 

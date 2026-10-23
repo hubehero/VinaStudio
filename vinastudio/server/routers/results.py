@@ -16,7 +16,7 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from vinastudio.core import results_db
 from vinastudio.core.chem.ifp import (
@@ -32,11 +32,19 @@ from vinastudio.core.errors import InvalidInputError
 from vinastudio.core.paths import resolve_within
 from vinastudio.schemas.docking import IfpClusterRow
 from vinastudio.schemas.results import (
+    BulkUpdateRequest,
+    BulkUpdateResponse,
     IfpGroupLigandRow,
     IfpGroupRequest,
     IfpGroupResponse,
     ResultRunDetail,
     ResultRunSummary,
+    RunUpdateRequest,
+    RunUpdateResponse,
+    SavedView,
+    SavedViewCreate,
+    SavedViewFilters,
+    TagCount,
 )
 
 log = logging.getLogger(__name__)
@@ -54,13 +62,106 @@ _ifp_cluster_cache_lock = threading.Lock()
 
 
 @router.get("/search", response_model=list[ResultRunSummary])
-def search_results(q: str = "", limit: int = results_db.DEFAULT_LIMIT) -> list[ResultRunSummary]:
+def search_results(
+    q: str = "",
+    limit: int = results_db.DEFAULT_LIMIT,
+    offset: int = 0,
+    favorites: bool = False,
+    tags: str = "",
+) -> list[ResultRunSummary]:
+    wanted = [tag.strip() for tag in tags.split(",") if tag.strip()]
     try:
-        rows = results_db.search_runs(q, limit=limit)
+        rows = results_db.search_runs(
+            q, limit=limit, offset=offset, favorites=favorites, tags=wanted
+        )
     except _DEGRADED_ON as exc:
         log.warning("results search degraded: %s", exc, exc_info=True)
         return []
     return [ResultRunSummary(**row) for row in rows]
+
+
+@router.get("/tags", response_model=list[TagCount])
+def list_tags() -> list[TagCount]:
+    try:
+        return [TagCount(**row) for row in results_db.list_tags()]
+    except _DEGRADED_ON as exc:
+        log.warning("results tags degraded: %s", exc, exc_info=True)
+        return []
+
+
+@router.patch("/runs/{job_id}", response_model=RunUpdateResponse)
+def update_run(job_id: str, request: RunUpdateRequest) -> RunUpdateResponse:
+    if request.favorite is None and request.tags is None:
+        raise InvalidInputError("favorite or tags is required")
+    try:
+        if request.favorite is not None and not results_db.set_run_favorite(
+            job_id, request.favorite
+        ):
+            raise HTTPException(status_code=404, detail="run not found")
+        if request.tags is not None and not results_db.set_run_tags(job_id, request.tags):
+            raise HTTPException(status_code=404, detail="run not found")
+    except ValueError as exc:
+        raise InvalidInputError(str(exc)) from exc
+    org = results_db.get_run_organization(job_id)
+    if org is None:
+        raise HTTPException(status_code=404, detail="run not found")
+    return RunUpdateResponse(
+        jobId=job_id, favorite=bool(org["favorite"]), tags=list(org["tags"])
+    )
+
+
+@router.post("/runs/bulk", response_model=BulkUpdateResponse)
+def bulk_update(request: BulkUpdateRequest) -> BulkUpdateResponse:
+    try:
+        updated = results_db.bulk_update_runs(
+            request.runIds,
+            favorite=request.favorite,
+            add_tags=request.addTags,
+            remove_tags=request.removeTags,
+        )
+    except ValueError as exc:
+        raise InvalidInputError(str(exc)) from exc
+    return BulkUpdateResponse(updated=updated)
+
+
+@router.get("/views", response_model=list[SavedView])
+def list_views() -> list[SavedView]:
+    try:
+        rows = results_db.list_views()
+    except _DEGRADED_ON as exc:
+        log.warning("results views degraded: %s", exc, exc_info=True)
+        return []
+    return [
+        SavedView(
+            id=row["id"],
+            name=row["name"],
+            filters=SavedViewFilters(**row["filters"]),
+            createdAt=row["createdAt"],
+        )
+        for row in rows
+    ]
+
+
+@router.post("/views", response_model=SavedView)
+def save_view(request: SavedViewCreate) -> SavedView:
+    try:
+        row = results_db.save_view(
+            request.name, request.filters.model_dump()
+        )
+    except ValueError as exc:
+        raise InvalidInputError(str(exc)) from exc
+    return SavedView(
+        id=row["id"],
+        name=row["name"],
+        filters=SavedViewFilters(**row["filters"]),
+        createdAt=row["createdAt"],
+    )
+
+
+@router.delete("/views/{view_id}", status_code=204)
+def delete_view(view_id: int) -> None:
+    if not results_db.delete_view(view_id):
+        raise HTTPException(status_code=404, detail="view not found")
 
 
 @router.get("/compare", response_model=list[ResultRunDetail])

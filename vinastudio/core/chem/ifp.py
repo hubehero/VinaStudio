@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import Any
 
 from vinastudio.core.chem.autodock_types import element_for
+from vinastudio.core.chem.pdb_lines import WATER_RESIDUES
 from vinastudio.core.errors import InvalidInputError, brief_error
 
 #: Contact thresholds in Angstrom, applied per interaction type.  The caller's
@@ -21,13 +22,20 @@ from vinastudio.core.errors import InvalidInputError, brief_error
 HYDROGEN_BOND_MAX_DISTANCE = 3.5
 HYDROPHOBIC_MAX_DISTANCE = 4.0
 IONIC_MAX_DISTANCE = 4.0
+HALOGEN_BOND_MAX_DISTANCE = 3.5
+METAL_COORDINATION_MAX_DISTANCE = 3.0
+WATER_MEDIATED_MAX_DISTANCE = 3.5
 
 #: The widest rule above, so the default radius starves nothing.
 DEFAULT_DISTANCE_CUTOFF = 4.0
 
 #: Elements that take part in the contacts reported here.  Carbon is required
-#: for hydrophobic contacts; hydrogens and metals are not contacts.
-INTERACTION_ELEMENTS = frozenset({"C", "N", "O", "S", "F", "Cl", "Br"})
+#: for hydrophobic contacts; hydrogens are not contacts.  Metals are parsed
+#: separately so they can be reported as coordination, never as hydrophobic.
+INTERACTION_ELEMENTS = frozenset({"C", "N", "O", "S", "F", "Cl", "Br", "I"})
+METAL_ELEMENTS = frozenset({"Mg", "Mn", "Zn", "Ca", "Fe", "Cu", "Ni", "Co", "Cd", "Hg"})
+HALOGEN_ELEMENTS = frozenset({"F", "Cl", "Br", "I"})
+WATER_BRIDGE_ELEMENTS = frozenset({"N", "O", "S"})
 
 _POLAR_ELEMENTS = frozenset({"N", "O"})
 _HYDROPHOBIC_ELEMENTS = frozenset({"C", "S"})
@@ -50,7 +58,16 @@ CHARGED_SIDECHAIN_ATOMS = frozenset({
 #: The three contact types as wire columns; fingerprint bit order is the same
 #: sequence (ionic=0, hydrogen_bond=1, hydrophobic=2) so a matrix built from
 #: bits and a table built from names can never disagree.
-CONTACT_TYPES: tuple[str, ...] = ("ionic", "hydrogen_bond", "hydrophobic")
+#: Contact types in wire order.  The first three indices are stable because
+#: fingerprints and persisted results encode them; new types append.
+CONTACT_TYPES: tuple[str, ...] = (
+    "ionic",
+    "hydrogen_bond",
+    "hydrophobic",
+    "halogen_bond",
+    "metal_coordination",
+    "water_mediated",
+)
 CONTACT_TYPE_ORDER: dict[str, int] = {name: i for i, name in enumerate(CONTACT_TYPES)}
 
 
@@ -74,7 +91,7 @@ def parse_receptor_atoms(path: str) -> list[dict[str, Any]]:
                     atom = _parse_pdb_atom(line, is_pdbqt=is_pdbqt)
                     if atom:
                         parsed += 1
-                        if atom["element"] in INTERACTION_ELEMENTS:
+                        if atom["element"] in INTERACTION_ELEMENTS or atom.get("metal"):
                             atoms.append(atom)
     except OSError as exc:
         raise InvalidInputError(f"cannot read receptor file {path}: {brief_error(exc)}") from exc
@@ -175,6 +192,9 @@ def parse_ligand_sdf(content: str) -> list[dict[str, Any]]:
                         "atom": element,
                         "residue": "LIG",
                         "element": element,
+                        "charge": 0.0,
+                        "metal": element in METAL_ELEMENTS,
+                        "water": False,
                     })
             except (ValueError, IndexError):
                 continue
@@ -214,6 +234,12 @@ def _parse_pdb_atom(line: str, *, is_pdbqt: bool) -> dict[str, Any] | None:
         else:
             element = column.capitalize() if column else element_for(atom, "")
 
+        charge = 0.0
+        if is_pdbqt and len(line) >= 76:
+            try:
+                charge = float(line[70:76].strip() or 0.0)
+            except ValueError:
+                charge = 0.0
         return {
             "x": x,
             "y": y,
@@ -225,6 +251,9 @@ def _parse_pdb_atom(line: str, *, is_pdbqt: bool) -> dict[str, Any] | None:
             "icode": icode,
             "element": element,
             "charged": (residue, atom) in CHARGED_SIDECHAIN_ATOMS,
+            "charge": charge,
+            "metal": element in METAL_ELEMENTS,
+            "water": residue.upper() in WATER_RESIDUES,
         }
     except (ValueError, IndexError):
         return None
@@ -247,6 +276,26 @@ def classify_contact(
     """
     r_element = receptor["element"]
     l_element = ligand["element"]
+
+    # Metal coordination: a retained metal ion and a ligand donor atom.  The
+    # metal must be present in the receptor PDBQT; the preparation report says
+    # whether it was kept.
+    if (
+        receptor.get("metal")
+        and l_element in WATER_BRIDGE_ELEMENTS
+        and distance <= METAL_COORDINATION_MAX_DISTANCE
+    ):
+        return "metal_coordination"
+
+    # Halogen bond: a receptor polar atom and a ligand halogen.  This is a
+    # distance-only candidate; the C-X...A angle is not available from PDBQT,
+    # so the UI labels it as a candidate rather than a confirmed bond.
+    if (
+        r_element in WATER_BRIDGE_ELEMENTS
+        and l_element in HALOGEN_ELEMENTS
+        and distance < HALOGEN_BOND_MAX_DISTANCE
+    ):
+        return "halogen_bond"
 
     # Ionic interactions: a charged receptor side chain facing a polar ligand atom
     if (
@@ -277,6 +326,13 @@ def classify_contact(
     return None
 
 
+def _distance(a: dict[str, Any], b: dict[str, Any]) -> float:
+    dx = a["x"] - b["x"]
+    dy = a["y"] - b["y"]
+    dz = a["z"] - b["z"]
+    return (dx * dx + dy * dy + dz * dz) ** 0.5
+
+
 def find_contacts(
     receptor_atoms: list[dict[str, Any]],
     ligand_atoms: list[dict[str, Any]],
@@ -293,6 +349,9 @@ def find_contacts(
 
     contacts: list[tuple[dict[str, Any], dict[str, Any], float, str]] = []
     for r_atom in receptor_atoms:
+        # Water is handled as a bridge below, never as a direct receptor atom.
+        if r_atom.get("water"):
+            continue
         for l_atom in ligand_atoms:
             dx = r_atom["x"] - l_atom["x"]
             dy = r_atom["y"] - l_atom["y"]
@@ -303,6 +362,44 @@ def find_contacts(
                 inter_type = classify_contact(r_atom, l_atom, dist)
                 if inter_type:
                     contacts.append((r_atom, l_atom, dist, inter_type))
+
+    # Water-mediated contacts: ligand donor/acceptor -> water -> receptor polar
+    # atom.  The output row names the receptor bridge (not the water) and
+    # carries the water coordinates in a nested ``water`` dict.
+    waters = [
+        atom for atom in receptor_atoms
+        if atom.get("water") and atom.get("element") == "O"
+    ]
+    bridges = [
+        atom for atom in receptor_atoms
+        if not atom.get("water") and not atom.get("metal")
+        and atom.get("element") in WATER_BRIDGE_ELEMENTS
+    ]
+    if waters and bridges:
+        for water in waters:
+            for ligand in ligand_atoms:
+                if ligand.get("element") not in WATER_BRIDGE_ELEMENTS:
+                    continue
+                dlw = _distance(water, ligand)
+                if dlw > min(WATER_MEDIATED_MAX_DISTANCE, distance_cutoff):
+                    continue
+                for bridge in bridges:
+                    dbw = _distance(bridge, water)
+                    if dbw > min(WATER_MEDIATED_MAX_DISTANCE, distance_cutoff):
+                        continue
+                    row = dict(bridge)
+                    row["water"] = {
+                        "residue": water.get("residue", ""),
+                        "chain": water.get("chain", ""),
+                        "resSeq": water.get("resSeq", ""),
+                        "atom": water.get("atom", ""),
+                        "x": water["x"],
+                        "y": water["y"],
+                        "z": water["z"],
+                    }
+                    row["waterDistance"] = round(float(dlw), 2)
+                    row["bridgeDistance"] = round(float(dbw), 2)
+                    contacts.append((row, ligand, dlw, "water_mediated"))
     return contacts
 
 

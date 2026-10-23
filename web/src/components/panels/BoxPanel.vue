@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import HelpLink from '@/components/HelpLink.vue'
 import StatusPill from '@/components/StatusPill.vue'
 import MoleculeSelect from '@/components/common/MoleculeSelect.vue'
 import { useBoxStore } from '@/stores/box'
@@ -354,6 +355,12 @@ function setSizeAxis(axis: 0 | 1 | 2, value: number | undefined): void {
         >
           {{ t('box.pockets.empty') }}
         </p>
+        <div
+          v-if="box.pocketsError || (pocketsAttempted && box.pockets.length === 0)"
+          class="pockets__help"
+        >
+          <HelpLink topic="noSiteFound" />
+        </div>
         <ol v-else-if="box.pockets.length > 0" class="pockets__list">
           <li
             v-for="candidate in box.pockets"

@@ -58,6 +58,43 @@ function readBoolean(source: Record<string, unknown>, key: string): boolean {
   return source[key] === true
 }
 
+interface PreparationSummary {
+  deletedWaters: number
+  deletedHetero: number
+  keptWaters: number
+  keptHetero: number
+  ignoredResidues: number
+  histidineStates: string[]
+  altlocPolicy: string
+  removedAltlocResidues: number
+}
+
+function readPreparation(params: Record<string, unknown>): PreparationSummary | null {
+  const value = params['preparation']
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const source = value as Record<string, unknown>
+  const count = (key: string): number => {
+    const raw = source[key]
+    return typeof raw === 'number' && Number.isFinite(raw) ? raw : 0
+  }
+  const states = Array.isArray(source['histidineStates'])
+    ? source['histidineStates'].filter((item): item is string => typeof item === 'string')
+    : []
+  return {
+    deletedWaters: count('deletedWaters'),
+    deletedHetero: count('deletedHetero'),
+    keptWaters: count('keptWaters'),
+    keptHetero: count('keptHetero'),
+    ignoredResidues: count('ignoredResidues'),
+    histidineStates: states,
+    altlocPolicy:
+      typeof source['altlocPolicy'] === 'string' && source['altlocPolicy'].length > 0
+        ? source['altlocPolicy']
+        : 'blank/default',
+    removedAltlocResidues: count('removedAltlocResidues'),
+  }
+}
+
 function readTriple(source: Record<string, unknown>, key: string): [number, number, number] | null {
   const value = source[key]
   if (!Array.isArray(value) || value.length !== 3) return null
@@ -134,6 +171,32 @@ export function buildMethodsText(input: MethodsInput, lang: MethodsLang): Method
       zh
         ? `受体文件为 ${receptor}，配体为 ${ligand}${flexClause}。`
         : `The receptor was ${receptor} and the ligand ${ligand}${flexClause}.`,
+    )
+  }
+
+  // ②b receptor preparation decisions (only when the caller recorded them)
+  const preparation = readPreparation(params)
+  if (preparation) {
+    const states =
+      preparation.histidineStates.length > 0
+        ? preparation.histidineStates.slice(0, 6).join(', ') +
+          (preparation.histidineStates.length > 6
+            ? zh
+              ? ` 等 ${preparation.histidineStates.length} 个`
+              : ` and ${preparation.histidineStates.length - 6} more`
+            : '')
+        : zh
+          ? '未记录'
+          : 'not recorded'
+    sentences.push(
+      zh
+        ? `受体准备删除 ${preparation.deletedWaters} 个水分子、${preparation.deletedHetero} 个非水 HETATM 基团；保留 ${preparation.keptWaters} 个水、${preparation.keptHetero} 个非水基团；${preparation.ignoredResidues} 个残基因模板不匹配被排除；组氨酸状态：${states}；altloc 策略：${preparation.altlocPolicy}，因 altloc 移除 ${preparation.removedAltlocResidues} 个残基。`
+        : `Receptor preparation removed ${preparation.deletedWaters} water molecule(s) and ${preparation.deletedHetero} non-water HETATM group(s); kept ${preparation.keptWaters} water(s) and ${preparation.keptHetero} non-water group(s); ${preparation.ignoredResidues} residue(s) were excluded by template matching; histidine states: ${states}; altloc policy: ${preparation.altlocPolicy}, removing ${preparation.removedAltlocResidues} residue(s) for altloc.`,
+    )
+    sentences.push(
+      zh
+        ? '质子化与形式电荷继承输入结构和 Meeko 模板，缺失原子/loop 未重建；这些是本次方法学的已知边界。'
+        : 'Protonation and formal charges follow the input structure and Meeko templates; missing atoms/loops were not rebuilt. These are known boundaries of this protocol.',
     )
   }
 

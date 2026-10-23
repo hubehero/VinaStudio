@@ -41,6 +41,8 @@ class DockingParams:
     map_paths: list[str] | None = None
     map_prefix: str | None = None
     """Pre-computed map prefix (from ``precompute_vina_maps``). Overrides ``map_paths``."""
+    preparation: dict[str, object] | None = None
+    """Receptor-preparation metadata for job.json/Methods; unused by docking."""
     engine: str = "vina"
     """Which engine, and optionally which door: ``"vina"`` is the default and means
     "the Vina engine, whichever backend this machine can run"; ``"vina-cli"`` asks

@@ -12,6 +12,8 @@ entries about the product — no internal task ids or workflow narration.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-23
+
 ### 新增
 
 - **设置 → 通用 → 检查更新**：手动检查 GitHub Releases；有新版本时打开官方
@@ -20,6 +22,27 @@ entries about the product — no internal task ids or workflow narration.
   可查看构象、参数与日志；不覆盖当前项目。
 - **结果包保存位置**：导出结果包写入工作区 `exports/result-bundles/`，文件名带
   时间与 jobId；每次导出新增文件，成功提示显示绝对路径。
+- **出版图形导出**：3D 视口支持 1×/2×/3× PNG；2D 相互作用图可单独导出 SVG。
+- **构象叠合**：结果页可叠合前 20 个构象，颜色只区分姿态，不代表能量。
+- **可复制图注**：报告页生成含参数/口径的图注，明确预测性质与“未绘制静电势”。
+- **结果整理**：历史检索支持收藏、标签、批量打标和保存筛选视图；索引自动升级，
+  重建索引不会清掉标签/收藏。检索每页 50 条，可「加载更多」继续查看更早结果。
+- **命令面板与撤销**：Ctrl/Cmd+K 打开命令面板，Ctrl/Cmd+Z 撤销上一步危险操作
+  （删除分子/清空列表/删除保存视图），`?` 查看快捷键；删除前会确认。
+- **帮助知识库**：帮助页可搜索，并支持从准备失败、候选位点、AD4 地图、任务失败
+  和软件渲染警告直接跳到对应条目；新增结果包、Windows SmartScreen/抗锯齿、
+  更新检查等中英说明。
+- **可复现验证基线**：新增 `validation/manifest.json` 与
+  `scripts/validate_benchmark.py`，对 1iep/2hyy 执行 redocking 并输出
+  JSON/Markdown；缺失数据明确 skip，几何检查是 PoseBusters 风格子集。
+- **准备报告 2.0**：可保留指定水/金属；报告逐项列出删除/保留、组氨酸
+  HID/HIE/HIP 状态、altloc 策略、模板排除与未建模假设；单次对接的
+  job.json/Methods 会写入准备摘要，并明确质子化/电荷来源与缺失原子未重建。
+- **相互作用 2.0**：新增卤键（距离候选）、金属配位与水介导；支持按残基
+  汇总和 CSV 导出。离子作用标为盐桥候选；卤键未做角度；金属/水需在准备
+  时保留；仍不含 π-堆积。
+- **Ensemble 多构象对接**：同一配体可分别对多个已准备受体构象对接，逐构象
+  列出最佳亲和力并标记 best；共用盒子，不是 induced fit/IFD；单受体路径不变。
 
 ### Added
 
@@ -32,6 +55,40 @@ entries about the product — no internal task ids or workflow narration.
 - **Result bundle location**: exports are written to the workspace's
   `exports/result-bundles/` folder with a timestamped name; each export adds a
   new file and the success message shows the absolute path.
+- **Publication figures**: the 3D viewport exports 1×/2×/3× PNG, and the 2D
+  interaction diagram exports as a standalone SVG.
+- **Pose overlay**: the result card overlays the first 20 poses; colours identify
+  poses only, not affinity.
+- **Copyable figure caption**: the report page generates a caption with the run
+  parameters and an explicit prediction/no-electrostatic-potential caveat.
+- **Result organisation**: results search supports favourites, tags, bulk tagging
+  and saved filter views; the index upgrades automatically and re-indexing keeps
+  tags and favourites. Results load 50 at a time with a Load more button.
+- **Command palette and undo**: Ctrl/Cmd+K opens the command palette, Ctrl/Cmd+Z
+  undoes the last destructive action (delete molecule, clear list, delete saved
+  view), and `?` shows the shortcut overview; deletions ask for confirmation.
+- **Help knowledge base**: help is searchable, and preparation failures, candidate
+  sites, AD4 maps, failed jobs and the software-renderer warning link straight to
+  the matching entry; new bilingual notes cover result bundles, Windows
+  SmartScreen/antialiasing and update checks.
+- **Reproducible validation baseline**: `validation/manifest.json` and
+  `scripts/validate_benchmark.py` run redocking for the committed 1iep case and
+  the optional 2hyy sample, writing JSON/Markdown reports; missing data is
+  explicitly skipped and the geometry checks are a PoseBusters-style subset.
+- **Preparation report 2.0**: keep selected waters/metals; the report lists
+  deleted/kept groups, HID/HIE/HIP histidine states, the altloc policy,
+  template-excluded residues and unmodelled assumptions. Single-run job.json and
+  Methods carry the preparation summary and state the protonation/charge source
+  and that missing atoms were not rebuilt.
+- **Interaction analysis 2.0**: adds halogen bonds (distance candidates), metal
+  coordination and water-mediated contacts, plus a per-residue summary and CSV
+  export. Ionic contacts are labelled salt-bridge candidates; halogen bonds have
+  no angle test; metals/waters must be retained during preparation; π-stacking
+  remains absent.
+- **Ensemble docking**: one ligand can be docked against several prepared
+  receptor conformers, with per-conformer best affinity and a best marker. The
+  box is shared and this is not induced fit/IFD; the single-receptor path is
+  unchanged.
 
 ## [0.4.1] - 2026-10-21
 
@@ -306,6 +363,7 @@ Older releases predate this file; their notes live on the release pages:
 - **0.1.0** (2026-09-23) — first public Linux release.
   [Release notes](https://github.com/hubehero/VinaStudio/releases/tag/v0.1.0)
 
+[0.5.0]: https://github.com/hubehero/VinaStudio/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/hubehero/VinaStudio/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/hubehero/VinaStudio/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/hubehero/VinaStudio/compare/v0.2.0...v0.3.0

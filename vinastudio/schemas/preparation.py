@@ -247,6 +247,7 @@ class ReceptorOptions(BaseModel):
     flexibleResidues: list[str] = Field(default_factory=list)
     allowBadResidues: bool = False
     normaliseAtomOrder: bool = True
+    keepResidues: list[str] = Field(default_factory=list)
 
 
 class ReceptorReport(BaseModel):
@@ -256,6 +257,8 @@ class ReceptorReport(BaseModel):
     inputResidues: int
     deletedWaters: list[str] = Field(default_factory=list)
     deletedHetero: list[str] = Field(default_factory=list)
+    keptWaters: list[str] = Field(default_factory=list)
+    keptHetero: list[str] = Field(default_factory=list)
     normalisedAtomOrder: bool
     validResidues: int
     ignoredResidues: list[str] = Field(default_factory=list)
@@ -265,6 +268,10 @@ class ReceptorReport(BaseModel):
     includeHydrogens: bool
     warnings: list[str] = Field(default_factory=list)
     residueList: list[str] = Field(default_factory=list)
+    altlocPolicy: str = "blank/default"
+    removedAltlocResidues: list[str] = Field(default_factory=list)
+    histidineStates: list[str] = Field(default_factory=list)
+    assumptions: list[str] = Field(default_factory=list)
 
 
 class ReceptorPreparationResponse(BaseModel):

@@ -27,6 +27,9 @@ const COLORS: Record<ColorKey, string> = {
   hydrogen_bond: '#009E73',
   ionic: '#0072B2',
   hydrophobic: '#E69F00',
+  halogen_bond: '#56B4E9',
+  metal_coordination: '#CC79A7',
+  water_mediated: '#00BFC4',
   ring: '#9E9E9E',
   oxygen: '#D55E00',
   nitrogen: '#0072B2',
@@ -34,7 +37,14 @@ const COLORS: Record<ColorKey, string> = {
   halogen: '#56B4E9',
 }
 
-const LEGEND_TYPES: readonly InteractionType[] = ['hydrogen_bond', 'ionic', 'hydrophobic']
+const LEGEND_TYPES: readonly InteractionType[] = [
+  'hydrogen_bond',
+  'ionic',
+  'hydrophobic',
+  'halogen_bond',
+  'metal_coordination',
+  'water_mediated',
+]
 
 const WIDTH = 760
 const HEIGHT = 560
@@ -159,7 +169,11 @@ function buildNodes(): ResidueNode[] {
     const first = rows[0]
     if (!first) continue
     const types = new Set(rows.map((row) => row.type))
-    const ring: 1 | 2 = types.has('ionic') || types.has('hydrogen_bond') ? 1 : 2
+    const ring: 1 | 2 =
+      types.has('ionic') || types.has('hydrogen_bond') ||
+      types.has('metal_coordination') || types.has('water_mediated')
+        ? 1
+        : 2
 
     // Preferred direction: where the residue meets the ligand in 3D, so the
     // label starts near its real position instead of an arbitrary slot.

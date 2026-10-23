@@ -1,21 +1,28 @@
 <script setup lang="ts">
-import { FolderOpened, Setting } from '@element-plus/icons-vue'
+import { FolderOpened, RefreshLeft, Search, Setting } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import brandUrl from '@/assets/brand.svg'
+import CommandPalette from '@/components/CommandPalette.vue'
 import ProjectDialog from '@/components/ProjectDialog.vue'
 import SettingsDialog from '@/components/SettingsDialog.vue'
+import ShortcutsDialog from '@/components/ShortcutsDialog.vue'
 import StatusPill from '@/components/StatusPill.vue'
 import { useSystemStore } from '@/stores/system'
+import { useUndoStore } from '@/stores/undo'
 import { useUiStore } from '@/stores/ui'
 
 const system = useSystemStore()
 const ui = useUiStore()
+const undo = useUndoStore()
 const { t } = useI18n()
 
 const projectDialogRef = ref<InstanceType<typeof ProjectDialog>>()
 const settingsDialogRef = ref<InstanceType<typeof SettingsDialog>>()
+const commandPaletteRef = ref<InstanceType<typeof CommandPalette>>()
+const shortcutsOpen = ref(false)
 
 function openProjectDialog(): void {
   projectDialogRef.value?.open()
@@ -23,6 +30,12 @@ function openProjectDialog(): void {
 
 function openSettings(): void {
   settingsDialogRef.value?.open()
+}
+
+async function undoLast(): Promise<void> {
+  if (await undo.undoLast()) {
+    ElMessage.success(t('undo.done'))
+  }
 }
 
 const serviceState = computed<'ok' | 'warn' | 'error' | 'idle'>(() => {
@@ -71,6 +84,27 @@ const channelLabel = computed(() => {
     </div>
 
     <div class="header__actions">
+      <el-tooltip :content="t('commandPalette.open')" placement="bottom">
+        <el-button
+          text
+          size="small"
+          :aria-label="t('commandPalette.open')"
+          @click="commandPaletteRef?.open()"
+        >
+          <el-icon><Search /></el-icon>
+        </el-button>
+      </el-tooltip>
+      <el-tooltip :content="t('undo.undo')" placement="bottom">
+        <el-button
+          text
+          size="small"
+          :disabled="!undo.canUndo"
+          :aria-label="t('undo.undo')"
+          @click="undoLast"
+        >
+          <el-icon><RefreshLeft /></el-icon>
+        </el-button>
+      </el-tooltip>
       <el-button text size="small" @click="openProjectDialog">
         <el-icon><FolderOpened /></el-icon>
         <span>{{ t('project.openProject') }}</span>
@@ -85,6 +119,12 @@ const channelLabel = computed(() => {
 
   <ProjectDialog ref="projectDialogRef" />
   <SettingsDialog ref="settingsDialogRef" />
+  <CommandPalette
+    ref="commandPaletteRef"
+    @settings="openSettings"
+    @shortcuts="shortcutsOpen = true"
+  />
+  <ShortcutsDialog v-model="shortcutsOpen" />
 </template>
 
 <style scoped>

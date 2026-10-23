@@ -1,18 +1,27 @@
 <script setup lang="ts">
-import { Search } from '@element-plus/icons-vue'
-import { computed, onMounted, ref } from 'vue'
+import { Search, Star, StarFilled } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { api } from '@/api/http'
-import type { ResultRunDetail, ResultRunSummary } from '@/types/api'
+import type { ResultRunDetail, ResultRunSummary, SavedView, TagCount } from '@/types/api'
+import { useUndoStore } from '@/stores/undo'
 
 const { t } = useI18n()
+const undo = useUndoStore()
+
+const PAGE_SIZE = 50
 
 const query = ref('')
 const rows = ref<ResultRunSummary[]>([])
 const loaded = ref(false)
 const loading = ref(false)
+const loadingMore = ref(false)
+const hasMore = ref(false)
+const offset = ref(0)
 const error = ref(false)
+let requestId = 0
 // 比较选择存摘要对象：跨搜索/过滤保留；顺序 = 勾选顺序；上限 4。
 const selected = ref<ResultRunSummary[]>([])
 const compareOpen = ref(false)
@@ -20,18 +29,87 @@ const compareLoading = ref(false)
 const compareError = ref(false)
 const compareRuns = ref<ResultRunDetail[]>([])
 
-const compareAtLimit = computed(() => selected.value.length >= 4)
+const favoritesOnly = ref(false)
+const tagFilter = ref<string[]>([])
+const tags = ref<TagCount[]>([])
+const views = ref<SavedView[]>([])
+const selectedView = ref<number | null>(null)
+const saveViewOpen = ref(false)
+const viewName = ref('')
+const tagDialogOpen = ref(false)
+const tagJob = ref<ResultRunSummary | null>(null)
+const tagDraft = ref<string[]>([])
+const tagInput = ref('')
+const bulkTag = ref('')
+
 
 async function search(): Promise<void> {
+  const id = ++requestId
   loading.value = true
+  loadingMore.value = false
   error.value = false
   try {
-    rows.value = await api.resultsSearch(query.value.trim())
+    const page = await api.resultsSearch(query.value.trim(), {
+      limit: PAGE_SIZE,
+      offset: 0,
+      favorites: favoritesOnly.value,
+      tags: tagFilter.value,
+    })
+    if (id !== requestId) return
+    rows.value = page
+    offset.value = page.length
+    hasMore.value = page.length === PAGE_SIZE
     loaded.value = true
+    await loadTags()
   } catch {
-    error.value = true
+    if (id === requestId) error.value = true
   } finally {
-    loading.value = false
+    if (id === requestId) {
+      loading.value = false
+      loadingMore.value = false
+    }
+  }
+}
+
+async function loadMore(): Promise<void> {
+  if (!hasMore.value || loading.value || loadingMore.value) return
+  const id = ++requestId
+  loadingMore.value = true
+  try {
+    const page = await api.resultsSearch(query.value.trim(), {
+      limit: PAGE_SIZE,
+      offset: offset.value,
+      favorites: favoritesOnly.value,
+      tags: tagFilter.value,
+    })
+    if (id !== requestId) return
+    const known = new Set(rows.value.map((run) => run.jobId))
+    rows.value = [...rows.value, ...page.filter((run) => !known.has(run.jobId))]
+    offset.value += page.length
+    hasMore.value = page.length === PAGE_SIZE
+  } catch {
+    if (id === requestId) ElMessage.error(t('results.loadMoreFailed'))
+  } finally {
+    if (id === requestId) {
+      loading.value = false
+      loadingMore.value = false
+    }
+  }
+}
+
+async function loadTags(): Promise<void> {
+  try {
+    tags.value = await api.resultsTags()
+  } catch {
+    // The table remains usable; tag filtering is an enhancement.
+  }
+}
+
+async function loadViews(): Promise<void> {
+  try {
+    views.value = await api.resultsViews()
+  } catch {
+    views.value = []
   }
 }
 
@@ -45,7 +123,7 @@ function toggle(row: ResultRunSummary): void {
     selected.value.splice(index, 1)
     return
   }
-  if (selected.value.length < 4) selected.value.push(row)
+  selected.value.push(row)
 }
 
 function rowClassName({ row }: { row: ResultRunSummary }): string {
@@ -103,8 +181,143 @@ function paramsText(run: ResultRunDetail): string | null {
   return `E=${exhaustiveness} N=${nPoses}`
 }
 
+async function toggleFavorite(row: ResultRunSummary): Promise<void> {
+  try {
+    const result = await api.resultsUpdateRun(row.jobId, { favorite: !row.favorite })
+    row.favorite = result.favorite
+    row.tags = result.tags
+    if (favoritesOnly.value) await search()
+  } catch {
+    ElMessage.error(t('results.updateFailed'))
+  }
+}
+
+function openTagEditor(row: ResultRunSummary): void {
+  tagJob.value = row
+  tagDraft.value = [...row.tags]
+  tagInput.value = ''
+  tagDialogOpen.value = true
+}
+
+function addTagDraft(): void {
+  const tag = tagInput.value.trim()
+  if (!tag) return
+  if (!tagDraft.value.includes(tag)) tagDraft.value.push(tag)
+  tagInput.value = ''
+}
+
+function removeTagDraft(tag: string): void {
+  tagDraft.value = tagDraft.value.filter((item) => item !== tag)
+}
+
+async function saveTags(): Promise<void> {
+  if (!tagJob.value) return
+  try {
+    const result = await api.resultsUpdateRun(tagJob.value.jobId, {
+      tags: tagDraft.value,
+    })
+    tagJob.value.tags = result.tags
+    tagJob.value.favorite = result.favorite
+    tagDialogOpen.value = false
+    await loadTags()
+    await search()
+  } catch {
+    ElMessage.error(t('results.updateFailed'))
+  }
+}
+
+async function bulkFavorite(favorite: boolean): Promise<void> {
+  if (selected.value.length === 0) return
+  try {
+    await api.resultsBulkUpdate({
+      runIds: selected.value.map((run) => run.jobId),
+      favorite,
+    })
+    clearSelection()
+    await search()
+  } catch {
+    ElMessage.error(t('results.updateFailed'))
+  }
+}
+
+async function bulkAddTag(): Promise<void> {
+  const tag = bulkTag.value.trim()
+  if (!tag || selected.value.length === 0) return
+  try {
+    await api.resultsBulkUpdate({
+      runIds: selected.value.map((run) => run.jobId),
+      addTags: [tag],
+    })
+    bulkTag.value = ''
+    clearSelection()
+    await search()
+  } catch {
+    ElMessage.error(t('results.updateFailed'))
+  }
+}
+
+function applyView(id: number | null): void {
+  if (id == null) return
+  const view = views.value.find((item) => item.id === id)
+  if (!view) return
+  query.value = view.filters.q
+  favoritesOnly.value = view.filters.favorites
+  tagFilter.value = [...view.filters.tags]
+  void search()
+}
+
+async function saveView(): Promise<void> {
+  const name = viewName.value.trim()
+  if (!name) return
+  try {
+    const view = await api.resultsSaveView({
+      name,
+      filters: {
+        q: query.value,
+        favorites: favoritesOnly.value,
+        tags: [...tagFilter.value],
+      },
+    })
+    await loadViews()
+    selectedView.value = view.id
+    saveViewOpen.value = false
+    viewName.value = ''
+    ElMessage.success(t('results.viewSaved'))
+  } catch {
+    ElMessage.error(t('results.viewSaveFailed'))
+  }
+}
+
+async function deleteView(): Promise<void> {
+  if (selectedView.value == null) return
+  try {
+    await ElMessageBox.confirm(
+      t('results.viewDeleteConfirm'),
+      t('results.deleteView'),
+      { type: 'warning' },
+    )
+  } catch {
+    return // user cancelled
+  }
+  const view = views.value.find((item) => item.id === selectedView.value)
+  try {
+    await api.resultsDeleteView(selectedView.value)
+    selectedView.value = null
+    await loadViews()
+    if (view) {
+      undo.push(t('undo.deleteView', { name: view.name }), async () => {
+        await api.resultsSaveView({ name: view.name, filters: view.filters })
+        await loadViews()
+      })
+    }
+  } catch {
+    ElMessage.error(t('results.viewDeleteFailed'))
+  }
+}
+
 onMounted(() => {
   void search()
+  void loadViews()
 })
 </script>
 
@@ -128,11 +341,49 @@ onMounted(() => {
       <el-button type="primary" :loading="loading" @click="search">
         {{ t('common.search') }}
       </el-button>
+
+      <div class="results-search__filters">
+        <el-checkbox v-model="favoritesOnly" @change="() => search()">
+          {{ t('results.favoritesOnly') }}
+        </el-checkbox>
+        <el-select
+          v-model="tagFilter"
+          multiple
+          clearable
+          collapse-tags
+          size="small"
+          class="results-search__tags"
+          :placeholder="t('results.filterTags')"
+          @change="() => search()"
+        >
+          <el-option
+            v-for="tag in tags"
+            :key="tag.tag"
+            :label="`${tag.tag} (${tag.count})`"
+            :value="tag.tag"
+          />
+        </el-select>
+        <span class="results-search__spacer" />
+        <el-select
+          v-model="selectedView"
+          clearable
+          size="small"
+          class="results-search__views"
+          :placeholder="t('results.views')"
+          @change="applyView"
+        >
+          <el-option v-for="view in views" :key="view.id" :label="view.name" :value="view.id" />
+        </el-select>
+        <el-button size="small" @click="saveViewOpen = true">{{ t('results.saveView') }}</el-button>
+        <el-button v-if="selectedView" size="small" @click="deleteView">
+          {{ t('results.deleteView') }}
+        </el-button>
+      </div>
     </section>
 
     <section class="vs-card results-table" v-loading="loading">
       <div v-if="loaded" class="results-table__count">
-        {{ t('results.count', { n: rows.length }) }}
+        {{ t('results.loadedCount', { n: rows.length }) }}
       </div>
       <el-alert
         v-if="error"
@@ -155,13 +406,26 @@ onMounted(() => {
           <template #default="{ row }">
             <el-checkbox
               :model-value="isPicked(row.jobId)"
-              :disabled="!isPicked(row.jobId) && compareAtLimit"
-              :title="!isPicked(row.jobId) && compareAtLimit ? t('results.maxHint') : undefined"
               @change="toggle(row)"
             />
           </template>
         </el-table-column>
-        <el-table-column prop="createdAt" :label="t('results.colTime')" width="132" sortable>
+        <el-table-column width="42">
+          <template #default="{ row }">
+            <el-button
+              text
+              size="small"
+              :title="row.favorite ? t('results.unfavorite') : t('results.favorite')"
+              @click.stop="toggleFavorite(row)"
+            >
+              <el-icon :color="row.favorite ? 'var(--vs-warning)' : undefined">
+                <StarFilled v-if="row.favorite" />
+                <Star v-else />
+              </el-icon>
+            </el-button>
+          </template>
+        </el-table-column>
+        <el-table-column prop="createdAt" :label="t('results.colTime')" width="132">
           <template #default="{ row }">
             <span class="results-table__time">{{ formatTime(row.createdAt) }}</span>
           </template>
@@ -173,6 +437,18 @@ onMounted(() => {
               <span v-if="row.matchedLigand" class="results-table__chip">
                 {{ t('results.matched', { name: row.matchedLigand }) }}
               </span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column :label="t('results.colTags')" width="190">
+          <template #default="{ row }">
+            <div class="results-table__tags">
+              <el-tag v-for="tag in row.tags" :key="tag" size="small" effect="plain">
+                {{ tag }}
+              </el-tag>
+              <el-button text size="small" @click.stop="openTagEditor(row)">
+                {{ t('results.editTags') }}
+              </el-button>
             </div>
           </template>
         </el-table-column>
@@ -193,7 +469,6 @@ onMounted(() => {
           :label="t('results.colBest')"
           width="104"
           align="right"
-          sortable
         >
           <template #default="{ row }">
             <span
@@ -212,6 +487,11 @@ onMounted(() => {
           </template>
         </el-table-column>
       </el-table>
+      <div v-if="rows.length > 0 && hasMore" class="results-table__more">
+        <el-button size="small" :loading="loadingMore" @click="loadMore">
+          {{ t('results.loadMore') }}
+        </el-button>
+      </div>
       <el-empty
         v-else-if="!loading && loaded"
         :description="t('results.empty')"
@@ -224,10 +504,20 @@ onMounted(() => {
       <span class="results-selectionbar__count">
         {{ t('results.selected', { n: selected.length }) }}
       </span>
+      <el-input
+        v-model="bulkTag"
+        size="small"
+        class="results-selectionbar__tag"
+        :placeholder="t('results.bulkTagPlaceholder')"
+        @keyup.enter="bulkAddTag"
+      />
+      <el-button size="small" @click="bulkAddTag">{{ t('results.addTag') }}</el-button>
+      <el-button size="small" @click="bulkFavorite(true)">{{ t('results.favorite') }}</el-button>
+      <el-button size="small" @click="bulkFavorite(false)">{{ t('results.unfavorite') }}</el-button>
       <el-button
         type="primary"
-        :disabled="selected.length < 2"
-        :title="selected.length < 2 ? t('results.compareMin') : undefined"
+        :disabled="selected.length < 2 || selected.length > 4"
+        :title="selected.length < 2 ? t('results.compareMin') : selected.length > 4 ? t('results.maxHint') : undefined"
         @click="openCompare"
       >
         {{ t('results.compare') }}
@@ -283,6 +573,47 @@ onMounted(() => {
         </div>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="tagDialogOpen" :title="t('results.tagsTitle')" width="420px">
+      <div class="results-tag-editor">
+        <el-tag
+          v-for="tag in tagDraft"
+          :key="tag"
+          closable
+          @close="removeTagDraft(tag)"
+        >
+          {{ tag }}
+        </el-tag>
+        <span v-if="tagDraft.length === 0" class="results-tag-editor__empty">
+          {{ t('results.noTags') }}
+        </span>
+      </div>
+      <div class="results-tag-editor__input">
+        <el-input
+          v-model="tagInput"
+          size="small"
+          :placeholder="t('results.tagPlaceholder')"
+          @keyup.enter="addTagDraft"
+        />
+        <el-button size="small" @click="addTagDraft">{{ t('results.addTag') }}</el-button>
+      </div>
+      <template #footer>
+        <el-button @click="tagDialogOpen = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="saveTags">{{ t('common.save') }}</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="saveViewOpen" :title="t('results.saveView')" width="380px">
+      <el-input
+        v-model="viewName"
+        :placeholder="t('results.viewNamePlaceholder')"
+        @keyup.enter="saveView"
+      />
+      <template #footer>
+        <el-button @click="saveViewOpen = false">{{ t('common.cancel') }}</el-button>
+        <el-button type="primary" @click="saveView">{{ t('results.saveView') }}</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -300,6 +631,26 @@ onMounted(() => {
   min-width: 220px;
 }
 
+.results-search__filters {
+  flex: 1 0 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.results-search__tags {
+  min-width: 180px;
+}
+
+.results-search__views {
+  min-width: 160px;
+}
+
+.results-search__spacer {
+  flex: 1;
+}
+
 .results-table {
   padding: 14px 18px;
 }
@@ -308,6 +659,12 @@ onMounted(() => {
   font-size: 12px;
   color: var(--vs-text-faint);
   margin-bottom: 8px;
+}
+
+.results-table__more {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0 2px;
 }
 
 .results-table__alert {
@@ -334,6 +691,13 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.results-table__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
 }
 
 .results-table__ligand {
@@ -375,8 +739,10 @@ onMounted(() => {
   bottom: calc(var(--vs-statusbar-height) + 16px);
   transform: translateX(-50%);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  max-width: 92vw;
   padding: 8px 14px;
   background: var(--vs-bg-surface);
   border: 1px solid var(--vs-border);
@@ -387,6 +753,28 @@ onMounted(() => {
 .results-selectionbar__count {
   font-size: 13px;
   color: var(--vs-text-muted);
+}
+
+.results-selectionbar__tag {
+  width: 140px;
+}
+
+.results-tag-editor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 28px;
+}
+
+.results-tag-editor__empty {
+  font-size: 12px;
+  color: var(--vs-text-faint);
+}
+
+.results-tag-editor__input {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .results-compare__grid {

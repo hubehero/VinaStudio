@@ -51,6 +51,7 @@ onMounted(() => {
         :receptor-url="molecules.receptorPdbUrl"
         :ligand-url="ligandUrl"
         :pose-sdf-content="docking.currentPoseSdf"
+        :overlay-sdf-contents="docking.overlayPoseSdfs"
         :interactions="interactions"
         :box="box.geometry"
         :style="box.style"
