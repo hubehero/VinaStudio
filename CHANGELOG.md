@@ -12,6 +12,22 @@ entries about the product — no internal task ids or workflow narration.
 
 ## [Unreleased]
 
+### 修复
+
+- **发布门禁不再 fail-open**：preflight 读取不到 CodeQL/Dependabot 告警时直接失败；
+  CI preflight job 补上 `security-events: read`，不再把未知安全状态当成绿色。
+- **化合物下载路径显式约束**：在线库下载写入前再次经 `resolve_within` 限定在工作区，
+  恶意/异常 provider ID 不能把文件写出目标目录。
+
+### Fixed
+
+- **The release gate fails closed**: an unreadable security-alert API is now a
+  hard failure, and the CI preflight job has `security-events: read`; unknown
+  security state is no longer reported as green.
+- **Compound downloads are explicitly contained**: the write target is resolved
+  inside the workspace before use, so an abnormal provider id cannot escape the
+  ligands directory.
+
 ## [0.5.1] - 2026-10-24
 
 ### 新增
