@@ -118,6 +118,9 @@ const ungroupedCount = computed(
 
 const totalSize = computed(() => {
   const bytes = store.totalBytes
+  // Project-loaded paths carry no size until a browser upload supplies one;
+  // "0 B" would claim an empty file.
+  if (bytes === 0 && store.molecules.length > 0) return '—'
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`

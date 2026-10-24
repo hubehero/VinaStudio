@@ -83,6 +83,21 @@ def run_docking(params: DockingParams, output_dir: str) -> DockingResult:
     # the same run succeeded or failed depending on which door was used.
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
+    # Pre-computed maps define their own grid; a plain box must intersect the
+    # receptor or Vina returns a page of zero-energy "successes".
+    if not params.map_prefix and not params.map_paths:
+        from vinastudio.core.box import Box, ensure_box_contains_receptor
+
+        ensure_box_contains_receptor(
+            params.receptor_path,
+            Box(
+                center=params.center,
+                size=params.size,
+                spacing=params.spacing,
+                force_even_voxels=params.force_even_voxels,
+            ),
+        )
+
     from vinastudio.core.engines import CLI_BACKEND, resolve_backend
 
     if resolve_backend(params.engine) == CLI_BACKEND:

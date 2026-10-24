@@ -58,6 +58,9 @@ What it does:
 - **Structure input** — SMILES to 3D ligand, and a built-in **2D sketcher**
   (template rings, chain tool, bond/stereo tools, one-click cleanup, periodic
   table and radicals) with a complete draw-to-export loop.
+- **Online molecule library** — RCSB PDB structures/co-crystal ligands, plus
+  PubChem/ChEMBL search by name/ID, similarity or substructure, with source,
+  licence and 3D/needs-preparation labels.
 - **Bilingual** — Chinese and English, Chinese by default.
 
 ## Requirements
@@ -112,6 +115,15 @@ uv run python scripts/dev.py
 This starts the API on a fixed loopback port, the Vite dev server, and the Qt
 window pointed at Vite. Edit anything under `web/src` and the window updates
 without a restart.
+
+Start only the web interface (no Qt window) for browser testing:
+
+```bash
+./web_start.sh
+```
+
+The launcher stays in the foreground; Ctrl+C stops both the API and Vite, and a
+file-manager double-click opens a terminal window automatically.
 
 Run the checks:
 

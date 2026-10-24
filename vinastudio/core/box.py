@@ -34,6 +34,7 @@ from vinastudio.core.chem.pdb_lines import (
     residue_key,
     scan_residues,
 )
+from vinastudio.core.chem.pdbqt import read_pdbqt
 from vinastudio.core.chem.rdkit_io import mol_from_file
 from vinastudio.core.errors import InvalidInputError
 
@@ -224,6 +225,30 @@ class Box:
             size=size,  # type: ignore[arg-type]
             spacing=spacing,
             force_even_voxels=_as_bool(values.get("force_even_voxels")),
+        )
+
+
+def ensure_box_contains_receptor(receptor_path: str | Path, box: Box) -> None:
+    """Refuse a search box that contains no receptor atoms.
+
+    Vina happily completes a run when the grid lies entirely outside the
+    receptor: every pose gets a zero affinity and the result looks like a
+    successful docking. That is almost always a receptor/box mismatch, so it
+    is caught here instead of being presented as a scientific result.
+    """
+    source = Path(receptor_path)
+    try:
+        document = read_pdbqt(source)
+    except (OSError, ValueError) as exc:
+        raise InvalidInputError(f"could not read the prepared receptor: {exc}") from exc
+    if not document.poses:
+        raise InvalidInputError("the prepared receptor contains no atoms")
+
+    if not any(box.contains(atom.coordinates) for atom in document.poses[0].atoms):
+        raise InvalidInputError(
+            "the docking box contains no receptor atoms — check that the receptor "
+            f"and the box belong to the same structure (box centre {box.center}, "
+            f"size {box.size})"
         )
 
 

@@ -1212,7 +1212,21 @@ export interface DesktopBridge {
   getLanguage(): Promise<string>
   setLanguage(language: string): Promise<boolean>
   openFiles(title: string, filters: string, multiple: boolean): Promise<string>
+  /** Newer host: same contract, but starts in the given directory. */
+  openFilesIn?(
+    title: string,
+    filters: string,
+    multiple: boolean,
+    initialDirectory: string,
+  ): Promise<string>
   saveFile(title: string, suggestedName: string, filters: string): Promise<string>
+  /** Newer host: Save dialog rooted at the active workspace/project folder. */
+  saveFileIn?(
+    title: string,
+    suggestedName: string,
+    filters: string,
+    initialDirectory: string,
+  ): Promise<string>
   openDirectory(title: string): Promise<string>
   saveImage(dataUrl: string, suggestedName: string): Promise<string>
   /** Write UTF-8 text to a path the caller already chose; false on failure. */
@@ -1231,6 +1245,69 @@ export interface LibrarySearchRequest {
   query: string
   rows?: number
   start?: number
+}
+
+// -- compound providers (PubChem / ChEMBL) ---------------------------------
+
+export type CompoundSourceId = 'pubchem' | 'chembl'
+export type CompoundSearchMode = 'text' | 'similarity' | 'substructure'
+
+export interface CompoundSearchRequest {
+  source: CompoundSourceId
+  mode: CompoundSearchMode
+  query: string
+  limit?: number
+  offset?: number
+  threshold?: number
+}
+
+export interface CompoundHit {
+  source: CompoundSourceId
+  id: string
+  name: string
+  formula: string | null
+  molecularWeight: number | null
+  smiles: string | null
+  inchiKey: string | null
+  score: number | null
+  has3D: boolean
+  license: string
+  sourceUrl: string
+  properties: Record<string, unknown>
+}
+
+export interface CompoundSearchPage {
+  source: CompoundSourceId
+  mode: CompoundSearchMode
+  total: number
+  offset: number
+  limit: number
+  results: CompoundHit[]
+  warnings: string[]
+}
+
+export interface CompoundFetchRequest {
+  source: CompoundSourceId
+  id: string
+}
+
+export interface CompoundFetchResponse {
+  path: string
+  name: string
+  bytes: number
+  source: CompoundSourceId
+  sourceId: string
+  format: 'sdf'
+  has3D: boolean
+  license: string
+}
+
+export interface CompoundSourceInfo {
+  id: CompoundSourceId
+  label: string
+  license: string
+  capabilities: CompoundSearchMode[]
+  note: string
 }
 
 export interface LibraryLigand {

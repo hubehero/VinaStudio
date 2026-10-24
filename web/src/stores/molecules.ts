@@ -383,6 +383,16 @@ export const useMoleculeStore = defineStore('molecules', () => {
     return molecules.value.find((m) => m.path === path)
   }
 
+  /**
+   * Projects store the prepared artifact path, not necessarily the source
+   * path. Reusing by either avoids a duplicate "uploaded" entry on every load.
+   */
+  function findByAnyPath(path: string): MoleculeItem | undefined {
+    return molecules.value.find(
+      (m) => m.path === path || m.artifacts.some((artifact) => artifact.path === path),
+    )
+  }
+
   function findByNameAndSize(name: string, size: number): MoleculeItem | undefined {
     return molecules.value.find((m) => m.name === name && m.size === size)
   }
@@ -973,6 +983,7 @@ export const useMoleculeStore = defineStore('molecules', () => {
     removeItem,
     clearAll,
     findByPath,
+    findByAnyPath,
     assignType,
     addAlias,
     removeAlias,

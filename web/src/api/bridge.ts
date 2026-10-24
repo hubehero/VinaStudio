@@ -87,13 +87,24 @@ export async function pickFiles(options: {
   title: string
   filters: string
   multiple?: boolean
+  /** Start here when the host supports it (workspace/projects by default). */
+  initialDirectory?: string
 }): Promise<string[]> {
   const bridge = await desktopBridge()
   if (!bridge) {
     return []
   }
   try {
-    const raw = await bridge.openFiles(options.title, options.filters, options.multiple ?? false)
+    const multiple = options.multiple ?? false
+    const raw =
+      options.initialDirectory && bridge.openFilesIn
+        ? await bridge.openFilesIn(
+            options.title,
+            options.filters,
+            multiple,
+            options.initialDirectory,
+          )
+        : await bridge.openFiles(options.title, options.filters, multiple)
     return JSON.parse(raw) as string[]
   } catch {
     return []
@@ -134,12 +145,17 @@ export async function pickSaveFile(
   title: string,
   suggestedName: string,
   filters: string,
+  initialDirectory?: string,
 ): Promise<string | null> {
   const bridge = await desktopBridge()
   if (!bridge) {
     return null
   }
-  return (await bridge.saveFile(title, suggestedName, filters)) || null
+  const path =
+    initialDirectory && bridge.saveFileIn
+      ? await bridge.saveFileIn(title, suggestedName, filters, initialDirectory)
+      : await bridge.saveFile(title, suggestedName, filters)
+  return path || null
 }
 
 /**

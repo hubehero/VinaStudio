@@ -555,7 +555,16 @@ class JobManager:
                 if state.is_batch and "totalLigands" in event:
                     state.total_ligands = event["totalLigands"]
             elif kind == "progress":
-                state.progress = event.get("percent", 0)
+                # Multi-item jobs derive progress from completed work items;
+                # a Vina stdout scale from one child must not move the whole
+                # batch/screening/ensemble bar to 100.
+                if not (
+                    state.is_batch
+                    or state.is_screening
+                    or state.is_ensemble
+                    or state.is_site_screening
+                ):
+                    state.progress = event.get("percent", 0)
             elif kind == "log":
                 line = event.get("line", "")
                 state.log.append(line)

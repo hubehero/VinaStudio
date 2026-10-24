@@ -28,31 +28,66 @@ export const useProjectStore = defineStore('project', () => {
     isDirty.value = true
   }
 
+  /**
+   * Save to the current project file, or create one in the workspace.
+   *
+   * Ctrl+S must overwrite the file the user opened; the old path called
+   * `/save`, whose uniqueness loop turned every Ctrl+S into a new `_1` copy.
+   * A loaded project therefore goes through save-as at its existing path,
+   * while a new project still gets a workspace filename.
+   */
   async function saveProject(filename?: string): Promise<string | null> {
-    const name = filename ?? projectName.value
-    const project = buildProjectData()
+    const name = normaliseName(filename)
+    if (currentPath.value) {
+      return saveProjectToPath(currentPath.value, name)
+    }
+    const project = buildProjectData(name)
     try {
       const result = await api.saveProject(name, project as unknown as Record<string, unknown>)
-      currentPath.value = result.path
-      projectName.value = name
-      isDirty.value = false
+      rememberSaved(result.path, name, project)
       return result.path
     } catch {
       return null
     }
   }
 
-  async function saveProjectAs(path: string): Promise<string | null> {
-    const project = buildProjectData()
+  /** Save As always writes exactly the path chosen in the native dialog. */
+  async function saveProjectAs(path: string, filename?: string): Promise<string | null> {
+    const name = normaliseName(filename || path.replace(/\.vinaproj$/i, '').split(/[\\/]/).pop())
+    return saveProjectToPath(path, name)
+  }
+
+  async function saveProjectToPath(path: string, name: string): Promise<string | null> {
+    const project = buildProjectData(name)
     try {
       const result = await api.saveProjectAs(path, project as unknown as Record<string, unknown>)
-      currentPath.value = result.path
-      projectName.value = result.filename.replace('.vinaproj', '')
-      isDirty.value = false
+      rememberSaved(result.path, name, project)
       return result.path
     } catch {
       return null
     }
+  }
+
+  function normaliseName(value?: string): string {
+    return (value ?? projectName.value).trim() || 'untitled'
+  }
+
+  /** Serialise the live viewer state for the browser Save As download. */
+  function serializeProject(name?: string): ProjectFile {
+    return buildProjectData(normaliseName(name))
+  }
+
+  function rememberSaved(path: string, name: string, project: ProjectFile): void {
+    currentPath.value = path
+    projectName.value = name
+    // Keep a live project object after the first save. Result references and
+    // createdAt are written from it; leaving it null made both reset.
+    currentProject.value = {
+      ...project,
+      name,
+      updatedAt: new Date().toISOString(),
+    }
+    isDirty.value = false
   }
 
   async function loadProject(path: string): Promise<boolean> {
@@ -69,7 +104,7 @@ export const useProjectStore = defineStore('project', () => {
           i18n.global.t('project.resultsMissing', { count: loadWarnings.value.length }),
         )
       }
-      restoreFromProject(currentProject.value)
+      await restoreFromProject(currentProject.value)
       return true
     } catch {
       return false
@@ -124,7 +159,7 @@ export const useProjectStore = defineStore('project', () => {
    * for docking), the box from the box store, so saving captures the actual
    * working state instead of the last loaded skeleton.
    */
-  function buildProjectData(): ProjectFile {
+  function buildProjectData(name = projectName.value): ProjectFile {
     const molecules = useMoleculeStore()
     const box = useBoxStore()
 
@@ -135,7 +170,7 @@ export const useProjectStore = defineStore('project', () => {
       formatVersion: '1.1',
       createdAt: currentProject.value?.createdAt ?? new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      name: projectName.value,
+      name,
       description: currentProject.value?.description ?? '',
       receptor: receptor
         ? { path: molecules.receptorPdbqtPath ?? receptor.path, flexPath: molecules.flexReceptorPath }
@@ -171,7 +206,7 @@ export const useProjectStore = defineStore('project', () => {
    * preserved in the project for later.  The box is always restored because it
    * is pure data with no filesystem dependency.
    */
-  function restoreFromProject(project: ProjectFile): void {
+  async function restoreFromProject(project: ProjectFile): Promise<void> {
     const box = useBoxStore()
     const molecules = useMoleculeStore()
 
@@ -181,14 +216,17 @@ export const useProjectStore = defineStore('project', () => {
       box.setSize(project.box.size as [number, number, number])
     }
 
-    // Restore receptor — add from path and set as pipeline pick.
+    // Restore receptor — reuse the prepared molecule by source or artifact path.
     if (project.receptor?.path) {
-      const existing = molecules.findByPath(project.receptor.path)
+      const existing = molecules.findByAnyPath(project.receptor.path)
       if (existing) {
         molecules.setPipelineReceptor(existing.id)
       } else {
         const item = molecules.addFromPath(project.receptor.path)
         molecules.assignType(item.id, 'receptor')
+        // A fresh session has no artifacts in memory; inspect the stored PDBQT
+        // so it becomes usable (already-PDBQT is adopted as-is).
+        await molecules.inspectMolecule(item.id)
         molecules.setPipelineReceptor(item.id)
       }
     }
@@ -196,12 +234,22 @@ export const useProjectStore = defineStore('project', () => {
     // Restore ligand — first ligand entry.
     const ligand = project.ligands?.[0]
     if (ligand?.path) {
-      const existing = molecules.findByPath(ligand.path)
+      const existing = molecules.findByAnyPath(ligand.path)
       if (existing) {
         molecules.setPipelineLigand(existing.id)
       } else {
-        const item = molecules.addFromPath(ligand.path, ligand.label)
+        // The project stores the prepared PDBQT path but the label may still be
+        // the source SDF name. Showing "name.sdf" next to a PDBQT path made the
+        // list claim SDF while the viewer read PDBQT.
+        const basename = ligand.path.split(/[\\/]/).pop() ?? ligand.label
+        const labelExtension = ligand.label.includes('.')
+          ? ligand.label.slice(ligand.label.lastIndexOf('.')).toLowerCase()
+          : ''
+        const pathExtension = basename.slice(basename.lastIndexOf('.')).toLowerCase()
+        const name = labelExtension && labelExtension === pathExtension ? ligand.label : basename
+        const item = molecules.addFromPath(ligand.path, name)
         molecules.assignType(item.id, 'ligand')
+        await molecules.inspectMolecule(item.id)
         molecules.setPipelineLigand(item.id)
       }
     }
@@ -218,6 +266,7 @@ export const useProjectStore = defineStore('project', () => {
     markDirty,
     saveProject,
     saveProjectAs,
+    serializeProject,
     loadProject,
     recordResult,
     refreshProjectList,

@@ -49,6 +49,11 @@ import type {
   LibrarySearchRequest,
   LibrarySearchResponse,
   LibrarySummary,
+  CompoundFetchRequest,
+  CompoundFetchResponse,
+  CompoundSearchPage,
+  CompoundSearchRequest,
+  CompoundSourceInfo,
   LigandOptions,
   LigandPreparation,
   LigandFromSmilesItem,
@@ -446,6 +451,19 @@ export const api = {
     }),
   pubchemFetch: (body: PubChemFetchRequest) =>
     request<PubChemFetchResponse>('/api/library/pubchem/fetch', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  // -- compound providers (PubChem / ChEMBL) --------------------------------
+  compoundSources: () => request<CompoundSourceInfo[]>('/api/library/sources'),
+  compoundSearch: (body: CompoundSearchRequest) =>
+    request<CompoundSearchPage>('/api/library/compounds/search', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  compoundFetch: (body: CompoundFetchRequest) =>
+    request<CompoundFetchResponse>('/api/library/compounds/fetch', {
       method: 'POST',
       body: JSON.stringify(body),
     }),

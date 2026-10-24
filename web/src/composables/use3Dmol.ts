@@ -1185,12 +1185,21 @@ export class MoleculeViewer {
     this.scheduleRender()
   }
 
-  /** Frame the receptor if present, otherwise the ligand. */
+  /**
+   * Frame all molecular models (receptor, ligand and any pose overlays).
+   *
+   * The workbench and docking views can show a receptor and ligand whose
+   * coordinate centres differ, or a box placed around the ligand. Framing the
+   * receptor alone leaves the ligand at the edge of the frustum, where it is
+   * clipped or partly outside the viewport as the camera rotates. Box shapes
+   * are deliberately excluded from the zoom: a stale reference frame at the
+   * origin would otherwise shrink a correctly placed receptor to a dot.
+   */
   focus(): void {
-    if (this.receptorModel !== null) {
-      this.raw.zoomTo({ model: this.receptorModel })
-    } else if (this.ligandModel !== null) {
-      this.raw.zoomTo({ model: this.ligandModel })
+    const models = [this.receptorModel, this.ligandModel, ...this.overlayModels]
+      .filter((model): model is $3Dmol.GLModel => model !== null)
+    if (models.length > 0) {
+      this.raw.zoomTo({ model: models })
     } else {
       this.raw.zoomTo()
     }

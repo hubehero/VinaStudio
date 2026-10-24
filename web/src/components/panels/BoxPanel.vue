@@ -166,6 +166,11 @@ function setSizeAxis(axis: 0 | 1 | 2, value: number | undefined): void {
   }
   box.setSizeAxis(axis, value)
 }
+
+/** Backend warnings are English API detail; known ones get the UI's copy. */
+function warningText(warning: string): string {
+  return warning.includes('voxel count is odd') ? t('box.oddVoxelWarning') : warning
+}
 </script>
 
 <template>
@@ -266,6 +271,11 @@ function setSizeAxis(axis: 0 | 1 | 2, value: number | undefined): void {
             :label="box.canWriteMaps ? t('box.writableYes') : t('box.writableNo')"
           />
         </div>
+        <div class="derived__row">
+          <span class="vs-muted">{{ t('box.forceEvenVoxels') }}</span>
+          <el-switch v-model="box.forceEvenVoxels" size="small" />
+        </div>
+        <p class="vs-faint force-even-note">{{ t('box.forceEvenNote') }}</p>
       </div>
 
       <el-alert
@@ -275,7 +285,7 @@ function setSizeAxis(axis: 0 | 1 | 2, value: number | undefined): void {
         type="warning"
         :closable="false"
         show-icon
-        :title="warning"
+        :title="warningText(warning)"
       />
 
       <el-divider />
@@ -580,6 +590,12 @@ function setSizeAxis(axis: 0 | 1 | 2, value: number | undefined): void {
   justify-content: space-between;
   gap: 10px;
   font-size: 12.5px;
+}
+
+.force-even-note {
+  margin: -2px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .autobox__head,

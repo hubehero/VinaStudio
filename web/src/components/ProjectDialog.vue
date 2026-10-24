@@ -4,10 +4,16 @@ import { ElButton, ElDialog, ElInput, ElMessage, ElTable, ElTableColumn } from '
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import { isDesktopHost, pickFiles, pickSaveFile, saveTextFile } from '@/api/bridge'
 import { useProjectStore } from '@/stores/project'
+import { useWorkspaceStore } from '@/stores/workspace'
 
 const { t } = useI18n()
 const project = useProjectStore()
+const workspace = useWorkspaceStore()
+const projectDirectory = computed(
+  () => workspace.subdirectories.projects || workspace.workspacePath,
+)
 
 const visible = ref(false)
 const projectNameInput = ref('')
@@ -35,8 +41,59 @@ async function handleSave(): Promise<void> {
   if (path) {
     ElMessage.success(t('project.savedSuccess'))
     projectNameInput.value = ''
+    void project.refreshProjectList()
   } else {
     ElMessage.error(t('project.savedFailed'))
+  }
+}
+
+async function handleSaveAs(): Promise<void> {
+  const name = projectNameInput.value.trim() || project.projectName
+  if (!isDesktopHost()) {
+    // A plain browser cannot return a filesystem path from a dialog. Download
+    // the same JSON the desktop host writes instead of silently doing nothing.
+    const delivered = await saveTextFile(JSON.stringify(project.serializeProject(name), null, 2), {
+      filename: `${name}.vinaproj`,
+      mime: 'application/json',
+      saveTitle: t('project.saveAs'),
+    })
+    if (delivered) {
+      ElMessage.success(t('project.downloaded'))
+      projectNameInput.value = ''
+    } else {
+      ElMessage.error(t('project.savedFailed'))
+    }
+    return
+  }
+  const path = await pickSaveFile(
+    t('project.saveAs'),
+    `${name}.vinaproj`,
+    'VinAStudio Project (*.vinaproj)',
+    projectDirectory.value,
+  )
+  if (!path) return
+  const saved = await project.saveProjectAs(path, name)
+  if (saved) {
+    ElMessage.success(t('project.savedSuccess'))
+    projectNameInput.value = ''
+    void project.refreshProjectList()
+  } else {
+    ElMessage.error(t('project.savedFailed'))
+  }
+}
+
+async function handlePickLoad(): Promise<void> {
+  if (!isDesktopHost()) {
+    ElMessage.info(t('project.browserPathHint'))
+    return
+  }
+  const paths = await pickFiles({
+    title: t('project.openProject'),
+    filters: 'VinAStudio Project (*.vinaproj)',
+    initialDirectory: projectDirectory.value,
+  })
+  if (paths.length > 0) {
+    await handleLoad(paths[0]!)
   }
 }
 
@@ -103,6 +160,9 @@ onMounted(() => {
               </ElButton>
             </template>
           </ElInput>
+          <ElButton :icon="FolderOpened" @click="handleSaveAs">
+            {{ t('project.saveAs') }}
+          </ElButton>
         </div>
       </div>
 
@@ -116,11 +176,14 @@ onMounted(() => {
             size="small"
           >
             <template #append>
-              <ElButton :icon="FolderOpened" @click="handleLoadFromPath">
-                {{ t('project.load') }}
+              <ElButton :icon="FolderOpened" @click="handlePickLoad">
+                {{ t('project.openProject') }}
               </ElButton>
             </template>
           </ElInput>
+          <ElButton @click="handleLoadFromPath">
+            {{ t('project.load') }}
+          </ElButton>
         </div>
       </div>
 

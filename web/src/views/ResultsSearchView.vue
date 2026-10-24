@@ -433,7 +433,9 @@ onMounted(() => {
         <el-table-column :label="t('results.colLigand')">
           <template #default="{ row }">
             <div class="results-table__ligand">
-              <span class="results-table__label" :title="row.label">{{ row.label || '—' }}</span>
+              <span class="results-table__label" :title="row.label">
+                {{ row.label || (row.isBatch ? t('results.batchRun') : '—') }}
+              </span>
               <span v-if="row.matchedLigand" class="results-table__chip">
                 {{ t('results.matched', { name: row.matchedLigand }) }}
               </span>
@@ -493,7 +495,7 @@ onMounted(() => {
         </el-button>
       </div>
       <el-empty
-        v-else-if="!loading && loaded"
+        v-if="rows.length === 0 && !loading && loaded"
         :description="t('results.empty')"
         :image-size="72"
       >

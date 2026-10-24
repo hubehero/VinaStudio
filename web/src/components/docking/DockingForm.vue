@@ -361,7 +361,14 @@ function openReport(): void {
           <span class="running__status">{{ statusLabel }}</span>
           <span v-if="docking.stage" class="running__stage">{{ t(`docking.stage.${docking.stage}`) }}</span>
         </div>
-        <ElProgress :percentage="docking.progress" :stroke-width="10" style="margin-bottom: 12px" />
+        <ElProgress
+          :percentage="docking.progress"
+          :indeterminate="docking.isRunning"
+          :show-text="false"
+          :stroke-width="10"
+          style="margin-bottom: 6px"
+        />
+        <p class="running__hint">{{ t('docking.progressHint') }}</p>
         <ElButton type="danger" size="small" :icon="VideoPause" @click="docking.cancel()">
           {{ t('docking.cancelButton') }}
         </ElButton>
@@ -522,6 +529,13 @@ function openReport(): void {
 .running__stage {
   font-size: 12px;
   color: var(--vs-text-muted);
+}
+
+.running__hint {
+  margin: -2px 0 2px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--vs-text-faint);
 }
 
 .completed {

@@ -80,17 +80,55 @@ class Bridge(QObject):
     @Slot(str, str, bool, result=str)
     def openFiles(self, title: str, filters: str, multiple: bool) -> str:
         """Show an open dialog; returns a JSON array of absolute paths."""
+        return self._open_files(title, filters, multiple, "")
+
+    @Slot(str, str, bool, str, result=str)
+    def openFilesIn(
+        self, title: str, filters: str, multiple: bool, initial_directory: str
+    ) -> str:
+        """Open a picker rooted at a caller-provided directory.
+
+        Project UI passes the active workspace's ``projects/`` folder so the
+        dialog opens where the user expects instead of the process CWD.
+        """
+        return self._open_files(title, filters, multiple, initial_directory)
+
+    def _open_files(
+        self, title: str, filters: str, multiple: bool, initial_directory: str
+    ) -> str:
         dialog = QFileDialog(self._parent, title or "Open")
-        dialog.setFileMode(QFileDialog.FileMode.ExistingFiles if multiple else QFileDialog.FileMode.ExistingFile)
+        dialog.setFileMode(
+            QFileDialog.FileMode.ExistingFiles
+            if multiple
+            else QFileDialog.FileMode.ExistingFile
+        )
         dialog.setNameFilter(filters or ALL_FILES_FILTER)
+        directory = Path(initial_directory).expanduser() if initial_directory else None
+        if directory is not None and directory.is_dir():
+            dialog.setDirectory(str(directory))
         if dialog.exec() != QFileDialog.DialogCode.Accepted:
             return "[]"
         return json.dumps([str(p) for p in dialog.selectedFiles()])
 
-    @Slot(str, str, result=str)
+    @Slot(str, str, str, result=str)
     def saveFile(self, title: str, suggested_name: str, filters: str) -> str:
         """Show a save dialog; returns the chosen absolute path or ``""``."""
-        initial = str(Path(app_home()) / suggested_name) if suggested_name else str(app_home())
+        return self._save_file(title, suggested_name, filters, "")
+
+    @Slot(str, str, str, str, result=str)
+    def saveFileIn(
+        self, title: str, suggested_name: str, filters: str, initial_directory: str
+    ) -> str:
+        """Save dialog with an explicit starting directory (workspace path)."""
+        return self._save_file(title, suggested_name, filters, initial_directory)
+
+    def _save_file(
+        self, title: str, suggested_name: str, filters: str, initial_directory: str
+    ) -> str:
+        directory = Path(initial_directory).expanduser() if initial_directory else None
+        if directory is None or not directory.is_dir():
+            directory = Path(app_home())
+        initial = str(directory / suggested_name) if suggested_name else str(directory)
         path, _ = QFileDialog.getSaveFileName(
             self._parent, title or "Save", initial, filters or ALL_FILES_FILTER
         )

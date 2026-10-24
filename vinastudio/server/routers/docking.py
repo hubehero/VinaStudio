@@ -21,6 +21,7 @@ from fastapi.responses import FileResponse
 
 from vinastudio import __version__
 from vinastudio.config import NATIVE_MAP_SCORING, SCORING_WEIGHT_COUNT, max_upload_bytes
+from vinastudio.core.box import Box, ensure_box_contains_receptor
 from vinastudio.core.chem.ifp import (
     CONTACT_TYPES,
     butina_clustering,
@@ -124,6 +125,26 @@ _BUNDLE_DOWNLOADS: dict[str, Path] = {}
 _BUNDLE_DOWNLOAD_LIMIT = 128
 
 
+def _validate_box(
+    receptor_path: str,
+    center: tuple[float, float, float],
+    size: tuple[float, float, float],
+    *,
+    spacing: float = 0.375,
+    force_even_voxels: bool = False,
+) -> None:
+    """Reject a box that cannot score anything before a job is spawned."""
+    ensure_box_contains_receptor(
+        receptor_path,
+        Box(
+            center=center,
+            size=size,
+            spacing=spacing,
+            force_even_voxels=force_even_voxels,
+        ),
+    )
+
+
 @router.get("/defaults", response_model=DockingDefaultsResponse)
 def get_defaults() -> DockingDefaultsResponse:
     """Return default docking parameters for the UI form."""
@@ -198,6 +219,8 @@ def start_docking(request: DockingRequest) -> DockingJobCreated:
     # Validate AD4 needs maps
     if request.scoring == "ad4" and not request.mapPaths:
         raise InvalidInputError("ad4 scoring requires mapPaths")
+    if not request.mapPaths:
+        _validate_box(request.receptorPath, request.center, request.size)
 
     params = {
         "receptor_path": request.receptorPath,
@@ -250,6 +273,7 @@ def start_ensemble_docking(request: EnsembleDockingRequest) -> DockingJobCreated
             raise InvalidInputError(f"receptor file not found: {receptor.path}")
         if receptor.flexPath and not Path(receptor.flexPath).exists():
             raise InvalidInputError(f"flex receptor file not found: {receptor.flexPath}")
+        _validate_box(receptor.path, request.center, request.size)
     if request.ligandPath and not Path(request.ligandPath).exists():
         raise InvalidInputError(f"ligand file not found: {request.ligandPath}")
 
@@ -287,6 +311,7 @@ def batch_docking(request: BatchDockingRequest) -> BatchJobCreated:
         raise InvalidInputError(f"receptor file not found: {request.receptorPath}")
     if not request.ligands:
         raise InvalidInputError("ligands list is empty")
+    _validate_box(request.receptorPath, request.center, request.size)
 
     params = {
         "receptor_path": request.receptorPath,
@@ -952,6 +977,14 @@ def _configure_vina(
     if request.ligandPath and not Path(request.ligandPath).exists():
         raise InvalidInputError(f"ligand file not found: {request.ligandPath}")
 
+    _validate_box(
+        request.receptorPath,
+        request.center,
+        request.size,
+        spacing=request.spacing,
+        force_even_voxels=request.forceEvenVoxels,
+    )
+
     from vina import Vina  # type: ignore[import-untyped]
 
     # Interactive scoring/optimisation run at seed 0 unless the request carries
@@ -986,6 +1019,13 @@ def _interactive_params(
     request: ScoreRequest | OptimizeRequest | RandomizeRequest,
 ) -> DockingParams:
     """The interactive request as the backend-neutral parameter object."""
+    _validate_box(
+        request.receptorPath,
+        request.center,
+        request.size,
+        spacing=request.spacing,
+        force_even_voxels=request.forceEvenVoxels,
+    )
     return DockingParams(
         receptor_path=request.receptorPath,
         flex_pdbqt_path=request.flexReceptorPath,

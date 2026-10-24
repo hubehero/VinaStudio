@@ -212,6 +212,23 @@ def _run_label(payload: dict[str, Any], params: dict[str, Any]) -> str:
     # ligand file name.  Production never fills it truthfully (upstream
     # ``_job_label`` looks up the camelCase key while the router passes
     # snake_case — F1), so a path-based run is named by its file.
+    if payload.get("isBatch"):
+        roster = params.get("ligands")
+        if isinstance(roster, list):
+            names = []
+            for entry in roster:
+                if not isinstance(entry, dict):
+                    continue
+                name = entry.get("label")
+                if not isinstance(name, str) or not name:
+                    path = entry.get("ligandPath")
+                    name = Path(path).name if isinstance(path, str) and path else ""
+                if name:
+                    names.append(name)
+            if names:
+                # Keep the row readable; the full roster stays in params_json.
+                suffix = f" (+{len(names) - 1})" if len(names) > 1 else ""
+                return f"{names[0]}{suffix}"
     ligand_path = params.get("ligand_path")
     if isinstance(ligand_path, str) and ligand_path:
         return Path(ligand_path).name

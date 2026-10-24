@@ -34,9 +34,17 @@ def events_for_line(line: str) -> Iterator[tuple[str, dict[str, Any]]]:
     elif _RESULTS_RE.search(line):
         yield "stage", {"stage": "exporting"}
     else:
-        match = _PROGRESS_RE.search(line)
-        if match:
-            yield "progress", {"percent": int(match.group(1))}
+        # Vina may print a whole progress scale on one line
+        # (``0% .. 10% .. ... 100%``) at the end of a run, while a streaming
+        # backend can print one percentage per line. Emit every value; taking
+        # only the first made the UI jump from 0 to 100 and hid the other
+        # values. The frontend uses an indeterminate bar while the engine has
+        # no live percentage, so these late values cannot masquerade as live
+        # progress.
+        for match in _PROGRESS_RE.finditer(line):
+            percent = int(match.group(1))
+            if 0 <= percent <= 100:
+                yield "progress", {"percent": percent}
         yield "log", {"line": line}
 
 

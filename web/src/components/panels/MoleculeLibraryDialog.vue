@@ -17,6 +17,7 @@ import { useI18n } from 'vue-i18n'
 
 import { api } from '@/api/http'
 import { fetchMolecule } from '@/composables/use3Dmol'
+import CompoundLibraryTab from '@/components/panels/CompoundLibraryTab.vue'
 import { useMoleculeStore } from '@/stores/molecules'
 import type { LibraryEntry, LibraryLigand } from '@/types/api'
 
@@ -28,6 +29,7 @@ const query = ref('')
 const searching = ref(false)
 const entries = ref<LibraryEntry[]>([])
 const totalCount = ref(0)
+const loadingMore = ref(false)
 const fetchedId = ref<string | null>(null)
 
 /** Selected entry for detail panel. */
@@ -64,6 +66,31 @@ async function doSearch(): Promise<void> {
     )
   } finally {
     searching.value = false
+  }
+}
+
+async function loadMoreRcsb(): Promise<void> {
+  const q = query.value.trim()
+  if (!q || loadingMore.value || entries.value.length >= totalCount.value) return
+  loadingMore.value = true
+  try {
+    const result = await api.librarySearch({
+      query: q,
+      rows: 30,
+      start: entries.value.length,
+    })
+    const known = new Set(entries.value.map((entry) => entry.pdbId))
+    entries.value = [
+      ...entries.value,
+      ...result.entries.filter((entry) => !known.has(entry.pdbId)),
+    ]
+    totalCount.value = result.totalCount
+  } catch (error) {
+    ElMessage.error(
+      `${t('library.searchFailed')}: ${error instanceof Error ? error.message : String(error)}`,
+    )
+  } finally {
+    loadingMore.value = false
   }
 }
 
@@ -223,7 +250,7 @@ function isFetching(pdbId: string, ligandId?: string): boolean {
 
 // -- PubChem fetch -----------------------------------------------------------
 
-const activeTab = ref<'rcsb' | 'pubchem'>('rcsb')
+const activeTab = ref<'rcsb' | 'compounds' | 'pubchem'>('rcsb')
 const pubchemQuery = ref('')
 const pubchemFetching = ref(false)
 
@@ -325,6 +352,11 @@ defineExpose({ open })
                   </template>
                 </ElTableColumn>
               </ElTable>
+              <div v-if="entries.length < totalCount" class="library__more">
+                <ElButton size="small" :loading="loadingMore" @click="loadMoreRcsb">
+                  {{ t('library.loadMore') }}
+                </ElButton>
+              </div>
             </div>
 
             <ElEmpty
@@ -461,6 +493,10 @@ defineExpose({ open })
         </div>
       </ElTabPane>
 
+      <ElTabPane :label="t('library.compounds')" name="compounds">
+        <CompoundLibraryTab />
+      </ElTabPane>
+
       <ElTabPane label="PubChem" name="pubchem">
         <div class="pubchem">
           <ElInput
@@ -511,6 +547,13 @@ defineExpose({ open })
   border: 1px solid var(--vs-border);
   border-radius: var(--vs-radius);
   overflow: hidden;
+}
+
+.library__more {
+  display: flex;
+  justify-content: center;
+  padding: 8px;
+  border-top: 1px solid var(--vs-border);
 }
 
 .library__right {

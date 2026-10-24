@@ -12,6 +12,82 @@ entries about the product — no internal task ids or workflow narration.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-24
+
+### 新增
+
+- **化合物库检索扩展**：分子库新增 PubChem/ChEMBL 化合物检索，支持名称/ID、
+  相似性与子结构模式、分页、来源与许可提示；ChEMBL 的 2D 结构会明确提示
+  先准备生成 3D；RCSB 结果支持“加载更多”。原有 RCSB 与 PubChem 快捷获取
+  入口继续保留。
+
+### 修复
+
+- **盒子与受体不匹配时不再伪造成功结果**：对接前检查盒子是否包含受体原子；
+  盒子完全落在受体外（例如用 3htb 受体配 1iep 盒子）会报错并提示核对受体与
+  盒子，而不是生成一页 0.0 kcal/mol 的“完成”结果。
+- **工程保存更可靠**：`Ctrl+S` 覆盖当前 `.vinaproj`，不再每次生成 `_1`
+  副本；另存为使用原生文件对话框选择路径和名称，默认进入工作区
+  `projects/`；工程文件采用原子写入，并校验 `.vinaproj` 扩展名。
+- **对接进度不再“假动画”**：Vina 1.2.7 不提供可靠实时百分比；单任务运行
+  改为阶段/活动条（算地图→搜索→导出），批量/筛选仍显示真实完成计数。
+  解析器同时支持一行多个百分比，不再只取第一个 0%。
+- **结果表的非负/零亲和力有明确警示**：历史任务与结果汇报不再把
+  `0.00` 或正值仅显示为绿色“已完成”；0.00 提示检查受体/盒子与日志，
+  正值说明计算完成但没有预测到有利结合。
+- **工程加载不再重复分子**：工程保存的是准备后的 PDBQT；加载时按源文件
+  或任一产物路径复用，必要时先检查 PDBQT 再接入对接管线，不再多出一份
+  “已上传”副本，也不会把 PDBQT 误标成 SDF。
+- **浏览器模式“另存为”不再静默失败**：没有原生文件对话框时下载
+  `.vinaproj`，并明确提示自定义目录需桌面版。
+- **奇数体素盒子可修复**：盒子页新增“强制偶数体素”开关，已知英文告警
+  改为中文；开启后写亲和力图检查变为可写。
+- **历史检索与历史任务表修正**：有结果时不再同时显示“暂无结果”；批量
+  结果使用配体名/批量筛选标签，不再显示空白；窄窗口下配体列不再竖排，
+  hover 可看完整名称。
+
+### Added
+
+- **Compound library search**: the molecule library now searches PubChem and
+  ChEMBL by name/ID, similarity and substructure, with paging, source/licence
+  labels and explicit 2D-to-prepare warnings for ChEMBL. RCSB results gain
+  Load more; the existing RCSB and PubChem quick-fetch paths remain available.
+
+### Fixed
+
+- **A box outside the receptor is no longer reported as success**: docking now
+  checks that the search box contains receptor atoms. A box entirely outside the
+  receptor (for example, a 3htb receptor with a 1iep box) is rejected with an
+  actionable error instead of producing a page of 0.0 kcal/mol "completed"
+  poses.
+- **Project saving is reliable**: Ctrl+S overwrites the current `.vinaproj`
+  instead of creating a `_1` copy; Save As uses the native file dialog for path
+  and name, starting in the workspace `projects/` folder; project files are
+  written atomically and must use the `.vinaproj` extension.
+- **Docking progress no longer fakes percentages**: Vina 1.2.7 exposes stages,
+  not reliable live percentages. Single jobs now show a stage/activity bar
+  (maps → search → export); batch/screening keep real completed counts. The
+  parser also expands every percentage on a Vina line instead of only the first
+  `0%`.
+- **Non-negative affinity is flagged**: history and the result report no longer
+  present `0.00` or positive scores as an unqualified green success. `0.00`
+  points to the receptor/box and log; a positive score means the calculation
+  completed but predicts no favourable binding.
+- **Project loading no longer duplicates molecules**: projects store the
+  prepared PDBQT path; loading now reuses an existing source or artifact and
+  inspects a stored PDBQT before reconnecting it to the pipeline. The ligand
+  label also follows the actual format instead of claiming SDF for PDBQT.
+- **Browser Save As no longer fails silently**: without a native dialog it
+  downloads the `.vinaproj` and says that a custom directory needs the desktop
+  app.
+- **Odd-voxel boxes are recoverable**: the box panel has a “Force even voxels”
+  switch, and the known English warning is localized.
+- **History fixes**: results search no longer shows “No results” alongside
+  rows; batch runs get a ligand/batch label; the narrow history table no longer
+  stacks the ligand header, and a tooltip exposes the full name.
+- **Web API docs**: Vite proxies `/docs` and `/swagger`, so the settings link
+  reaches Swagger instead of returning the SPA.
+
 ## [0.5.0] - 2026-10-23
 
 ### 新增

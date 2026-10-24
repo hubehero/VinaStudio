@@ -40,6 +40,13 @@ export default defineConfig({
     // Development talks to the same loopback API the desktop shell runs.
     proxy: {
       '/api': { target: devApiHttp, changeOrigin: true },
+      // The viewport fetches renderable structures from `/artifacts`, not
+      // `/api`; in the packaged app FastAPI serves both from one origin.
+      '/artifacts': { target: devApiHttp, changeOrigin: true },
+      // Swagger/OpenAPI are served by FastAPI, not Vite; the settings dialog
+      // links to them on the current (Vite) origin.
+      '/docs': { target: devApiHttp, changeOrigin: true },
+      '/swagger': { target: devApiHttp, changeOrigin: true },
       '/ws': { target: devApiWs, ws: true },
     },
   },

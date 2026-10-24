@@ -211,14 +211,47 @@ uploaded → inspecting → inspected → preparing → prepared
 | 蛋白质表示 | 由受体 PDB 生成 3Dmol 卡通；口袋残基用棍状 |
 | 表面 | 3Dmol `addSurface`，类型限于界面暴露的 VDW/SAS/SES |
 | 搜索盒 | 十二条边用线段绘制，语义与 Vina 一致（中心 + 边长） |
+| 盒子预检 | 盒子内没有任何受体原子时，对接前直接拒绝；否则 Vina 会返回看似成功的全 0 构象 |
 | 相互作用 | Python 里按几何距离与角度计算，用虚线圆柱绘制 |
 | 静电势 | PDBQT 部分电荷的库仑求和投到网格，写成 Gaussian cube —— **明确标注为点电荷近似，绝不称为量子 ESP** |
+
+对接不是坐标变换：Vina 收到的受体与盒子处于同一坐标系，`poses_to_sdf()`
+把对接坐标原样写入 SDF。1iep 重对接基线会用共晶姿态核对结果（best-pose
+RMSD 0.260 Å）。盒子完全在受体外是另一类失败：它会在启动前被拒绝，而不是
+被记成一页 0.0 kcal/mol 的构象。该检查覆盖单次、批量、ensemble、筛选与
+交互式 score/optimize/randomize 路径。
 
 应用做不到的事情会直接写在界面上，而不是悄悄近似。最清楚的例子是 AutoDock4
 打分：它需要 AutoGrid4 生成的亲和力地图，而 AutoGrid4 不随包分发，所以能力矩阵
 把 `ad4` 标为 `nativeMaps: false`，两个对接表单都不提供它——目前没有办法提供
 地图，一个只会失败的选项比没有选项更糟。`/docking/score`、`/optimize` 与
 `/randomize` 出于同样原因拒绝它。
+
+---
+
+## 对接进度
+
+Vina 1.2.7 只提供阶段，不提供可靠的实时百分比：Python API 与 CLI 都没有
+per-step 回调，数字刻度通常在结束时才打印。因此单次对接显示“活动条 + 阶段
+文字”（算地图 → 搜索 → 导出），不伪造 0/50/100；批量与筛选有真实的逐配体
+完成计数，仍显示数字进度。
+
+## 在线化合物来源
+
+分子库保留 RCSB 的结构/共晶配体检索，并增加化合物 provider 层：
+
+- **PubChem**（PUG REST）与 **ChEMBL**（REST）提供文本/ID、相似性、子结构检索。
+  化学索引在来源服务端；应用不镜像数百万结构，也不在本地建 ANN 索引。
+- 检索结果只在内存缓存 5 分钟，且只在用户触发时请求；PubChem 5 请求/秒、
+  ChEMBL 更保守，统一由限流器串行化。
+- 结果保留来源与许可；不同来源的 score 不比较。PubChem 提供 3D SDF；
+  ChEMBL 公开 SDF 是 2D，必须先走正常准备流程才能对接。
+- 旧 `/api/library/*` 的 RCSB 与 PubChem 快捷获取契约保持不变；新接口位于
+  `/api/library/compounds/*`。
+
+这是有意的产品边界：应用负责本地对接工作流，不负责重建化学搜索引擎或
+镜像数据库。ZINC 没有稳定公开检索 API 且有人机验证，因此不作为在线来源；
+BindingDB 的按靶点找配体留作后续适配，不在当前标签页中。
 
 ---
 

@@ -40,6 +40,17 @@ function formatBest(job: DockingJobSummary): string {
   return job.bestAffinity === null ? '—' : job.bestAffinity.toFixed(2)
 }
 
+function bestHint(job: DockingJobSummary): string {
+  if (job.bestAffinity === null) return ''
+  if (job.bestAffinity === 0) return t('docking.history.zeroScoreHint')
+  if (job.bestAffinity > 0) return t('docking.history.positiveScoreHint')
+  return ''
+}
+
+function bestClass(job: DockingJobSummary): Record<string, boolean> {
+  return { 'history__best--warn': job.bestAffinity !== null && job.bestAffinity >= 0 }
+}
+
 async function open(job: DockingJobSummary): Promise<void> {
   if (job.isBatch) {
     await docking.openHistoryBatch(job)
@@ -74,12 +85,15 @@ async function open(job: DockingJobSummary): Promise<void> {
               type="button"
               class="history__row"
               :class="{ 'history__row--active': job.jobId === docking.activeJobId }"
+              :title="`${rowLabel(job)} · ${formatBest(job)} kcal/mol`"
               :aria-label="`${formatTime(job.createdAt)} ${rowLabel(job)} ${t(`docking.status.${job.status}`)}`"
               @click="open(job)"
             >
               <span class="history__time">{{ formatTime(job.createdAt) }}</span>
               <span class="history__label">{{ rowLabel(job) }}</span>
-              <span class="history__best">{{ formatBest(job) }}</span>
+              <span class="history__best" :class="bestClass(job)" :title="bestHint(job)">
+                {{ formatBest(job) }}
+              </span>
               <span class="history__badge" :class="`history__badge--${job.status}`">
                 {{ t(`docking.status.${job.status}`) }}
               </span>
@@ -101,9 +115,13 @@ async function open(job: DockingJobSummary): Promise<void> {
 .history__head,
 .history__row {
   display: grid;
-  grid-template-columns: 108px minmax(0, 1fr) 64px 76px;
-  gap: 8px;
+  grid-template-columns: 100px minmax(0, 1fr) 52px 68px;
+  gap: 6px;
   align-items: center;
+}
+
+.history__head span {
+  white-space: nowrap;
 }
 
 .history__head {
@@ -164,6 +182,11 @@ async function open(job: DockingJobSummary): Promise<void> {
 .history__best {
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+.history__best--warn {
+  color: var(--vs-warning);
+  cursor: help;
 }
 
 .history__badge {

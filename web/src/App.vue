@@ -30,6 +30,11 @@ const { t } = useI18n()
 
 const elementLocale = computed(() => (ui.locale === 'zh-CN' ? zhCn : en))
 
+/** The folder project pickers should start in: workspace/projects. */
+const projectDirectory = computed(
+  () => workspace.subdirectories.projects || workspace.workspacePath,
+)
+
 const uptime = computed(() => {
   const seconds = system.health?.uptimeSeconds
   if (seconds === undefined) {
@@ -108,6 +113,7 @@ onMounted(async () => {
       const paths = await pickFiles({
         title: t('project.openProject'),
         filters: 'VinAStudio Project (*.vinaproj)',
+        initialDirectory: projectDirectory.value,
       })
       if (paths.length > 0) {
         const ok = await project.loadProject(paths[0]!)
@@ -131,6 +137,7 @@ onMounted(async () => {
         t('project.saveAs'),
         `${project.projectName}.vinaproj`,
         'VinAStudio Project (*.vinaproj)',
+        projectDirectory.value,
       )
       if (path) {
         const result = await project.saveProjectAs(path)

@@ -228,8 +228,17 @@ drag-over. Dropped files are uploaded and auto-inspected.
 | Protein representation | 3Dmol cartoon from receptor PDB, sticks for pocket residues |
 | Surfaces | 3Dmol `addSurface` with the VDW/SAS/SES types the interface exposes |
 | Search box | Twelve edges drawn as lines with Vina's semantics (centre + edge lengths) |
+| Box preflight | A box that contains no receptor atom is rejected before docking; Vina would otherwise return zero-energy poses that look successful |
 | Interactions | Computed geometrically in Python (distances and angles), drawn as dashed cylinders |
 | Electrostatic potential | Coulomb sum over PDBQT partial charges onto a grid, written as a Gaussian cube — **labelled as a point-charge approximation, never as a QM ESP** |
+
+Docking is not a coordinate transform: Vina receives the receptor and box in
+the same frame, and `poses_to_sdf()` copies the docked coordinates into SDF
+unchanged. The 1iep redocking baseline checks the result against the
+co-crystal pose (best-pose RMSD 0.260 Å). A box outside the receptor is a
+separate failure mode: it is refused before spawning rather than scored as a
+page of 0.0 kcal/mol poses. The guard applies to single, batch, ensemble,
+screening and the interactive score/optimize/randomize paths.
 
 Anything the application cannot do correctly is stated in the UI rather than
 approximated silently. The clearest example is AutoDock4 scoring: it needs
@@ -238,6 +247,39 @@ matrix marks `ad4` as `nativeMaps: false` and neither docking form offers it —
 there is no way to supply maps yet, and an option that can only fail is worse
 than an absent one. `/docking/score`, `/optimize` and `/randomize` refuse it for
 the same reason.
+
+---
+
+## Docking progress
+
+Vina 1.2.7 exposes **stages**, not a reliable live percentage: the Python API
+and CLI have no per-step callback, and the numeric scale is usually printed at
+the end. A single docking run therefore shows an activity bar plus the stage
+(maps → docking → export); it never fabricates 0/50/100 progress. Batch and
+screening have real per-ligand counters and keep numeric progress.
+
+## Online compound providers
+
+The molecule library keeps RCSB for structures/co-crystal ligands and adds a
+provider layer for compounds:
+
+- **PubChem** (`PUG REST`) and **ChEMBL** (`REST`) provide text/ID, similarity
+  and substructure search. The chemical indexes live at the provider; the app
+  does not mirror millions of structures or build a local ANN index.
+- Search pages are cached in memory for five minutes and are requested only
+  after a user action. Provider rate limits are serialised in one limiter
+  (PubChem: 5 requests/s; ChEMBL is deliberately slower).
+- Results keep their source and licence. Scores are never compared across
+  providers. PubChem supplies 3D SDF; ChEMBL's public SDF is 2D and must pass
+  the normal preparation step before docking.
+- The old `/api/library/*` RCSB and PubChem quick-fetch contracts remain
+  unchanged; the new endpoints are under `/api/library/compounds/*`.
+
+This is a deliberate product boundary: the application owns the local docking
+workflow, not a chemical search engine or a database mirror. ZINC is not an
+online source here because it offers no stable public search API and uses a
+human-verification gate; BindingDB's target-oriented ligand search remains a
+later adapter, not part of the current tabs.
 
 ---
 

@@ -160,6 +160,27 @@ MOL2 and PDB files, and can also build a ligand from SMILES or from the built-in
 Both the receptor and the ligand become the **pipeline** molecules. The docking
 page uses them unless you pick different ones in the molecule selectors.
 
+### Online compound libraries
+
+Open **Molecules → From Library**. The **RCSB PDB** tab searches structures and
+co-crystal ligands. The **Compounds** tab searches PubChem or ChEMBL:
+
+- **Name / ID** accepts a compound name, CID, ChEMBL ID, InChIKey or SMILES.
+- **Similarity** and **Substructure** accept SMILES and use the provider's own
+  chemical index; no local database is built or downloaded.
+- Results are paged and carry their source and licence. The detail panel shows
+  the 2D structure and properties.
+- PubChem downloads a **3D** SDF. ChEMBL's public SDF is currently **2D**, so the
+  interface says “Prepare first”; run the normal ligand preparation to generate
+  a 3D conformer before docking.
+- A source's score is only comparable within that source. Do not merge ChEMBL
+  and PubChem scores.
+
+The old **PubChem** tab remains as a quick single-compound fetch. RCSB and
+PubChem data are free; ChEMBL data is CC BY-SA 3.0 and should be cited with its
+source URL and release version. Commercial/registration-gated sources such as
+DrugBank are not integrated.
+
 ---
 
 ## 7. Define the search box
@@ -177,6 +198,13 @@ There are three ways to set it:
 The box is drawn in the viewport and can be moved with Shift-drag. A 20 Å box is
 a reasonable default for a drug-like ligand; smaller boxes dock faster but may
 cut off a pose.
+
+**The box must be in the receptor's coordinate frame.** A box copied from a
+different PDB entry can sit entirely outside the receptor; docking then has
+nothing to score. VinaStudio refuses that request with “the docking box contains
+no receptor atoms” instead of returning a page of zero-energy poses. Select the
+receptor and ligand from the same complex, or recompute the box from the current
+receptor/ligand.
 
 **Binding sites** can also propose candidates from the receptor geometry alone.
 That is a coarse screen for choosing where to look, not a claim about the true
@@ -198,8 +226,15 @@ Open **Docking**, confirm the receptor, ligand and box, then set:
 | CPU | Threads to use; 0 means all available |
 
 Press **Run**. The job starts in a separate process, so the interface stays
-responsive; progress and the engine log stream into the panel, and **Cancel**
+responsive; the stage and engine log stream into the panel, and **Cancel**
 actually stops the run by terminating that process.
+
+Vina 1.2.7 does not expose a reliable live percentage: it prints a progress
+scale at the end, and neither the Python API nor the CLI offers a per-step
+callback. A single run therefore uses an **activity bar** and the stage text
+(maps → docking → export) rather than inventing 0/50/100 values. Batch and
+screening jobs do have real per-ligand completion counts and keep numeric
+progress.
 
 If you have several receptor conformers, enable **Ensemble conformers**, select
 at least two prepared receptors and run. Each conformer is docked separately
@@ -217,6 +252,12 @@ The time is shown when the job finishes.
 
 The result page ranks poses by predicted affinity. The most negative value is the
 best-scoring pose, in kcal/mol.
+
+A completed calculation is not automatically a good binder. A best affinity of
+**0.00** usually means no valid score was produced (check the receptor/box and
+log); a **positive** affinity means the engine completed but predicts no
+favourable binding. The interface flags both instead of showing a plain green
+“completed”.
 
 - **Affinity** is a scoring-function estimate, not an experimental binding free
   energy. Do not compare values from different scoring functions.
@@ -288,6 +329,20 @@ new search or filter resets to the first page.
   interface refuses `ad4` when no maps are supplied rather than silently running
   a different scoring function.
 
+### Project files
+
+A project is a `.vinaproj` JSON file containing the receptor/ligand references,
+box, docking configuration and result references. The project manager stores
+projects in the workspace's `projects/` folder.
+
+- **Save** (`Ctrl+S`) overwrites the current project file. A new project is
+  created in `projects/` first.
+- **Save As** (`Ctrl+Shift+S`) opens the native file dialog, starts in
+  `projects/`, and lets you choose both the folder and filename. The chosen name
+  is stored in the project as its display name.
+- Project writes are atomic; an interrupted save does not truncate the previous
+  file. Only `.vinaproj` paths are accepted by Save As.
+
 ---
 
 ## 11. Frequently asked questions
@@ -308,6 +363,13 @@ installer hash.
 
 **A ligand fails to load from a folder with Chinese characters.**
 Fixed in 0.4.0. Older builds returned an error from RDKit's path handling.
+
+**Docking is refused with “the docking box contains no receptor atoms”.**
+The box and receptor are in different coordinate frames (often a box or ligand
+taken from another PDB entry). Choose a receptor/ligand pair from the same
+complex, then recompute the box; do not widen the box until it accidentally
+touches the protein. A box with no receptor atoms would make Vina return
+zero-energy poses that are not a docking result.
 
 **Can I compare affinities from Vina and Vinardo?**
 No. Different scoring functions produce different energy scales. Compare only

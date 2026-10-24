@@ -8,8 +8,11 @@ are not broken.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
+import os
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -37,6 +40,28 @@ def _get_projects_dir() -> Path:
     return d
 
 
+def _write_project(filepath: Path, project: ProjectFile) -> None:
+    """Write a project atomically, so a crash cannot truncate an existing file.
+
+    ``NamedTemporaryFile`` lives in the destination directory, which keeps the
+    final ``os.replace`` on the same filesystem (the only way it is atomic).
+    """
+    filepath.parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(project.model_dump(), indent=2, ensure_ascii=False)
+    descriptor, temporary = tempfile.mkstemp(
+        prefix=f".{filepath.name}.", suffix=".tmp", dir=filepath.parent
+    )
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, filepath)
+    finally:
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink(temporary)
+
+
 # ── endpoints ────────────────────────────────────────────────────────────────
 
 
@@ -51,7 +76,11 @@ def save_project(request: dict[str, Any]) -> dict[str, str]:
     filename = request.get("filename", "untitled")
     project_data = request.get("project", {})
 
-    # Sanitize filename
+    # Sanitize filename. A caller may send the extension even though the
+    # endpoint adds it; strip it before sanitising so the dot is not first
+    # rewritten to an underscore.
+    if filename.lower().endswith(".vinaproj"):
+        filename = filename[:-len(".vinaproj")]
     safe_name = "".join(c if c.isalnum() or c in "-_ " else "_" for c in filename)
     safe_name = safe_name.strip()[:100] or "untitled"
 
@@ -67,11 +96,12 @@ def save_project(request: dict[str, Any]) -> dict[str, str]:
     try:
         project = ProjectFile(**project_data)
         project.updatedAt = datetime.now().isoformat()
+        # A direct API caller may omit the display name; the filename is the
+        # least surprising fallback.
+        project.name = project.name or safe_name
         # Saving writes the current format, whatever the client sent.
         project.formatVersion = "1.1"
-
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(project.model_dump(), f, indent=2, ensure_ascii=False)
+        _write_project(filepath, project)
 
         return {
             "path": str(filepath),
@@ -95,15 +125,17 @@ def save_project_as(request: dict[str, Any]) -> dict[str, str]:
     filepath = Path(filepath_str)
     if not filepath.suffix:
         filepath = filepath.with_suffix(".vinaproj")
+    if filepath.suffix.lower() != ".vinaproj":
+        raise InvalidInputError("project path must end with .vinaproj")
+    if filepath.is_dir():
+        raise InvalidInputError(f"project path is a directory: {filepath}")
 
     try:
         project = ProjectFile(**project_data)
         project.updatedAt = datetime.now().isoformat()
+        project.name = project.name or filepath.stem
         project.formatVersion = "1.1"
-
-        filepath.parent.mkdir(parents=True, exist_ok=True)
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(project.model_dump(), f, indent=2, ensure_ascii=False)
+        _write_project(filepath, project)
 
         return {
             "path": str(filepath),
@@ -145,7 +177,7 @@ def load_project(request: dict[str, Any]) -> dict[str, Any]:
     if not filepath.exists():
         raise InvalidInputError(f"project file not found: {filepath_str}")
 
-    if filepath.suffix != ".vinaproj":
+    if filepath.suffix.lower() != ".vinaproj":
         raise InvalidInputError(f"not a .vinaproj file: {filepath_str}")
 
     try:
@@ -211,7 +243,7 @@ def delete_project(filename: str) -> dict[str, str]:
     if not filepath.exists():
         raise InvalidInputError(f"project not found: {filename}")
 
-    if filepath.suffix != ".vinaproj":
+    if filepath.suffix.lower() != ".vinaproj":
         raise InvalidInputError(f"not a .vinaproj file: {filename}")
 
     filepath.unlink()

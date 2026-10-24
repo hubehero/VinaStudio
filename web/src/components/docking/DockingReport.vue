@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { DataAnalysis, Download } from '@element-plus/icons-vue'
-import { ElButton, ElIcon, ElMessage, ElProgress } from 'element-plus'
+import { ElAlert, ElButton, ElIcon, ElMessage, ElProgress } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -27,6 +27,14 @@ const statusLabel = computed(() => {
 })
 
 /** StatusPill tone for the job state; idle shows no pill at all. */
+const scoreWarning = computed<string | null>(() => {
+  const score = docking.bestAffinity
+  if (score === null) return null
+  if (score === 0) return t('docking.resultsReport.zeroScore')
+  if (score > 0) return t('docking.resultsReport.positiveScore')
+  return null
+})
+
 const statusTone = computed<'ok' | 'warn' | 'error' | 'idle'>(() => {
   switch (docking.status) {
     case 'completed':
@@ -300,11 +308,26 @@ async function downloadCsv(): Promise<void> {
 
         <!-- Running progress -->
         <div v-if="docking.isRunning" class="report-running">
-          <ElProgress :percentage="docking.progress" :stroke-width="8" />
+          <ElProgress
+            :percentage="docking.progress"
+            :indeterminate="docking.isRunning"
+            :show-text="false"
+            :stroke-width="8"
+          />
           <span v-if="docking.stage" class="report-running__stage">
             {{ t(`docking.stage.${docking.stage}`) }}
           </span>
+          <span class="report-running__hint">{{ t('docking.progressHint') }}</span>
         </div>
+
+        <ElAlert
+          v-if="scoreWarning"
+          :title="scoreWarning"
+          type="warning"
+          :closable="false"
+          show-icon
+          class="report-score-warning"
+        />
 
         <!-- Key metrics -->
         <section v-if="docking.hasResult" class="report-section">
@@ -543,6 +566,16 @@ async function downloadCsv(): Promise<void> {
 .report-running__stage {
   font-size: 11.5px;
   color: var(--vs-text-muted);
+}
+
+.report-running__hint {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--vs-text-faint);
+}
+
+.report-score-warning {
+  margin: 2px 0;
 }
 
 /* -- sections -- */

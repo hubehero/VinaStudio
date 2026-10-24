@@ -45,6 +45,12 @@ uv run python scripts/validate_benchmark.py --case 1iep --case 2hyy --out-dir va
 3. best pose 的六项几何检查没有 `error`；
 4. 若 manifest 配置了 `affinityRange`，best affinity 在区间内。
 
+在进入上述判定之前还有一条**对接前置条件**：盒子必须包含至少一个受体原子
+（`ensure_box_contains_receptor`）。盒子完全在受体外时，Vina 会返回全 0.0
+的构象并把它当成完成；现在 harness 和实际作业都会直接报错，不会把这种结果
+计入 passed。该检查只证明“盒子与受体有交集”，**不证明盒子是正确结合位点**；
+位点正确性仍要靠共晶配体/RMSD 与人工判断。
+
 `warning` 不失败，但会写入报告。**其它 pose 的 geometry error 不会让 case
 失败**，但会以 `errorPoses` 记录；不要把“best 通过”理解成“全部 pose 都合理”。
 
@@ -74,6 +80,9 @@ uv run python scripts/validate_benchmark.py --case 1iep --case 2hyy
 这些值是**本机、本版本、seed 42** 的结果，不是跨平台常数；不要把它写成
 “VinaStudio 在 CASF 上的通过率”。2hyy 的 62 个残基 warning 必须与 pass 一起读：
 它可能远离位点，也可能影响结果，报告不隐藏这一点。
+
+2026-10-23 增加盒子/受体交集检查后，1iep 基线仍为上述值；这是“没有把错误
+结果改成绿色”的证据，而不是新的精度提升。
 
 ## 5. Manifest 格式
 
