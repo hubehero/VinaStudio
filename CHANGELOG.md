@@ -439,6 +439,7 @@ Older releases predate this file; their notes live on the release pages:
 - **0.1.0** (2026-09-23) — first public Linux release.
   [Release notes](https://github.com/hubehero/VinaStudio/releases/tag/v0.1.0)
 
+[0.5.1]: https://github.com/hubehero/VinaStudio/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/hubehero/VinaStudio/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/hubehero/VinaStudio/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/hubehero/VinaStudio/compare/v0.3.0...v0.4.0
