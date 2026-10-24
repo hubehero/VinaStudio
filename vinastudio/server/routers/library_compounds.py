@@ -15,7 +15,7 @@ from fastapi import APIRouter
 
 from vinastudio.core.chem.compound_sources import SOURCES, source_info
 from vinastudio.core.errors import ExternalServiceError, InvalidInputError
-from vinastudio.core.paths import create_workspace, slugify
+from vinastudio.core.paths import create_workspace, resolve_within, slugify
 from vinastudio.schemas.compound_library import (
     CompoundFetchRequest,
     CompoundFetchResponse,
@@ -100,6 +100,12 @@ async def fetch_compound(request: CompoundFetchRequest) -> CompoundFetchResponse
     dest_dir = ligands_dir(ws) if ws is not None else create_workspace("compounds").path
     stem = f"{request.source}-{slugify(request.id, fallback='compound')}"
     target = _unique_sdf_path(dest_dir, stem)
+    # The provider id is user-supplied; slugify already removes separators, but
+    # keep the write sink explicitly inside the workspace as a second barrier.
+    try:
+        target = resolve_within(dest_dir, target.name)
+    except ValueError as exc:
+        raise InvalidInputError(f"invalid compound output path: {request.id}") from exc
     try:
         target.write_bytes(content)
     except OSError as exc:

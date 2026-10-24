@@ -483,7 +483,13 @@ def main() -> int:
     print("\n[9] Security alerts")
     summary = alert_summary()
     if summary is None:
-        note("could not read the alert APIs (no gh/network) — check the Security tab by hand")
+        # Fail closed: a release cannot claim the security state was checked
+        # when the API was unreadable (missing gh/network or token scope).
+        bad(
+            "security alerts",
+            "could not read the alert APIs — refusing to treat an unreadable "
+            "security state as green",
+        )
     elif not summary:
         ok("no open alerts from Dependabot or CodeQL")
     else:

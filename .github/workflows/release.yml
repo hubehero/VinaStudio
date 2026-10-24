@@ -23,6 +23,11 @@ jobs:
   # ---------------------------------------------------------------------------
   preflight:
     runs-on: ubuntu-latest
+    # Reading code-scanning alerts needs this scope; without it the gate used
+    # to fall back to a note and let an open high alert through.
+    permissions:
+      contents: read
+      security-events: read
     steps:
       - uses: actions/checkout@v7
         with:
