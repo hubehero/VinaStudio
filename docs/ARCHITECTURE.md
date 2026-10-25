@@ -147,7 +147,11 @@ than switching on its own.
 
 ---
 
-## Molecule Manager
+## Molecule Manager (legacy, pre-Catalog)
+
+> This section documents the UI that preceded the Catalog. That page was
+> replaced by `MoleculeCatalogView`; the old panel/detail components have been
+> removed. Use the Catalog section below as the current architecture.
 
 The Molecule Manager (`/molecules`) is a standalone view accessible from the
 sidebar, providing a unified interface for uploading, inspecting, and preparing
@@ -218,6 +222,37 @@ The Molecule Manager uses the same design system as all other panels:
 
 The left panel accepts file drops. A dashed blue border overlay appears during
 drag-over. Dropped files are uploaded and auto-inspected.
+
+---
+
+## Molecule Catalog (v2)
+
+The `/molecules` page now reads a workspace catalog instead of the legacy
+manifest. The catalog is `<workspace>/catalog.sqlite`; it stores molecule
+identity, files/artifacts, aliases, tags, sources, Studies, Collections,
+Libraries and an FTS5 index. Structures stay on disk.
+
+- **Study** membership carries the role (`receptor` / `ligand` / `cofactor`);
+  one Study may hold multiple receptors. `study_members.is_primary` only
+  chooses the default receptor.
+- **Collection** is an arbitrary nested organization tree; tags are
+  many-to-many. Neither is a substitute for Study or Library.
+- **Library** members reference catalog molecules; creating/starting a run
+  materializes the existing `libraries/<id>/mols/NNNNNN.sdf` worker layout.
+- Ligand identity is InChIKey (parent key stored separately); receptor identity
+  is PDB ID or content hash. A path is not an identity.
+- Search runs server-side (FTS5 + structured filters); the old client-side
+  full-list filter is not the Catalog path.
+- `molecules.json` is one-way migration/export input, copied to
+  `molecules.json.pre-catalog`; it is not a second write source. The old
+  `/api/molecules` shape survives as a compatibility projection only.
+- The new page can adopt a Study's primary receptor and first ligand into the
+  existing docking pipeline only when both have prepared PDBQT artifacts.
+- Every import path (files, SMILES, sketcher, samples, RCSB, PubChem, ChEMBL)
+  writes Catalog rows; the table virtualises rows with `ElTableV2` and keeps
+  visible-column choices, while the API still returns bounded pages.
+
+Full design and current limits: `docs/MOLECULE_CATALOG.md`.
 
 ---
 

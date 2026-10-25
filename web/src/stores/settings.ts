@@ -66,10 +66,27 @@ export interface MoleculeSettings {
   viewMode: MoleculeViewMode
 }
 
+/** Visible columns in the Catalog table, in display order. */
+export interface CatalogSettings {
+  columns: string[]
+}
+
+export const CATALOG_COLUMNS = [
+  'name',
+  'kind',
+  'study',
+  'collections',
+  'source',
+  'prep',
+  'mw',
+  'tags',
+] as const
+
 interface StoredSettings {
   version?: number
   viewer?: Partial<ViewerSettings>
   molecules?: Partial<MoleculeSettings>
+  catalog?: Partial<CatalogSettings>
 }
 
 const DEFAULT_VIEWER: ViewerSettings = {
@@ -89,7 +106,15 @@ const DEFAULT_MOLECULES: MoleculeSettings = {
   viewMode: 'type',
 }
 
-function loadFromStorage(): { viewer: ViewerSettings; molecules: MoleculeSettings } {
+const DEFAULT_CATALOG: CatalogSettings = {
+  columns: [...CATALOG_COLUMNS],
+}
+
+function loadFromStorage(): {
+  viewer: ViewerSettings
+  molecules: MoleculeSettings
+  catalog: CatalogSettings
+} {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
@@ -130,12 +155,20 @@ function loadFromStorage(): { viewer: ViewerSettings; molecules: MoleculeSetting
         adaptiveAO:
           typeof stored.adaptiveAO === 'boolean' ? stored.adaptiveAO : defaults.adaptiveAO,
       }
-      return { viewer: migrated, molecules: migrateMolecules(parsed.molecules) }
+      return {
+        viewer: migrated,
+        molecules: migrateMolecules(parsed.molecules),
+        catalog: migrateCatalog(parsed.catalog),
+      }
     }
   } catch {
     // Ignore storage failures; fall back to the defaults.
   }
-  return { viewer: { ...DEFAULT_VIEWER }, molecules: { ...DEFAULT_MOLECULES } }
+  return {
+    viewer: { ...DEFAULT_VIEWER },
+    molecules: { ...DEFAULT_MOLECULES },
+    catalog: { ...DEFAULT_CATALOG },
+  }
 }
 
 /** Anything but a stored 'source' falls back to 'type' (older payloads lack it). */
@@ -143,11 +176,24 @@ function migrateMolecules(stored: Partial<MoleculeSettings> | undefined): Molecu
   return { viewMode: stored?.viewMode === 'source' ? 'source' : 'type' }
 }
 
-function saveToStorage(viewer: ViewerSettings, molecules: MoleculeSettings): void {
+function migrateCatalog(stored: Partial<CatalogSettings> | undefined): CatalogSettings {
+  const columns = Array.isArray(stored?.columns)
+    ? stored.columns.filter((column): column is string => typeof column === 'string')
+    : []
+  return {
+    columns: columns.length > 0 ? columns : [...DEFAULT_CATALOG.columns],
+  }
+}
+
+function saveToStorage(
+  viewer: ViewerSettings,
+  molecules: MoleculeSettings,
+  catalog: CatalogSettings,
+): void {
   try {
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ version: STORAGE_VERSION, viewer, molecules }),
+      JSON.stringify({ version: STORAGE_VERSION, viewer, molecules, catalog }),
     )
   } catch {
     // Best-effort only.
@@ -158,12 +204,13 @@ export const useSettingsStore = defineStore('settings', () => {
   const stored = loadFromStorage()
   const viewer = ref<ViewerSettings>(stored.viewer)
   const molecules = ref<MoleculeSettings>(stored.molecules)
+  const catalog = ref<CatalogSettings>(stored.catalog)
 
-  // Persist on change: both sections share one storage key, so either one
-  // changing must write the whole payload (the other would otherwise be lost).
+  // Persist on change: all sections share one storage key, so either one
+  // changing must write the whole payload (the others would otherwise be lost).
   watch(
-    [viewer, molecules],
-    () => saveToStorage(viewer.value, molecules.value),
+    [viewer, molecules, catalog],
+    () => saveToStorage(viewer.value, molecules.value, catalog.value),
     { deep: true },
   )
 
@@ -174,6 +221,7 @@ export const useSettingsStore = defineStore('settings', () => {
   return {
     viewer,
     molecules,
+    catalog,
     resetViewer,
   }
 })

@@ -32,7 +32,7 @@ WORKSPACE_VERSION = 1
 _CONFIG_FILENAME = ".vinastudio.json"
 
 # Subdirectories created inside every workspace.
-_SUBDIRS = ("projects", "receptors", "ligands", "jobs", "exports")
+_SUBDIRS = ("projects", "receptors", "ligands", "jobs", "exports", "libraries")
 
 
 # ── workspace configuration model ────────────────────────────────────────────

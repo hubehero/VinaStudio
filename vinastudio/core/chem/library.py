@@ -319,12 +319,15 @@ def list_libraries(root: Path | None = None) -> list[dict[str, object]]:
         if data is None:
             continue
         rows = _entry_rows(child, data.get("entries"))
-        summaries.append({
+        summary = {
             "name": child.name,
             "total": len(rows),
             "prepared": sum(1 for row in rows if row["prepare"] == "done"),
             "created": float(data.get("created") or 0.0),
-        })
+        }
+        if data.get("displayName"):
+            summary["displayName"] = str(data["displayName"])
+        summaries.append(summary)
     summaries.sort(key=lambda row: row["created"], reverse=True)
     return summaries
 
@@ -339,9 +342,12 @@ def load_detail(name: str, root: Path | None = None) -> dict[str, object] | None
     if data is None:
         return None
     rows = _entry_rows(libdir, data.get("entries"))
-    return {
+    detail = {
         "name": libdir.name,
         "total": len(rows),
         "created": float(data.get("created") or 0.0),
         "entries": rows,
     }
+    if data.get("displayName"):
+        detail["displayName"] = str(data["displayName"])
+    return detail

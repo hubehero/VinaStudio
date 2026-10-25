@@ -54,6 +54,20 @@ import type {
   CompoundSearchPage,
   CompoundSearchRequest,
   CompoundSourceInfo,
+  CatalogCollection,
+  CatalogCollectionInput,
+  CatalogImportRequest,
+  CatalogLibrary,
+  CatalogLibraryInput,
+  CatalogMolecule,
+  CatalogPrepareOptions,
+  CatalogSearchResponse,
+  CatalogSavedView,
+  CatalogStudy,
+  CatalogStudyInput,
+  CatalogStudyMemberInput,
+  CatalogSummary,
+  CatalogSuggestion,
   LigandOptions,
   LigandPreparation,
   LigandFromSmilesItem,
@@ -599,6 +613,144 @@ export const api = {
     request<{ csv: string; filename: string }>(
       `/api/screening/runs/${encodeURIComponent(id)}/ranking/export?sortBy=${sortBy}&top=${top}`,
     ),
+
+
+  // -- molecule catalog (v2) --------------------------------------------------
+  catalogSummary: () => request<CatalogSummary>('/api/catalog/summary'),
+  catalogSearch: (params: Record<string, string | number | boolean | undefined>) => {
+    const query = new URLSearchParams()
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== '') query.set(key, String(value))
+    }
+    return request<CatalogSearchResponse>(`/api/catalog/molecules?${query.toString()}`)
+  },
+  catalogMoleculeIds: (params: Record<string, string | number | boolean | undefined>) => {
+    const query = new URLSearchParams()
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== '') query.set(key, String(value))
+    }
+    return request<{ ids: string[] }>(`/api/catalog/molecules/ids?${query.toString()}`)
+  },
+  catalogBulkTags: (moleculeIds: string[], addTags: string[]) =>
+    request<{ changed: number }>('/api/catalog/molecules/bulk-tags', {
+      method: 'POST',
+      body: JSON.stringify({ moleculeIds, addTags }),
+    }),
+  catalogMolecule: (id: string) =>
+    request<CatalogMolecule>(`/api/catalog/molecules/${encodeURIComponent(id)}`),
+  catalogPatchMolecule: (id: string, body: Record<string, unknown>) =>
+    request<CatalogMolecule>(`/api/catalog/molecules/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  catalogDeleteMolecule: (id: string) =>
+    request<{ deleted: boolean }>(`/api/catalog/molecules/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }),
+  catalogPrepareMolecule: (id: string, options?: CatalogPrepareOptions) =>
+    request<CatalogMolecule>(`/api/catalog/molecules/${encodeURIComponent(id)}/prepare`, {
+      method: 'POST',
+      body: JSON.stringify(options ?? {}),
+    }),
+  catalogImport: (body: CatalogImportRequest) =>
+    request<CatalogMolecule[]>('/api/catalog/molecules/import', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  catalogCollection: (id: string) =>
+    request<CatalogCollection>(`/api/catalog/collections/${encodeURIComponent(id)}`),
+  catalogCollections: () => request<CatalogCollection[]>('/api/catalog/collections'),
+  catalogCreateCollection: (body: CatalogCollectionInput) =>
+    request<CatalogCollection>('/api/catalog/collections', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  catalogPatchCollection: (id: string, body: Record<string, unknown>) =>
+    request<CatalogCollection>(`/api/catalog/collections/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  catalogDeleteCollection: (id: string) =>
+    request<{ deleted: boolean }>(`/api/catalog/collections/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }),
+  catalogAddCollectionMembers: (id: string, moleculeIds: string[]) =>
+    request<{ added: number }>(`/api/catalog/collections/${encodeURIComponent(id)}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ moleculeIds }),
+    }),
+  catalogRemoveCollectionMember: (id: string, moleculeId: string) =>
+    request<{ removed: boolean }>(
+      `/api/catalog/collections/${encodeURIComponent(id)}/members/${encodeURIComponent(moleculeId)}`,
+      { method: 'DELETE' },
+    ),
+  catalogStudies: () => request<CatalogStudy[]>('/api/catalog/studies'),
+  catalogStudy: (id: string) =>
+    request<CatalogStudy>(`/api/catalog/studies/${encodeURIComponent(id)}`),
+  catalogCreateStudy: (body: CatalogStudyInput) =>
+    request<CatalogStudy>('/api/catalog/studies', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  catalogPatchStudy: (id: string, body: Record<string, unknown>) =>
+    request<CatalogStudy>(`/api/catalog/studies/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  catalogAddStudyMember: (id: string, body: CatalogStudyMemberInput) =>
+    request<{ added: boolean }>(`/api/catalog/studies/${encodeURIComponent(id)}/members`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  catalogSetStudyPrimary: (id: string, moleculeId: string) =>
+    request<{ updated: boolean }>(
+      `/api/catalog/studies/${encodeURIComponent(id)}/primary/${encodeURIComponent(moleculeId)}`,
+      { method: 'POST' },
+    ),
+  catalogRemoveStudyMember: (id: string, moleculeId: string, role: string) =>
+    request<{ removed: boolean }>(
+      `/api/catalog/studies/${encodeURIComponent(id)}/members/${encodeURIComponent(moleculeId)}?role=${encodeURIComponent(role)}`,
+      { method: 'DELETE' },
+    ),
+  catalogDeleteStudy: (id: string) =>
+    request<{ deleted: boolean }>(`/api/catalog/studies/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }),
+  catalogLibraries: () => request<CatalogLibrary[]>('/api/catalog/libraries'),
+  catalogLibrary: (id: string) =>
+    request<CatalogLibrary>(`/api/catalog/libraries/${encodeURIComponent(id)}`),
+  catalogCreateLibrary: (body: CatalogLibraryInput) =>
+    request<CatalogLibrary>('/api/catalog/libraries', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  catalogDeleteLibrary: (id: string) =>
+    request<{ deleted: boolean }>(`/api/catalog/libraries/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }),
+  catalogPatchLibrary: (id: string, body: Record<string, unknown>) =>
+    request<CatalogLibrary>(`/api/catalog/libraries/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  catalogRemoveLibraryMember: (id: string, moleculeId: string) =>
+    request<{ removed: boolean }>(
+      `/api/catalog/libraries/${encodeURIComponent(id)}/members/${encodeURIComponent(moleculeId)}`,
+      { method: 'DELETE' },
+    ),
+  catalogSavedViews: () => request<CatalogSavedView[]>('/api/catalog/saved-views'),
+  catalogCreateSavedView: (body: { name: string; query: Record<string, unknown> }) =>
+    request<CatalogSavedView>('/api/catalog/saved-views', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  catalogDeleteSavedView: (id: string) =>
+    request<{ deleted: boolean }>(`/api/catalog/saved-views/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }),
+  catalogSuggestions: () => request<CatalogSuggestion[]>('/api/catalog/suggestions'),
+  catalogRebuild: () =>
+    request<Record<string, unknown>>('/api/catalog/rebuild', { method: 'POST' }),
 
   // -- interaction fingerprints (TASK-16) -------------------------------------
   jobIfp: (jobId: string, body: IfpJobRequest) =>

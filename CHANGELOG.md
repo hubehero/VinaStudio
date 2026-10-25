@@ -12,18 +12,53 @@ entries about the product — no internal task ids or workflow narration.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-25
+
+### 新增
+
+- **分子目录 Catalog**：工作区级 SQLite 分子目录，按 InChIKey/PDB ID 身份去重，
+  支持 Study（多受体/配体）、可嵌套集合、标签与筛选库；旧 `molecules.json`
+  与 `libraries/` 自动迁移并保留备份。
+- **服务端检索与智能建议**：FTS5 文本检索、字段过滤、分页与解释型分类建议
+  （Study 配对、角色、重复、准备）；前端不再全量过滤。
+- **Catalog 筛选库**：可从选中分子/集合/检索结果创建库，接入现有筛选
+  管线；批量筛选与虚拟筛选可复用。
+- **Catalog 导入与管理闭环**：文件、SMILES、2D 画板、内置示例、RCSB、
+  PubChem、ChEMBL/化合物库统一写入 Catalog；支持保存检索、来源/标签/状态
+  facet、排序、页大小、全选筛选结果、批量标签、Study/集合/筛选库管理。
+- **大列表浏览**：Catalog 表格改用行虚拟渲染，并支持持久化列显示配置；
+  服务器仍按页返回，后续页通过分页访问。
+- **筛选结果追溯**：运行和历史显示 Catalog Library 的显示名；排名行可打开
+  单配体详情（评分、构象数、QED/Lipinski、SMILES、耗时、输出目录）。
+
 ### 修复
 
-- **发布门禁不再 fail-open**：preflight 读取不到 CodeQL/Dependabot 告警时直接失败；
-  CI preflight job 补上 `security-events: read`，不再把未知安全状态当成绿色。
 - **化合物下载路径显式约束**：在线库下载写入前再次经 `resolve_within` 限定在工作区，
   恶意/异常 provider ID 不能把文件写出目标目录。
 
+### Added
+
+- **Molecule Catalog**: a workspace-level SQLite catalog keyed by InChIKey/PDB
+  identity, with Studies (multiple receptors/ligands), nested collections, tags
+  and screening libraries; the legacy `molecules.json` and `libraries/` data
+  migrate once with a backup.
+- **Server-side search and suggestions**: FTS5 search, field filters, paging and
+  explainable suggestions for Studies, roles, duplicates and preparation.
+- **Catalog screening libraries**: create a library from selected molecules, a
+  collection or the current search and run it through the existing screening
+  pipeline for batch and virtual screening.
+- **One import path for the Catalog**: files, SMILES, the 2D sketcher, bundled
+  samples, RCSB, PubChem and ChEMBL/compound libraries all write to the Catalog;
+  saved searches, source/tag/status facets, sorting, page size, select-all,
+  bulk tags and Study/collection/library management are available.
+- **Large-list browsing**: the Catalog table renders rows virtually and
+  remembers visible columns; the server still serves bounded pages.
+- **Screening traceability**: runs and history show the Catalog library display
+  name, and a ranking row opens per-ligand scores, SMILES, elapsed time and the
+  output directory.
+
 ### Fixed
 
-- **The release gate fails closed**: an unreadable security-alert API is now a
-  hard failure, and the CI preflight job has `security-events: read`; unknown
-  security state is no longer reported as green.
 - **Compound downloads are explicitly contained**: the write target is resolved
   inside the workspace before use, so an abnormal provider id cannot escape the
   ligands directory.

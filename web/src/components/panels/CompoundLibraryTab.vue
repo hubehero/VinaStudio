@@ -27,6 +27,8 @@ import type {
 
 const { t } = useI18n()
 const store = useMoleculeStore()
+const props = withDefaults(defineProps<{ catalogMode?: boolean }>(), { catalogMode: false })
+const emit = defineEmits<{ fetched: [path: string] }>()
 
 const source = ref<CompoundSourceId>('pubchem')
 const mode = ref<CompoundSearchMode>('text')
@@ -135,7 +137,11 @@ async function fetchHit(hit: CompoundHit): Promise<void> {
   fetching.value = `${hit.source}:${hit.id}`
   try {
     const result = await api.compoundFetch({ source: hit.source, id: hit.id })
-    await store.loadFromLibrary(result.path, result.name, result.bytes, 'ligand')
+    if (props.catalogMode) {
+      emit('fetched', result.path)
+    } else {
+      await store.loadFromLibrary(result.path, result.name, result.bytes, 'ligand')
+    }
     ElMessage.success(
       result.has3D
         ? t('library.compoundFetched', { name: result.name })

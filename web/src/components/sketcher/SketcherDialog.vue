@@ -15,6 +15,8 @@ const state = useSketcher()
 provideSketcher(state)
 
 const store = useMoleculeStore()
+const props = withDefaults(defineProps<{ catalogMode?: boolean }>(), { catalogMode: false })
+const emit = defineEmits<{ smiles: [value: string] }>()
 const { t } = useI18n()
 
 const visible = ref(false)
@@ -68,11 +70,17 @@ async function useStructure(): Promise<void> {
   if (!smiles) return
   busy.value = true
   try {
-    const outcome = await store.loadFromSmiles(smiles)
-    if (outcome.added > 0) {
-      ElMessage.success(t('molecules.smilesDone', { n: outcome.added }))
+    if (props.catalogMode) {
+      emit('smiles', smiles)
       exported.value = true
       visible.value = false
+    } else {
+      const outcome = await store.loadFromSmiles(smiles)
+      if (outcome.added > 0) {
+        ElMessage.success(t('molecules.smilesDone', { n: outcome.added }))
+        exported.value = true
+        visible.value = false
+      }
     }
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : String(error))

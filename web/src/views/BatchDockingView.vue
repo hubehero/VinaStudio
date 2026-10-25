@@ -10,7 +10,7 @@ import IfpGroupDialog from '@/components/docking/IfpGroupDialog.vue'
 import { useDockingStore } from '@/stores/docking'
 import { useMoleculeStore } from '@/stores/molecules'
 import { useBoxStore } from '@/stores/box'
-import type { ScoringFunction, BatchLigandItem } from '@/types/api'
+import type { CatalogLibrary, ScoringFunction, BatchLigandItem } from '@/types/api'
 import { downloadTextFile } from '@/utils/download'
 
 const { t } = useI18n()
@@ -33,6 +33,8 @@ const minRmsd = ref(1.0)
 const cpu = ref(0)
 const seed = ref(0)
 const noRefine = ref(false)
+const catalogLibraries = ref<CatalogLibrary[]>([])
+const catalogLibraryId = ref('')
 
 const cpuCount = ref<number | null>(null) // vinaInfo 成功前置 null
 const parallelism = ref<number | null>(null)
@@ -41,7 +43,10 @@ const parallelismMax = computed(() => Math.min(4, Math.max(1, (cpuCount.value ??
 
 onMounted(async () => {
   try {
-    cpuCount.value = (await api.vinaInfo()).cpuCount
+    [cpuCount.value, catalogLibraries.value] = await Promise.all([
+      api.vinaInfo().then((info) => info.cpuCount),
+      api.catalogLibraries(),
+    ])
     parallelism.value = parallelismMax.value
   } catch {
     /* 保持 null：控件 disabled、payload 省略键、服务端默认生效 */
@@ -106,6 +111,29 @@ const managerLigands = computed(() =>
     return path !== null && !ligands.value.some((l) => l.ligandPath === path)
   }),
 )
+
+async function addFromCatalogLibrary(): Promise<void> {
+  if (!catalogLibraryId.value) return
+  try {
+    const library = await api.catalogLibrary(catalogLibraryId.value)
+    let skipped = 0
+    for (const member of library.members) {
+      if (!member.preparedPath) {
+        skipped += 1
+        continue
+      }
+      if (ligands.value.some((row) => row.ligandPath === member.preparedPath)) continue
+      ligands.value.push({
+        ligandPath: member.preparedPath,
+        ligandPdbqtString: null,
+        label: member.name,
+      })
+    }
+    if (skipped > 0) ElMessage.warning(t('docking.batch.catalogPreparedOnly', { n: skipped }))
+  } catch (cause) {
+    ElMessage.error(cause instanceof Error ? cause.message : String(cause))
+  }
+}
 
 function addFromManager(id: string): void {
   const mol = molecules.usableLigands.find((m) => m.id === id)
@@ -261,6 +289,19 @@ function formatElapsed(ms: number | null): string {
                     </el-dropdown-menu>
                   </template>
                 </el-dropdown>
+              </div>
+              <div v-if="catalogLibraries.length > 0" class="catalog-library-pick">
+                <ElSelect v-model="catalogLibraryId" size="small" clearable :placeholder="t('docking.batch.fromCatalog')">
+                  <ElOption
+                    v-for="library in catalogLibraries"
+                    :key="library.id"
+                    :label="`${library.name} (${library.preparedCount}/${library.moleculeCount})`"
+                    :value="library.id"
+                  />
+                </ElSelect>
+                <ElButton size="small" :disabled="!catalogLibraryId" @click="addFromCatalogLibrary">
+                  {{ t('docking.batch.addLibrary') }}
+                </ElButton>
               </div>
               <div v-if="ligands.length > 0" class="ligand-list">
                 <div v-for="(lig, idx) in ligands" :key="idx" class="ligand-item">
@@ -514,6 +555,16 @@ function formatElapsed(ms: number | null): string {
 }
 
 /* Ligand list */
+.catalog-library-pick {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.catalog-library-pick :deep(.el-select) {
+  flex: 1;
+}
+
 .ligand-input {
   display: flex;
   gap: 6px;

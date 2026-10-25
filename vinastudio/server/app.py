@@ -30,6 +30,7 @@ from vinastudio.server.origin import (
 )
 from vinastudio.server.routers import (
     box,
+    catalog,
     chem,
     docking,
     files,
@@ -112,7 +113,7 @@ def create_app() -> FastAPI:
     app.include_router(ws_router)
 
     # Domain routers; each new phase adds one here.
-    for router in (system.router, files.router, ligand.router, receptor.router, box.router, docking.router, project.router, interactions.router, workspace.router, library.router, library_compounds.router, molecules.router, chem.router, results.router, screening.router, sites.router):
+    for router in (system.router, files.router, ligand.router, receptor.router, box.router, catalog.router, docking.router, project.router, interactions.router, workspace.router, library.router, library_compounds.router, molecules.router, chem.router, results.router, screening.router, sites.router):
         app.include_router(router, prefix="/api")
 
     _add_docs_endpoint(app)

@@ -15,6 +15,7 @@ import type {
   LibraryFetchResponse,
   ReceptorReport,
   SampleFile,
+  CatalogMolecule,
 } from '@/types/api'
 import type {
   MoleculeGroup,
@@ -25,6 +26,7 @@ import type {
   MoleculeType,
 } from '@/types/molecule'
 import { useUndoStore } from '@/stores/undo'
+import { useWorkspaceStore } from '@/stores/workspace'
 import { getEffectiveType } from '@/types/molecule'
 
 let nextId = 0
@@ -304,11 +306,11 @@ export const useMoleculeStore = defineStore('molecules', () => {
     activeId.value = id
   }
 
-  function addItem(item: MoleculeItem): void {
+  function addItem(item: MoleculeItem, persist = true): void {
     molecules.value.push(item)
     // The molecule just added is the one the user wants to look at.
     activeId.value = item.id
-    scheduleSave()
+    if (persist) scheduleSave()
   }
 
   function removeItem(id: string): void {
@@ -397,6 +399,63 @@ export const useMoleculeStore = defineStore('molecules', () => {
     return molecules.value.find((m) => m.name === name && m.size === size)
   }
 
+  function catalogArtifactUrl(path: string): string {
+    const root = useWorkspaceStore().workspacePath
+    if (!root || !path.startsWith(root)) return ''
+    let relative = path.slice(root.length).replace(/^[/\\]/, '')
+    // The artifact endpoint is mounted on <workspace>/jobs; source files
+    // elsewhere in the workspace are not servable by that route.
+    if (!relative.startsWith('jobs/')) return ''
+    relative = relative.slice('jobs/'.length)
+    return `/artifacts/${relative
+      .split(/[/\\]/)
+      .map((part) => encodeURIComponent(part))
+      .join('/')}`
+  }
+
+  /** Compatibility adapter for the old docking pipeline.
+   *
+   * Catalog is the durable source; this creates only the transient working
+   * copy the existing DockingForm/BoxPanel consumers know how to read. A
+   * molecule with no prepared PDBQT stays non-usable and cannot be docked by
+   * accident.
+   */
+  function adoptCatalogMolecule(detail: CatalogMolecule): MoleculeItem {
+    const primary = detail.primaryPath ?? detail.files[0]?.path ?? ''
+    let item = findByAnyPath(primary)
+    if (!item) {
+      item = addFromPath(primary, detail.name, 0, null, null, false)
+      item.detectedType = detail.kindHint === 'receptor' ? 'receptor' : detail.kindHint === 'ligand' ? 'ligand' : 'unknown'
+      item.assignedType = item.detectedType
+      item.detectionSource = 'content'
+      item.aliases = [...detail.aliases]
+      item.category = detail.tags[0] ?? null
+      item.groupId = detail.studies[0]?.id ?? null
+      item.groupName = detail.studies[0]?.name ?? null
+    }
+    const hasPdbqt = detail.files.some((file) => file.kind === 'pdbqt' || file.kind === 'flex_pdbqt')
+    item.status = hasPdbqt ? 'prepared' : 'inspected'
+    item.artifacts = detail.files.map((file) => {
+      const kind =
+        file.kind === 'pdb' || /\.pdb$/i.test(file.path)
+          ? 'pdb'
+          : file.kind === 'sdf' || /\.(sdf|mol)$/i.test(file.path)
+            ? 'sdf'
+            : file.kind === 'pdbqt' || file.kind === 'flex_pdbqt'
+              ? 'pdbqt'
+              : 'text'
+      return {
+        kind,
+        name: file.path.split(/[/\\]/).pop() ?? file.kind,
+        path: file.path,
+        url: catalogArtifactUrl(file.path),
+        bytes: file.bytes,
+      }
+    })
+    item.preview = item.preview ?? null
+    return item
+  }
+
   function assignType(id: string, type: MoleculeType): void {
     const mol = molecules.value.find((m) => m.id === id)
     if (!mol) return
@@ -446,6 +505,7 @@ export const useMoleculeStore = defineStore('molecules', () => {
     size = 0,
     groupId?: string | null,
     groupName?: string | null,
+    persist = true,
   ): MoleculeItem {
     const derivedName = name ?? path.split('/').pop() ?? path
     const detectedType = detectTypeByExtension(derivedName)
@@ -473,7 +533,7 @@ export const useMoleculeStore = defineStore('molecules', () => {
       aliases: [],
       category: null,
     }
-    addItem(item)
+    addItem(item, persist)
     return item
   }
 
@@ -984,6 +1044,7 @@ export const useMoleculeStore = defineStore('molecules', () => {
     clearAll,
     findByPath,
     findByAnyPath,
+    adoptCatalogMolecule,
     assignType,
     addAlias,
     removeAlias,

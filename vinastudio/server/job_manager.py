@@ -971,6 +971,7 @@ def _screening_row(event: dict[str, Any]) -> dict[str, Any]:
         "qed": float(qed) if isinstance(qed, (int, float)) else None,
         "lipinski": int(lipinski) if isinstance(lipinski, (int, float)) else None,
         "smiles": event.get("smiles") if isinstance(event.get("smiles"), str) else None,
+        "outDir": event.get("outDir") or None,
         "error": event.get("error") or None,
         "ts": int(time.time() * 1000),
     }

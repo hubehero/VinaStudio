@@ -129,7 +129,10 @@ HTTP 做不到的原生能力——文件对话框、把 PNG 存到用户选定�
 
 ---
 
-## 分子管理器
+## 分子管理器（旧版，Catalog 之前）
+
+> 这一节记录 Catalog 之前的界面。`/molecules` 已由 `MoleculeCatalogView`
+> 取代，旧的列表/详情组件已移除；当前架构见下一节。
 
 分子管理器（`/molecules`）是侧栏里的独立视图，把上传、检查与准备分子文件收在
 一个界面里。它取代了原先受体/配体各一套面板的做法，改成文件柜式的单页布局。
@@ -203,6 +206,30 @@ uploaded → inspecting → inspected → preparing → prepared
 左侧面板接受文件拖放。拖入期间显示蓝色虚线边框；放下后自动上传并检查。
 
 ---
+
+## 分子目录 Catalog（v2）
+
+`/molecules` 现在读取工作区 Catalog，而不是旧 manifest。数据库位于
+`<workspace>/catalog.sqlite`，保存分子身份、文件/产物、别名、标签、来源、
+Study、集合、筛选库与 FTS5 索引；结构文件本身仍在磁盘上。
+
+- **Study** 成员带角色（`receptor` / `ligand` / `cofactor`），一个 Study
+  可包含多个受体；`study_members.is_primary` 只决定默认受体。
+- **集合**是可嵌套的组织树，标签是多对多关系；两者都不能替代 Study 或筛选库。
+- **筛选库**成员引用 Catalog 分子；创建/启动运行时物化为现有
+  `libraries/<id>/mols/NNNNNN.sdf` 目录，供筛选 worker 使用。
+- 配体身份用 InChIKey（父键单独保存），受体身份用 PDB ID 或内容哈希；
+  路径不是身份。
+- 检索在服务端完成（FTS5 + 结构化过滤），不再走旧的前端全量过滤。
+- `molecules.json` 只作为一次性迁移/导出输入，复制为
+  `molecules.json.pre-catalog`；旧 `/api/molecules` 仅保留兼容投影，不是
+  第二写源。
+- 只有 Study 的主受体与首个配体都已有 PDBQT 产物时，页面才会把它们接入
+  现有对接管线。
+- 文件、SMILES、2D 画板、示例、RCSB、PubChem、ChEMBL 都写入 Catalog；
+  表格用 `ElTableV2` 虚拟渲染行并记住列显示配置，API 仍按页返回。
+
+完整设计与当前边界见 [MOLECULE_CATALOG.zh-CN.md](MOLECULE_CATALOG.zh-CN.md)。
 
 ## 渲染与科学诚实
 

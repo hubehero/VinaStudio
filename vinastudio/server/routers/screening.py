@@ -71,6 +71,11 @@ def _run_summary(state: JobState) -> ScreeningRunSummary:
     return ScreeningRunSummary(
         jobId=state.job_id,
         library=str(state.params.get("library") or state.label),
+        libraryDisplayName=(
+            str(state.params.get("library_display_name"))
+            if state.params.get("library_display_name")
+            else None
+        ),
         createdAt=state.created_at,
         status=state.status,
         progress=state.progress,
@@ -131,6 +136,9 @@ def _ranking_row(rank: int, row: dict[str, Any]) -> RankingRow:
         nPoses=row.get("nPoses"),
         qed=row.get("qed"),
         lipinskiViolations=row.get("lipinski"),
+        elapsedMs=row.get("elapsedMs"),
+        smiles=row.get("smiles"),
+        outDir=row.get("outDir"),
     )
 
 
@@ -246,23 +254,38 @@ def get_screening_library(name: str) -> LibraryDetail:
 
 @router.post("/runs", response_model=ScreeningRunCreated)
 def start_run(request: ScreeningStartRequest) -> ScreeningRunCreated:
-    """Start a screening run over an imported library (§4.2)."""
-    detail = load_detail(request.library)
+    """Start a screening run over a legacy or catalog library (§4.2)."""
+    library_name = request.library
+    if request.libraryId:
+        from vinastudio.core.catalog import db as catalog_db
+        from vinastudio.core.catalog.library import materialize_library
+        from vinastudio.server.routers.workspace import get_active_workspace
+
+        workspace = get_active_workspace()
+        if workspace is None:
+            raise InvalidInputError("no workspace configured")
+        with catalog_db.transaction(catalog_db.catalog_path()) as conn:
+            materialize_library(conn, request.libraryId, workspace=workspace)
+        library_name = request.libraryId
+    if library_name is None:
+        raise HTTPException(status_code=422, detail="library or libraryId is required")
+    detail = load_detail(library_name)
     if detail is None:
         raise HTTPException(
-            status_code=404, detail=f"library not found: {request.library}"
+            status_code=404, detail=f"library not found: {library_name}"
         )
     if not detail["entries"]:
         raise HTTPException(
-            status_code=409, detail=f"library {request.library} has no entries"
+            status_code=409, detail=f"library {library_name} has no entries"
         )
     receptor = Path(request.receptorPath)
     if not receptor.exists():
         raise InvalidInputError(f"receptor file not found: {request.receptorPath}")
 
     params: dict[str, Any] = {
-        "library": request.library,
-        "library_dir": str(library_dir(request.library)),
+        "library": library_name,
+        "library_display_name": detail.get("displayName") or library_name,
+        "library_dir": str(library_dir(library_name)),
         "entries": [
             {"index": int(entry["index"]), "name": str(entry["name"])}
             for entry in detail["entries"]

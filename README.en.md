@@ -177,8 +177,13 @@ The project is being built in phases. What works today:
 - **Persistence and export** — job history plus project save/reload across
   restarts, self-contained HTML result bundles, and a standalone results
   report page.
+- **Molecule Catalog** — a workspace-level database that deduplicates
+  receptors/ligands, groups receptor–ligand pairs into Studies and organises
+  them with collections; server-side search, suggestions, bulk tags, screening
+  libraries and virtual screening, with a backed-up migration of legacy data.
 - **Structure input** — SMILES to 3D ligand, the built-in 2D sketcher (see
-  above), and a molecule manager for batch inspection and preparation.
+  above), and one Catalog import path for files, samples and online compound
+  libraries.
 - **Rendering diagnostics** — GPU/software renderer visibility with quality
   tiers; native file dialogs on the desktop, upload fallback in a browser.
 - **Windows desktop package** — installer built by CI and verified on real

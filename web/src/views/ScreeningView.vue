@@ -5,6 +5,7 @@ import {
   ElAlert,
   ElAutoResizer,
   ElButton,
+  ElDrawer,
   ElEmpty,
   ElInput,
   ElInputNumber,
@@ -16,7 +17,7 @@ import {
   ElTableColumn,
   ElTableV2,
 } from 'element-plus'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { api } from '@/api/http'
@@ -25,7 +26,7 @@ import ScreeningImportDialog from '@/components/screening/ScreeningImportDialog.
 import { useBoxStore } from '@/stores/box'
 import { useMoleculeStore } from '@/stores/molecules'
 import { useScreeningStore } from '@/stores/screening'
-import type { RankingSortBy, ScoringFunction } from '@/types/api'
+import type { RankingRow, RankingSortBy, ScoringFunction } from '@/types/api'
 import { downloadTextFile } from '@/utils/download'
 
 const { t } = useI18n()
@@ -63,6 +64,18 @@ onMounted(async () => {
     /* keep null: control disabled, payload omits the key, server default */
   }
 })
+
+// One library is the common first-run case: preselect it so the user lands on
+// entries instead of an empty select. Multiple libraries stay an explicit choice.
+watch(
+  () => screening.libraries,
+  (libraries) => {
+    if (screening.activeLibraryName === null && libraries.length === 1) {
+      void screening.selectLibrary(libraries[0]!.name)
+    }
+  },
+  { deep: true },
+)
 
 onUnmounted(() => {
   screening.stopPolling()
@@ -148,7 +161,13 @@ const libMeta = computed(() => {
   const summary = screening.libraries.find((lib) => lib.name === detail.name)
   const prepared =
     summary !== undefined ? ` · ${t('screening.libPrepared', { n: summary.prepared })}` : ''
-  return `${t('screening.libTotal', { n: detail.total })}${prepared}`
+  const name = detail.displayName || detail.name
+  return `${name} · ${t('screening.libTotal', { n: detail.total })}${prepared}`
+})
+
+const libraryPreview = computed(() => {
+  const entries = screening.libraryDetail?.entries ?? []
+  return { names: entries.slice(0, 6).map((entry) => entry.name), extra: Math.max(0, entries.length - 6) }
 })
 
 // -- rows preformatted for the zero-slot virtual tables (design §4) ----------
@@ -168,6 +187,7 @@ type EntryRow = {
 
 type RankRow = {
   rank: string
+  rankValue: number
   name: string
   affinity: string
   nPoses: string
@@ -204,6 +224,13 @@ const entryRows = computed<EntryRow[]>(() =>
 )
 
 const nameFilter = ref('')
+const detailRank = ref<RankingRow | null>(null)
+const detailOpen = computed({
+  get: () => detailRank.value !== null,
+  set: (value: boolean) => {
+    if (!value) detailRank.value = null
+  },
+})
 
 const rankRows = computed<RankRow[]>(() => {
   const needle = nameFilter.value.trim().toLowerCase()
@@ -213,6 +240,7 @@ const rankRows = computed<RankRow[]>(() => {
       : screening.ranking.filter((row) => row.name.toLowerCase().includes(needle))
   return rows.map((row) => ({
     rank: String(row.rank),
+    rankValue: row.rank,
     name: row.name,
     affinity: row.affinity !== null ? row.affinity.toFixed(2) : '—',
     nPoses: row.nPoses !== null ? String(row.nPoses) : '—',
@@ -263,6 +291,12 @@ const entryColumns = computed<Column<EntryRow>[]>(() => [
     class: (params) => prepClass(params.rowData.prepTone),
   },
 ])
+
+const rankRowEvents = {
+  onClick: ({ rowData }: { rowData: { rankValue: number } }) => {
+    detailRank.value = screening.ranking.find((row) => row.rank === rowData.rankValue) ?? null
+  },
+}
 
 const rankColumns = computed<Column<RankRow>[]>(() => [
   { title: t('screening.colRank'), dataKey: 'rank', width: 64 },
@@ -368,7 +402,7 @@ function statusLabel(status: string): string {
             <el-option
               v-for="lib in screening.libraries"
               :key="lib.name"
-              :label="lib.name"
+              :label="lib.displayName || lib.name"
               :value="lib.name"
             />
           </el-select>
@@ -414,6 +448,10 @@ function statusLabel(status: string): string {
         />
         <template v-else>
           <div v-if="libMeta !== ''" class="screening-libmeta">{{ libMeta }}</div>
+          <div v-if="libraryPreview.names.length > 0" class="screening-preview">
+            <span v-for="name in libraryPreview.names" :key="name">{{ name }}</span>
+            <span v-if="libraryPreview.extra > 0">+{{ libraryPreview.extra }}</span>
+          </div>
           <el-alert
             v-if="screening.libraryError"
             type="error"
@@ -581,7 +619,7 @@ function statusLabel(status: string): string {
               {{ statusLabel(screening.runStatus.status) }}
             </span>
             <span class="screening-runcounts">
-              {{ t('screening.runLib') }}: {{ screening.runStatus.library }}
+              {{ t('screening.runLib') }}: {{ screening.runStatus.libraryDisplayName || screening.runStatus.library }}
             </span>
             <span class="screening-runcounts">
               {{
@@ -627,12 +665,11 @@ function statusLabel(status: string): string {
             size="small"
             @row-click="(row) => onRunRowClick(row.jobId)"
           >
-            <ElTableColumn
-              prop="library"
-              :label="t('screening.runLib')"
-              min-width="120"
-              show-overflow-tooltip
-            />
+            <ElTableColumn :label="t('screening.runLib')" min-width="120" show-overflow-tooltip>
+              <template #default="{ row }">
+                {{ row.libraryDisplayName || row.library }}
+              </template>
+            </ElTableColumn>
             <ElTableColumn :label="t('docking.batch.tableStatus')" width="110">
               <template #default="{ row }">
                 <span class="status-badge" :class="`status-badge--${row.status}`">
@@ -757,6 +794,7 @@ function statusLabel(status: string): string {
                   :height="height"
                   :row-height="36"
                   row-key="rank"
+                  :row-event-handlers="rankRowEvents"
                 />
               </template>
             </el-auto-resizer>
@@ -764,6 +802,25 @@ function statusLabel(status: string): string {
         </template>
       </div>
     </section>
+
+    <ElDrawer v-model="detailOpen" :title="t('screening.detailTitle')" size="380px">
+      <template v-if="detailRank">
+        <p class="screening-detail-hint">{{ t('screening.detailHint') }}</p>
+        <dl class="screening-detail">
+          <dt>{{ t('screening.colName') }}</dt><dd>{{ detailRank.name }}</dd>
+          <dt>{{ t('screening.colIndex') }}</dt><dd>{{ detailRank.ligandIndex }}</dd>
+          <dt>{{ t('screening.colAffinity') }}</dt>
+          <dd>{{ detailRank.affinity === null ? '—' : detailRank.affinity.toFixed(2) }} kcal/mol</dd>
+          <dt>{{ t('screening.colPoses') }}</dt><dd>{{ detailRank.nPoses ?? '—' }}</dd>
+          <dt>{{ t('screening.colQed') }}</dt><dd>{{ detailRank.qed === null ? '—' : detailRank.qed.toFixed(3) }}</dd>
+          <dt>{{ t('screening.colLipinski') }}</dt><dd>{{ detailRank.lipinskiViolations ?? '—' }}</dd>
+          <dt>{{ t('screening.detailElapsed') }}</dt>
+          <dd>{{ detailRank.elapsedMs == null ? '—' : (detailRank.elapsedMs / 1000).toFixed(2) + ' s' }}</dd>
+          <dt>SMILES</dt><dd class="break">{{ detailRank.smiles || '—' }}</dd>
+          <dt>{{ t('screening.detailOutDir') }}</dt><dd class="break"><code>{{ detailRank.outDir || '—' }}</code></dd>
+        </dl>
+      </template>
+    </ElDrawer>
 
     <ScreeningImportDialog v-model="importOpen" @imported="onImported" />
   </div>
@@ -833,6 +890,8 @@ function statusLabel(status: string): string {
   min-width: 200px;
 }
 
+.screening-preview { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 4px 0 8px; font-size: 11px; color: var(--vs-text-faint); }
+.screening-preview span { border: 1px solid var(--vs-border); border-radius: 999px; padding: 1px 6px; }
 .screening-libmeta {
   font-size: 12px;
   color: var(--vs-text-faint);
@@ -988,4 +1047,8 @@ function statusLabel(status: string): string {
 .screening-table :deep(.scr-prep--none) {
   color: var(--vs-text-faint);
 }
+.screening-detail-hint { margin: 0 0 10px; font-size: 12px; color: var(--vs-text-muted); }
+.screening-detail { display: grid; grid-template-columns: 112px 1fr; gap: 6px 10px; font-size: 12px; }
+.screening-detail dt { color: var(--vs-text-muted); }
+.screening-detail dd { margin: 0; word-break: break-word; }
 </style>

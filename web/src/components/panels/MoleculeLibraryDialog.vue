@@ -23,6 +23,8 @@ import type { LibraryEntry, LibraryLigand } from '@/types/api'
 
 const { t } = useI18n()
 const store = useMoleculeStore()
+const props = withDefaults(defineProps<{ catalogMode?: boolean }>(), { catalogMode: false })
+const emit = defineEmits<{ paths: [paths: string[]] }>()
 
 const visible = ref(false)
 const query = ref('')
@@ -190,11 +192,15 @@ async function fetchAll(entry: LibraryEntry): Promise<void> {
   try {
     const ligandIds = entry.ligands.map((l) => l.id)
     const result = await api.libraryFetchAll({ pdbId: entry.pdbId, ligandIds })
-    await store.loadFromLibraryGroup(
-      result.receptor,
-      result.ligands.map((l) => ({ path: l.path, name: l.name, bytes: l.bytes })),
-      entry.pdbId,
-    )
+    if (props.catalogMode) {
+      emit('paths', [result.receptor.path, ...result.ligands.map((ligand) => ligand.path)])
+    } else {
+      await store.loadFromLibraryGroup(
+        result.receptor,
+        result.ligands.map((l) => ({ path: l.path, name: l.name, bytes: l.bytes })),
+        entry.pdbId,
+      )
+    }
     ElMessage.success(t('library.fetchedAll', { id: entry.pdbId }))
     visible.value = false
   } catch (error) {
@@ -210,7 +216,8 @@ async function fetchReceptor(entry: LibraryEntry): Promise<void> {
   fetchedId.value = entry.pdbId
   try {
     const result = await api.libraryFetch({ pdbId: entry.pdbId, kind: 'receptor' })
-    await store.loadFromLibrary(result.path, result.name, result.bytes, 'receptor')
+    if (props.catalogMode) emit('paths', [result.path])
+    else await store.loadFromLibrary(result.path, result.name, result.bytes, 'receptor')
     ElMessage.success(t('library.fetched', { id: entry.pdbId }))
     visible.value = false
   } catch (error) {
@@ -230,7 +237,8 @@ async function fetchLigand(entry: LibraryEntry, ligand: LibraryLigand): Promise<
       kind: 'ligand',
       ligandId: ligand.id,
     })
-    await store.loadFromLibrary(result.path, result.name, result.bytes, 'ligand')
+    if (props.catalogMode) emit('paths', [result.path])
+    else await store.loadFromLibrary(result.path, result.name, result.bytes, 'ligand')
     ElMessage.success(t('library.fetchedLigand', { id: ligand.id }))
     visible.value = false
   } catch (error) {
@@ -266,7 +274,8 @@ async function fetchPubChem(): Promise<void> {
   pubchemFetching.value = true
   try {
     const result = await api.pubchemFetch({ query: q })
-    await store.loadFromLibrary(result.path, result.name, result.bytes, 'ligand')
+    if (props.catalogMode) emit('paths', [result.path])
+    else await store.loadFromLibrary(result.path, result.name, result.bytes, 'ligand')
     ElMessage.success(t('library.pubchemFetched', { name: result.name, cid: result.cid }))
     visible.value = false
   } catch (error) {
@@ -494,7 +503,10 @@ defineExpose({ open })
       </ElTabPane>
 
       <ElTabPane :label="t('library.compounds')" name="compounds">
-        <CompoundLibraryTab />
+        <CompoundLibraryTab
+          :catalog-mode="catalogMode"
+          @fetched="(path) => emit('paths', [path])"
+        />
       </ElTabPane>
 
       <ElTabPane label="PubChem" name="pubchem">

@@ -1393,7 +1393,10 @@ export type RankingSortBy = 'affinity' | 'qed' | 'lipinski'
 
 /** Body of POST /api/screening/runs — mirrors schemas/screening.py. */
 export interface ScreeningStartRequest {
-  library: string
+  /** Legacy on-disk library name; mutually exclusive with libraryId. */
+  library?: string
+  /** Catalog library id; mutually exclusive with library. */
+  libraryId?: string
   receptorPath: string
   flexReceptorPath?: string | null
   center: [number, number, number]
@@ -1414,6 +1417,7 @@ export interface ScreeningStartRequest {
 
 export interface LibrarySummary {
   name: string
+  displayName?: string | null
   /** All entries in the library. */
   total: number
   /** Entries with a prepared PDBQT (computed server-side by file presence). */
@@ -1438,6 +1442,7 @@ export interface ScreeningLibraryEntry {
 
 export interface LibraryDetail {
   name: string
+  displayName?: string | null
   total: number
   created: number
   /** Full list even at thousands of rows — no client-side pagination. */
@@ -1456,6 +1461,7 @@ export interface LibraryImportResult {
 export interface ScreeningRunSummary {
   jobId: string
   library: string
+  libraryDisplayName?: string | null
   createdAt: number
   status: 'running' | 'completed' | 'failed' | 'cancelled'
   progress: number
@@ -1479,6 +1485,9 @@ export interface RankingRow {
   nPoses: number | null
   qed: number | null
   lipinskiViolations: number | null
+  elapsedMs?: number | null
+  smiles?: string | null
+  outDir?: string | null
 }
 
 export interface RankingResponse {
@@ -1579,4 +1588,204 @@ export interface IfpMatrixRow {
   /** RMSD cluster for the same index, or null when RMSD was not run. */
   rmsdCluster: number | null
   pairs: [number, number][]
+}
+
+// ── molecule catalog (v2) ──────────────────────────────────────────────────
+
+export type CatalogKind = 'receptor' | 'ligand' | 'cofactor' | 'unknown'
+
+export interface CatalogFile {
+  kind: string
+  path: string
+  pathKind: 'workspace' | 'external' | string
+  sha256: string | null
+  bytes: number
+  isPrimary: boolean
+}
+
+export interface CatalogStudyLink {
+  id: string
+  name: string
+  role: CatalogKind | string
+  isPrimary: boolean
+  pdbId?: string | null
+}
+
+export interface CatalogCollectionLink {
+  id: string
+  name: string
+  parentId: string | null
+}
+
+export interface CatalogSourceLink {
+  source: string
+  sourceId: string
+  url: string | null
+  license: string | null
+}
+
+export interface CatalogMolecule {
+  id: string
+  name: string
+  kindHint: CatalogKind | string
+  source: string
+  sourceId: string
+  identityKey: string
+  identityKind: string
+  canonicalSmiles: string | null
+  inchiKey: string | null
+  parentInchiKey: string | null
+  formula: string | null
+  molecularWeight: number | null
+  qed: number | null
+  lipinskiViolations: number | null
+  status: string
+  prepStatus: string
+  primaryPath: string | null
+  aliases: string[]
+  tags: string[]
+  sources: CatalogSourceLink[]
+  files: CatalogFile[]
+  studies: CatalogStudyLink[]
+  collections: CatalogCollectionLink[]
+  metadata: Record<string, unknown>
+}
+
+export interface CatalogSearchFacets {
+  source: { value: string; count: number }[]
+  status: { value: string; count: number }[]
+  prep: { value: string; count: number }[]
+  tags: { value: string; count: number }[]
+}
+
+export interface CatalogSearchResponse {
+  items: CatalogMolecule[]
+  total: number
+  limit: number
+  offset: number
+  facets: CatalogSearchFacets
+}
+
+export interface CatalogSummary {
+  molecules: number
+  studies: number
+  collections: number
+  libraries: number
+}
+
+export interface CatalogCollectionMember {
+  id: string
+  name: string
+  kindHint: string
+  prepStatus: string
+}
+
+export interface CatalogCollection {
+  id: string
+  parentId: string | null
+  name: string
+  description: string
+  color: string | null
+  sortOrder: number
+  kind: 'manual' | 'smart' | string
+  query: Record<string, unknown>
+  moleculeCount: number
+  members?: CatalogCollectionMember[]
+}
+
+export interface CatalogStudyMember {
+  id: string
+  name: string
+  kindHint: CatalogKind | string
+  prepStatus: string
+  role: 'receptor' | 'ligand' | 'cofactor' | string
+  isPrimary: boolean
+  canonicalSmiles: string | null
+}
+
+export interface CatalogStudy {
+  id: string
+  name: string
+  description: string
+  source: string
+  pdbId: string | null
+  receptorCount: number
+  ligandCount: number
+  members: CatalogStudyMember[]
+}
+
+export interface CatalogLibraryMember {
+  entryIndex: number
+  preparedPath: string | null
+  id: string
+  name: string
+  kindHint: CatalogKind | string
+  prepStatus: string
+  canonicalSmiles: string | null
+}
+
+export interface CatalogLibrary {
+  id: string
+  name: string
+  description: string
+  source: string
+  moleculeCount: number
+  preparedCount: number
+  members: CatalogLibraryMember[]
+}
+
+export interface CatalogSuggestion {
+  id: string
+  kind: string
+  title: string
+  reason: string
+  confidence: number
+  moleculeIds: string[]
+  payload: Record<string, unknown>
+}
+
+export interface CatalogSavedView {
+  id: string
+  name: string
+  scope: string
+  query: Record<string, unknown>
+  createdAt: number
+}
+
+export interface CatalogPrepareOptions {
+  receptorOptions?: ReceptorOptions
+  ligandOptions?: LigandOptions
+}
+
+export interface CatalogImportRequest {
+  paths: string[]
+  kindHint?: CatalogKind
+}
+
+export interface CatalogCollectionInput {
+  name: string
+  parentId?: string | null
+  description?: string
+  color?: string | null
+  kind?: 'manual' | 'smart'
+  query?: Record<string, unknown>
+}
+
+export interface CatalogStudyInput {
+  name: string
+  description?: string
+  source?: string
+  pdbId?: string | null
+}
+
+export interface CatalogStudyMemberInput {
+  moleculeId: string
+  role: 'receptor' | 'ligand' | 'cofactor'
+  isPrimary?: boolean
+}
+
+export interface CatalogLibraryInput {
+  name: string
+  description?: string
+  moleculeIds?: string[]
 }

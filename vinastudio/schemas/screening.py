@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from vinastudio.config import ScoringFunction
 
@@ -20,6 +20,7 @@ RunStatus = Literal["running", "completed", "failed", "cancelled"]
 
 class LibrarySummary(BaseModel):
     name: str
+    displayName: str | None = None
     total: int
     prepared: int
     created: float
@@ -36,6 +37,7 @@ class LibraryEntry(BaseModel):
 
 class LibraryDetail(BaseModel):
     name: str
+    displayName: str | None = None
     total: int
     created: float
     entries: list[LibraryEntry]
@@ -65,7 +67,8 @@ class ScreeningStartRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    library: str
+    library: str | None = None
+    libraryId: str | None = None
     receptorPath: str
     flexReceptorPath: str | None = None
     center: tuple[float, float, float]
@@ -87,6 +90,12 @@ class ScreeningStartRequest(BaseModel):
     noRefine: bool = False
     engine: Literal["vina"] = "vina"
 
+    @model_validator(mode="after")
+    def _library_selection(self) -> ScreeningStartRequest:
+        if bool(self.library) == bool(self.libraryId):
+            raise ValueError("give exactly one of library (legacy) or libraryId (catalog)")
+        return self
+
 
 class ScreeningRunCreated(BaseModel):
     jobId: str
@@ -95,6 +104,7 @@ class ScreeningRunCreated(BaseModel):
 class ScreeningRunSummary(BaseModel):
     jobId: str
     library: str
+    libraryDisplayName: str | None = None
     createdAt: float
     status: RunStatus
     progress: int
@@ -118,6 +128,9 @@ class RankingRow(BaseModel):
     nPoses: int | None = None
     qed: float | None = None
     lipinskiViolations: int | None = None
+    elapsedMs: int | None = None
+    smiles: str | None = None
+    outDir: str | None = None
 
 
 class RankingResponse(BaseModel):
