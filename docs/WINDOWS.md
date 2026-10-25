@@ -191,16 +191,16 @@ administrator rights.
 - Development-tree installer used for the walkthrough: `vinastudio-0.3.0-setup.exe`,
   229,564,630 bytes, SHA-256
   `ec51d3d5e8448b2ab65b4a8a02dc88c25175e86aac80dac1ae81f2c9370bbb66`.
-- **0.5.1 release installer (current)**: `vinastudio-0.5.1-setup.exe`,
-  229,657,877 bytes, SHA-256
-  `ca4553c6d02d1862f1ca4d38442c192d101080c24a73901c4e1c69345f170a79`,
-  built from tag `v0.5.1` (`77a02af`) by run `40098342531`; the 0.5.0 installer
+- **0.6.0 release installer (current)**: `vinastudio-0.6.0-setup.exe`,
+  229,693,423 bytes, SHA-256
+  `37e62d5883a4c88656f4892800ae1274707f2d08c69a7a005dc4eb36eca6ae94`,
+  built from tag `v0.6.0` (`b4a94c9`) by run `40192519755`; the 0.5.1 installer
   is superseded.
 - Every Windows build docks 1iep once inside the frozen bundle (exhaustiveness 1)
-  and asserts completion, at least one pose and a negative affinity. The 0.5.1
-  build: `-8.593 kcal/mol`, 1 pose, 12.49 s (run `40098342531`); it also ran the
+  and asserts completion, at least one pose and a negative affinity. The 0.6.0
+  build: `-8.593 kcal/mol`, 1 pose, 12.452 s (run `40192519755`); it also ran the
   packaged backend check. That covers process spawn, stdout redirection, the CLI
   backend and the bundled engine.
-- Linux artifacts: 0.5.1 by run `40098342531` — tar.gz 392,727,182 B
-  (`ee9809904e62e1ebb131fe134d896f3d13ab69bc975aa43b9e69b87548b65d43`) and deb
-  298,889,068 B (`6e2031e84a8692dcc4c1684bd65b57933d1bef5d80032a97c8a49442dcf11d94`).
+- Linux artifacts: 0.6.0 by run `40192519755` — tar.gz 392,784,666 B
+  (`10fb495dd53585e86c2e8dc652c0f1d88afaa07e5c0ee939bf3e1f7c20d71119`) and deb
+  298,948,840 B (`ef4262dcf8c6e41d2f7e8badbdb2b7d5bb60a39d1317e7f2c53cb8adf0a8694c`).

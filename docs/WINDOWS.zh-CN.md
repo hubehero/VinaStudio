@@ -165,17 +165,17 @@ powershell -ExecutionPolicy Bypass -File .\vinastudio-diagnostics.ps1
   准备、对接、分析、持久化、中文路径、渲染器诊断均正常。
 - 走查用的开发树安装包：`vinastudio-0.3.0-setup.exe`，229,564,630 B，
   SHA-256 `ec51d3d5e8448b2ab65b4a8a02dc88c25175e86aac80dac1ae81f2c9370bbb66`。
-- **0.5.1 正式安装包（当前）**：`vinastudio-0.5.1-setup.exe`，229,657,877 B，
-  SHA-256 `ca4553c6d02d1862f1ca4d38442c192d101080c24a73901c4e1c69345f170a79`，
-  由 tag `v0.5.1`（`77a02af`）构建（run `40098342531`）；0.5.0 安装包已被取代。
+- **0.6.0 正式安装包（当前）**：`vinastudio-0.6.0-setup.exe`，229,693,423 B，
+  SHA-256 `37e62d5883a4c88656f4892800ae1274707f2d08c69a7a005dc4eb36eca6ae94`，
+  由 tag `v0.6.0`（`b4a94c9`）构建（run `40192519755`）；0.5.1 安装包已被取代。
 - 构建内自动冒烟：每个 Windows 构建都会在冻结包里真跑一次 1iep 对接
-  （穷举度 1），断言完成、至少一个构象、亲和力为负；0.5.1 构建结果
-  `-8.593 kcal/mol`、1 个构象、12.49 s（run `40098342531`），同时通过
+  （穷举度 1），断言完成、至少一个构象、亲和力为负；0.6.0 构建结果
+  `-8.593 kcal/mol`、1 个构象、12.452 s（run `40192519755`），同时通过
   打包后 CLI 后端检查。这覆盖了进程 spawn、stdout 重定向、CLI 后端与
   随包 Vina 二进制。
-- Linux 资产：0.5.1 由 run `40098342531` 构建——tar.gz 392,727,182 B
-  （`ee9809904e62e1ebb131fe134d896f3d13ab69bc975aa43b9e69b87548b65d43`），deb
-  298,889,068 B（`6e2031e84a8692dcc4c1684bd65b57933d1bef5d80032a97c8a49442dcf11d94`）。
+- Linux 资产：0.6.0 由 run `40192519755` 构建——tar.gz 392,784,666 B
+  （`10fb495dd53585e86c2e8dc652c0f1d88afaa07e5c0ee939bf3e1f7c20d71119`），deb
+  298,948,840 B（`ef4262dcf8c6e41d2f7e8badbdb2b7d5bb60a39d1317e7f2c53cb8adf0a8694c`）。
 
 ---
 
