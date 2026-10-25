@@ -13,6 +13,7 @@ from vinastudio.core.catalog.identity import identity_for_file
 from vinastudio.core.catalog.library import materialize_library
 from vinastudio.core.chem.detect import detect_kind
 from vinastudio.core.errors import InvalidInputError
+from vinastudio.core.paths import resolve_within
 from vinastudio.schemas.catalog import (
     CatalogMoleculeOut,
     CatalogPrepareRequest,
@@ -519,7 +520,10 @@ def delete_library(library_id: str) -> dict[str, bool]:
     with db.transaction(_ready()) as conn:
         deleted = store.delete_library(conn, library_id)
     if deleted and workspace is not None:
-        physical = libraries_root(workspace / "libraries") / library_id
+        try:
+            physical = resolve_within(libraries_root(workspace / "libraries"), library_id)
+        except ValueError:
+            return {"deleted": False}
         if physical.is_dir():
             import shutil
 

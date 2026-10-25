@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import shlex
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -41,14 +42,18 @@ def _parse_query(q: str) -> tuple[str, dict[str, list[str]]]:
     """
     text_parts: list[str] = []
     filters: dict[str, list[str]] = {}
-    token_re = re.compile(r'([^\s:"()]+):("([^"]*)"|[^\s]+)|"([^"]*)"|(\S+)')
-    for match in token_re.finditer(q.strip()):
-        field = match.group(1)
-        if field and field.lower() in _KNOWN_FIELDS:
-            value = match.group(3) if match.group(3) is not None else match.group(2)
+    # ``shlex`` handles quoted phrases without a nested regex; the previous
+    # expression had overlapping alternatives and was polynomial on long input.
+    try:
+        tokens = shlex.split(q)
+    except ValueError:
+        tokens = q.split()
+    for token in tokens:
+        field, separator, value = token.partition(":")
+        if separator and field.lower() in _KNOWN_FIELDS and value:
             filters.setdefault(field.lower(), []).append(value)
         else:
-            text_parts.append(match.group(4) or match.group(5) or match.group(0))
+            text_parts.append(token)
     return " ".join(text_parts), filters
 
 

@@ -14,6 +14,7 @@ from vinastudio.core.catalog import store
 from vinastudio.core.chem.library import MOLS_DIRNAME, libraries_root
 from vinastudio.core.chem.rdkit_io import mol_from_file
 from vinastudio.core.errors import InvalidInputError
+from vinastudio.core.paths import resolve_within
 
 
 def _write_sdf(source: Path, target: Path) -> None:
@@ -55,7 +56,10 @@ def materialize_library(
     if library is None:
         raise InvalidInputError(f"library not found: {library_id}")
     root = libraries_root(workspace / "libraries")
-    destination = root / library_id
+    try:
+        destination = resolve_within(root, library_id)
+    except ValueError as exc:
+        raise InvalidInputError(f"invalid library id: {library_id}") from exc
     mols = destination / MOLS_DIRNAME
     mols.mkdir(parents=True, exist_ok=True)
     entries: list[dict[str, object]] = []
@@ -76,8 +80,11 @@ def materialize_library(
             None,
         )
         if prepared:
-            prepared_path = Path(str(prepared))
-            if prepared_path.is_file():
+            try:
+                prepared_path = resolve_within(workspace, str(prepared))
+            except ValueError:
+                prepared_path = None
+            if prepared_path is not None and prepared_path.is_file():
                 shutil.copyfile(prepared_path, mols / f"{index:06d}.pdbqt")
         entries.append({
             "index": index,
