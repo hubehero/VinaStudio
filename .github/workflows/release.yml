@@ -23,11 +23,12 @@ jobs:
   # ---------------------------------------------------------------------------
   preflight:
     runs-on: ubuntu-latest
-    # Reading code-scanning alerts needs this scope; without it the gate used
-    # to fall back to a note and let an open high alert through.
+    # Code scanning and Dependabot have separate read scopes. Missing either
+    # one makes the gate refuse the release rather than guess.
     permissions:
       contents: read
       security-events: read
+      vulnerability-alerts: read
     steps:
       - uses: actions/checkout@v7
         with:
