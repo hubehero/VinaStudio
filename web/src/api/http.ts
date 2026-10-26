@@ -62,6 +62,8 @@ import type {
   CatalogMolecule,
   CatalogPrepareOptions,
   CatalogSearchResponse,
+  CatalogSelection,
+  CatalogSelectionCreate,
   CatalogSavedView,
   CatalogStudy,
   CatalogStudyInput,
@@ -333,6 +335,8 @@ export const api = {
     }),
   batchStatus: (jobId: string) =>
     request<BatchJobStatus>(`/api/docking/batch/${jobId}`),
+  batchProgress: (jobId: string) =>
+    request<BatchJobStatus>(`/api/docking/batch/${jobId}/progress`),
   batchResult: (jobId: string) =>
     request<BatchJobResult>(`/api/docking/batch/${jobId}/result`),
   dockingJobs: () => request<DockingJobSummary[]>('/api/docking/jobs'),
@@ -714,6 +718,19 @@ export const api = {
     ),
   catalogDeleteStudy: (id: string) =>
     request<{ deleted: boolean }>(`/api/catalog/studies/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }),
+  catalogCreateSelection: (body: CatalogSelectionCreate) =>
+    request<CatalogSelection>('/api/catalog/selections', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  catalogSelection: (id: string, limit = 200, offset = 0) =>
+    request<CatalogSelection>(
+      `/api/catalog/selections/${encodeURIComponent(id)}?limit=${limit}&offset=${offset}`,
+    ),
+  catalogDeleteSelection: (id: string) =>
+    request<{ deleted: boolean }>(`/api/catalog/selections/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     }),
   catalogLibraries: () => request<CatalogLibrary[]>('/api/catalog/libraries'),

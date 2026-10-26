@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import { Delete, Document, Download, Files } from '@element-plus/icons-vue'
-import { ElButton, ElInputNumber, ElMessage, ElOption, ElProgress, ElSelect, ElTable, ElTableColumn } from 'element-plus'
-import { computed, onMounted, ref } from 'vue'
+import { Document, Download, Files } from '@element-plus/icons-vue'
+import { ElAutoResizer, ElButton, ElInputNumber, ElMessage, ElOption, ElProgress, ElSelect, ElTable, ElTableColumn, ElTableV2 } from 'element-plus'
+import type { Column } from 'element-plus'
+import { computed, h, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { api } from '@/api/http'
 import MoleculeSelect from '@/components/common/MoleculeSelect.vue'
 import IfpGroupDialog from '@/components/docking/IfpGroupDialog.vue'
+import CatalogSelectionDialog from '@/components/panels/catalog/CatalogSelectionDialog.vue'
 import { useDockingStore } from '@/stores/docking'
 import { useMoleculeStore } from '@/stores/molecules'
 import { useBoxStore } from '@/stores/box'
-import type { CatalogLibrary, ScoringFunction, BatchLigandItem } from '@/types/api'
+import type { CatalogLibrary, CatalogSelection, ScoringFunction, BatchLigandItem } from '@/types/api'
 import { downloadTextFile } from '@/utils/download'
 
 const { t } = useI18n()
@@ -35,6 +37,8 @@ const seed = ref(0)
 const noRefine = ref(false)
 const catalogLibraries = ref<CatalogLibrary[]>([])
 const catalogLibraryId = ref('')
+const selection = ref<CatalogSelection | null>(null)
+const selectionOpen = ref(false)
 
 const cpuCount = ref<number | null>(null) // vinaInfo 成功前置 null
 const parallelism = ref<number | null>(null)
@@ -62,7 +66,7 @@ const ligands = ref<QueueRow[]>([])
 const ligandInput = ref<string | null>(null)
 
 const hasReceptor = computed(() => molecules.hasReceptor)
-const hasLigands = computed(() => ligands.value.length > 0)
+const hasLigands = computed(() => ligands.value.length > 0 || selection.value !== null)
 
 const canStart = computed(
   () => hasReceptor.value && hasLigands.value && !docking.batchIsRunning,
@@ -150,23 +154,69 @@ function addFromManager(id: string): void {
   })
 }
 
-/** Badge tooltip: both stats or neither — a row carries one properties object. */
-function badgeTitle(lig: QueueRow): string | undefined {
-  if (lig.qed === undefined || lig.lipinskiViolations === undefined) return undefined
-  return t('docking.batch.badgeTooltip', {
-    qed: lig.qed.toFixed(2),
-    n: lig.lipinskiViolations,
-  })
-}
-
 /** Verdict colours per the design spec: 0 violations reads as pass. */
 function lipinskiClass(lig: { lipinskiViolations?: number | null }): string {
   if (lig.lipinskiViolations == null) return ''
   return lig.lipinskiViolations === 0 ? 'ligand-item__stat--pass' : 'ligand-item__stat--warn'
 }
 
+function onSelectionPicked(picked: CatalogSelection): void {
+  selection.value = picked
+  ligands.value = []
+  ElMessage.success(t('docking.batch.selectionReady', { n: picked.memberCount }))
+}
+
+function clearSelection(): void {
+  selection.value = null
+}
+
+const queueColumns = computed<Column<QueueRow>[]>(() => [
+  {
+    key: 'name',
+    dataKey: 'label',
+    title: t('docking.batch.tableLabel'),
+    width: 220,
+    flexGrow: 1,
+    cellRenderer: ({ rowData }) => rowData.label,
+  },
+  {
+    key: 'qed',
+    title: 'QED',
+    width: 90,
+    align: 'right',
+    cellRenderer: ({ rowData }) =>
+      rowData.qed === undefined ? '—' : rowData.qed.toFixed(2),
+  },
+  {
+    key: 'lipinski',
+    title: 'Lipinski',
+    width: 90,
+    align: 'right',
+    cellRenderer: ({ rowData }) =>
+      rowData.lipinskiViolations === undefined
+        ? '—'
+        : String(rowData.lipinskiViolations),
+  },
+  {
+    key: 'action',
+    width: 42,
+    cellRenderer: ({ rowIndex }) =>
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'queue-remove',
+          title: t('common.delete'),
+          onClick: () => ligands.value.splice(rowIndex, 1),
+        },
+        '×',
+      ),
+  },
+])
+
 function clearLigands(): void {
   ligands.value = []
+  selection.value = null
 }
 
 async function startBatch(): Promise<void> {
@@ -186,11 +236,15 @@ async function startBatch(): Promise<void> {
     center: box.center as [number, number, number],
     size: box.size as [number, number, number],
     // The batch API forbids extra fields; qed/lipinskiViolations are queue-only.
-    ligands: ligands.value.map((row) => ({
-      ligandPath: row.ligandPath,
-      ligandPdbqtString: row.ligandPdbqtString,
-      label: row.label,
-    })),
+    ...(selection.value
+      ? { selectionId: selection.value.id }
+      : {
+          ligands: ligands.value.map((row) => ({
+            ligandPath: row.ligandPath,
+            ligandPdbqtString: row.ligandPdbqtString,
+            label: row.label,
+          })),
+        }),
     scoring: scoring.value,
     exhaustiveness: exhaustiveness.value,
     nPoses: nPoses.value,
@@ -303,25 +357,34 @@ function formatElapsed(ms: number | null): string {
                   {{ t('docking.batch.addLibrary') }}
                 </ElButton>
               </div>
-              <div v-if="ligands.length > 0" class="ligand-list">
-                <div v-for="(lig, idx) in ligands" :key="idx" class="ligand-item">
-                  <span class="ligand-item__name">{{ lig.label }}</span>
-                  <span class="ligand-item__stat" :title="badgeTitle(lig)">
-                    {{
-                      lig.qed !== undefined
-                        ? `${t('molecules.druglikeness.qed')} ${lig.qed.toFixed(2)}`
-                        : '—'
-                    }}
+              <div class="catalog-picker">
+                <ElButton size="small" @click="selectionOpen = true">
+                  {{ t('docking.batch.fromCatalogPicker') }}
+                </ElButton>
+                <span v-if="selection" class="selection-chip">
+                  {{ t('docking.batch.selectionReady', { n: selection.memberCount }) }}
+                  <span v-if="selection.preparedCount < selection.memberCount" class="selection-missing">
+                    {{ t('docking.batch.selectionPrepared', {
+                      prepared: selection.preparedCount,
+                      total: selection.memberCount,
+                    }) }}
                   </span>
-                  <span
-                    class="ligand-item__stat"
-                    :class="lipinskiClass(lig)"
-                    :title="badgeTitle(lig)"
-                  >
-                    {{ lig.lipinskiViolations !== undefined ? `Lip ${lig.lipinskiViolations}` : '—' }}
-                  </span>
-                  <el-button text :icon="Delete" size="small" @click="ligands.splice(idx, 1)" />
-                </div>
+                  <button type="button" @click="clearSelection">×</button>
+                </span>
+              </div>
+              <div v-if="ligands.length > 0" class="ligand-list ligand-list--virtual">
+                <ElAutoResizer>
+                  <template #default="{ width, height }">
+                    <ElTableV2
+                      :columns="queueColumns"
+                      :data="ligands"
+                      :width="width"
+                      :height="height"
+                      :row-height="34"
+                      row-key="label"
+                    />
+                  </template>
+                </ElAutoResizer>
               </div>
               <div v-if="ligands.length > 0" class="ligand-actions">
                 <el-button text size="small" @click="clearLigands">
@@ -477,7 +540,7 @@ function formatElapsed(ms: number | null): string {
               </ElButton>
             </div>
 
-            <IfpGroupDialog
+    <IfpGroupDialog
               v-model="groupDialogOpen"
               :job-id="docking.activeBatchId ?? ''"
               :rows="docking.batchResult?.results ?? []"
@@ -486,6 +549,8 @@ function formatElapsed(ms: number | null): string {
         </div>
       </div>
     </section>
+
+    <CatalogSelectionDialog v-model="selectionOpen" @selected="onSelectionPicked" />
   </div>
 </template>
 
@@ -578,6 +643,8 @@ function formatElapsed(ms: number | null): string {
   max-height: 200px;
   overflow-y: auto;
 }
+.ligand-list--virtual { display: block; height: 190px; max-height: none; overflow: hidden; border: 1px solid var(--vs-border); border-radius: var(--vs-radius-sm); }
+.queue-remove { border: 0; background: transparent; color: var(--vs-danger); font-size: 16px; cursor: pointer; }
 
 .ligand-item {
   display: flex;

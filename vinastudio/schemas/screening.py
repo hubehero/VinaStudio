@@ -69,6 +69,7 @@ class ScreeningStartRequest(BaseModel):
 
     library: str | None = None
     libraryId: str | None = None
+    selectionId: str | None = None
     receptorPath: str
     flexReceptorPath: str | None = None
     center: tuple[float, float, float]
@@ -92,8 +93,11 @@ class ScreeningStartRequest(BaseModel):
 
     @model_validator(mode="after")
     def _library_selection(self) -> ScreeningStartRequest:
-        if bool(self.library) == bool(self.libraryId):
-            raise ValueError("give exactly one of library (legacy) or libraryId (catalog)")
+        supplied = [bool(self.library), bool(self.libraryId), bool(self.selectionId)]
+        if sum(supplied) != 1:
+            raise ValueError(
+                "give exactly one of library (legacy), libraryId (catalog) or selectionId (run snapshot)"
+            )
         return self
 
 

@@ -16,7 +16,7 @@ from pathlib import Path
 
 from vinastudio.core import paths
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _WRITE_LOCK = threading.RLock()
 
@@ -81,6 +81,12 @@ _TABLE_DDL = (
         molecular_weight REAL,
         qed REAL,
         lipinski_violations INTEGER,
+        tpsa REAL,
+        clogp REAL,
+        hbd INTEGER,
+        hba INTEGER,
+        rotatable_bonds INTEGER,
+        descriptor_version TEXT,
         status TEXT NOT NULL DEFAULT 'active',
         prep_status TEXT NOT NULL DEFAULT 'unknown',
         metadata_json TEXT NOT NULL DEFAULT '{}',
@@ -171,6 +177,25 @@ _TABLE_DDL = (
         PRIMARY KEY (library_id, molecule_id),
         UNIQUE (library_id, entry_index)
     )""",
+    """CREATE TABLE IF NOT EXISTS selections (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL DEFAULT '',
+        source TEXT NOT NULL DEFAULT 'query',
+        spec_json TEXT NOT NULL,
+        created_at REAL NOT NULL,
+        resolved_at REAL,
+        member_count INTEGER NOT NULL DEFAULT 0,
+        truncated INTEGER NOT NULL DEFAULT 0,
+        schema_version INTEGER NOT NULL DEFAULT 1
+    )""",
+    """CREATE TABLE IF NOT EXISTS selection_members (
+        selection_id TEXT NOT NULL REFERENCES selections(id) ON DELETE CASCADE,
+        molecule_id TEXT NOT NULL REFERENCES molecules(id) ON DELETE CASCADE,
+        entry_index INTEGER NOT NULL,
+        identity_key TEXT NOT NULL,
+        PRIMARY KEY (selection_id, molecule_id),
+        UNIQUE (selection_id, entry_index)
+    )""",
     """CREATE TABLE IF NOT EXISTS saved_views (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL UNIQUE,
@@ -187,9 +212,20 @@ _TABLE_DDL = (
         ON molecules(identity_key)""",
     """CREATE INDEX IF NOT EXISTS idx_molecules_kind ON molecules(kind_hint)""",
     """CREATE INDEX IF NOT EXISTS idx_molecules_status ON molecules(status)""",
+    """CREATE INDEX IF NOT EXISTS idx_molecules_source ON molecules(source)""",
+    """CREATE INDEX IF NOT EXISTS idx_molecules_prep ON molecules(prep_status)""",
     """CREATE INDEX IF NOT EXISTS idx_molecules_updated ON molecules(updated_at)""",
+    """CREATE INDEX IF NOT EXISTS idx_molecules_mw ON molecules(molecular_weight)""",
+    """CREATE INDEX IF NOT EXISTS idx_molecules_qed ON molecules(qed)""",
+    """CREATE INDEX IF NOT EXISTS idx_molecules_clogp ON molecules(clogp)""",
+    """CREATE INDEX IF NOT EXISTS idx_molecules_tpsa ON molecules(tpsa)""",
+    """CREATE INDEX IF NOT EXISTS idx_molecules_hbd ON molecules(hbd)""",
+    """CREATE INDEX IF NOT EXISTS idx_molecules_hba ON molecules(hba)""",
+    """CREATE INDEX IF NOT EXISTS idx_molecules_rotatable ON molecules(rotatable_bonds)""",
     """CREATE INDEX IF NOT EXISTS idx_molecule_files_molecule
         ON molecule_files(molecule_id)""",
+    """CREATE INDEX IF NOT EXISTS idx_molecule_tags_tag
+        ON molecule_tags(tag, molecule_id)""",
     """CREATE INDEX IF NOT EXISTS idx_study_members_molecule
         ON study_members(molecule_id)""",
     """CREATE INDEX IF NOT EXISTS idx_study_members_study
@@ -198,6 +234,14 @@ _TABLE_DDL = (
         ON collection_members(molecule_id)""",
     """CREATE INDEX IF NOT EXISTS idx_library_members_library
         ON library_members(library_id, entry_index)""",
+    """CREATE INDEX IF NOT EXISTS idx_library_members_molecule
+        ON library_members(molecule_id)""",
+    """CREATE INDEX IF NOT EXISTS idx_selection_members_selection
+        ON selection_members(selection_id, entry_index)""",
+    """CREATE INDEX IF NOT EXISTS idx_selection_members_molecule
+        ON selection_members(molecule_id)""",
+    """CREATE INDEX IF NOT EXISTS idx_selections_created
+        ON selections(created_at)""",
     """CREATE VIRTUAL TABLE IF NOT EXISTS molecule_fts USING fts5(
         name,
         search_text,
@@ -222,6 +266,26 @@ _TABLE_DDL = (
 )
 
 
+_V2_COLUMNS = (
+    ("tpsa", "REAL"),
+    ("clogp", "REAL"),
+    ("hbd", "INTEGER"),
+    ("hba", "INTEGER"),
+    ("rotatable_bonds", "INTEGER"),
+    ("descriptor_version", "TEXT"),
+)
+
+
+def _add_v2_columns(conn: sqlite3.Connection) -> None:
+    """Add descriptor columns to a v1 catalog without rebuilding the table."""
+    existing = {
+        str(row["name"]) for row in conn.execute("PRAGMA table_info(molecules)").fetchall()
+    }
+    for name, column_type in _V2_COLUMNS:
+        if name not in existing:
+            conn.execute(f"ALTER TABLE molecules ADD COLUMN {name} {column_type}")
+
+
 def ensure_schema(conn: sqlite3.Connection) -> None:
     """Create or migrate the catalog; refuse a newer schema."""
     conn.execute("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)")
@@ -231,8 +295,15 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
         raise CatalogError(
             f"catalog schema v{version} is newer than supported v{SCHEMA_VERSION}"
         )
+    # Tables and triggers first: ``CREATE INDEX`` on a new column would fail on
+    # an existing v1 table until the ALTERs below have run.
     for ddl in _TABLE_DDL:
-        conn.execute(ddl)
+        if "CREATE INDEX" not in ddl:
+            conn.execute(ddl)
+    _add_v2_columns(conn)
+    for ddl in _TABLE_DDL:
+        if "CREATE INDEX" in ddl:
+            conn.execute(ddl)
     if row is None:
         conn.execute("INSERT INTO schema_version(version) VALUES (?)", (SCHEMA_VERSION,))
     elif version < SCHEMA_VERSION:

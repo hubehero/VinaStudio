@@ -254,42 +254,140 @@ def get_screening_library(name: str) -> LibraryDetail:
 
 @router.post("/runs", response_model=ScreeningRunCreated)
 def start_run(request: ScreeningStartRequest) -> ScreeningRunCreated:
-    """Start a screening run over a legacy or catalog library (§4.2)."""
+    """Start a screening run over a legacy library, catalog library or selection."""
     library_name = request.library
-    if request.libraryId:
+    library_dir_value: str
+    display_name: str
+    entries: list[dict[str, Any]]
+
+    if request.selectionId:
         from vinastudio.core.catalog import db as catalog_db
-        from vinastudio.core.catalog.library import materialize_library
+        from vinastudio.core.catalog import store as catalog_store
+        from vinastudio.core.chem.library import libraries_root
+        from vinastudio.core.paths import resolve_within
         from vinastudio.server.routers.workspace import get_active_workspace
 
         workspace = get_active_workspace()
         if workspace is None:
             raise InvalidInputError("no workspace configured")
         with catalog_db.transaction(catalog_db.catalog_path()) as conn:
-            materialize_library(conn, request.libraryId, workspace=workspace)
-        library_name = request.libraryId
-    if library_name is None:
-        raise HTTPException(status_code=422, detail="library or libraryId is required")
-    detail = load_detail(library_name)
-    if detail is None:
-        raise HTTPException(
-            status_code=404, detail=f"library not found: {library_name}"
-        )
-    if not detail["entries"]:
-        raise HTTPException(
-            status_code=409, detail=f"library {library_name} has no entries"
-        )
+            selection = catalog_store.get_selection(conn, request.selectionId)
+            if selection is None:
+                raise HTTPException(
+                    status_code=404, detail=f"selection not found: {request.selectionId}"
+                )
+            members = catalog_store.selection_entries(conn, request.selectionId)
+        if not members:
+            raise HTTPException(
+                status_code=409, detail=f"selection {request.selectionId} has no entries"
+            )
+        try:
+            selection_dir = resolve_within(
+                libraries_root(workspace / "libraries"), request.selectionId
+            )
+        except ValueError as exc:
+            raise InvalidInputError(f"invalid selection id: {request.selectionId}") from exc
+        mols_dir = selection_dir / "mols"
+        mols_dir.mkdir(parents=True, exist_ok=True)
+        entries = []
+        for member in members:
+            index = int(member["entry_index"])
+            prepared = member.get("prepared_path")
+            entries.append({
+                "index": index,
+                "name": str(member["name"]),
+                # The worker reads the catalog source directly; only the
+                # prepared cache lives under libraries/<selection>/mols.
+                "sdfPath": str(member["source_path"]) if member.get("source_path") else "",
+                "pdbqtPath": str(prepared) if prepared else str(mols_dir / f"{index:06d}.pdbqt"),
+            })
+        library_name = request.selectionId
+        library_dir_value = str(selection_dir)
+        display_name = str(selection.get("name") or request.selectionId)
+    else:
+        if request.libraryId:
+            from vinastudio.core.catalog import db as catalog_db
+            from vinastudio.core.catalog import store as catalog_store
+            from vinastudio.core.chem.library import libraries_root
+            from vinastudio.core.paths import resolve_within
+            from vinastudio.server.routers.workspace import get_active_workspace
+
+            workspace = get_active_workspace()
+            if workspace is None:
+                raise InvalidInputError("no workspace configured")
+            with catalog_db.transaction(catalog_db.catalog_path()) as conn:
+                library = catalog_store.get_library(conn, request.libraryId)
+                members = catalog_store.library_entries(conn, request.libraryId)
+            if library is None:
+                raise HTTPException(
+                    status_code=404, detail=f"library not found: {request.libraryId}"
+                )
+            if not members:
+                raise HTTPException(
+                    status_code=409, detail=f"library {request.libraryId} has no entries"
+                )
+            try:
+                catalog_library_dir = resolve_within(
+                    libraries_root(workspace / "libraries"), request.libraryId
+                )
+            except ValueError as exc:
+                raise InvalidInputError(f"invalid library id: {request.libraryId}") from exc
+            catalog_mols = catalog_library_dir / "mols"
+            catalog_mols.mkdir(parents=True, exist_ok=True)
+            entries = []
+            for member in members:
+                index = int(member["entry_index"])
+                prepared = member.get("prepared_path")
+                source = member.get("source_path") or str(
+                    catalog_mols / f"{index:06d}.sdf"
+                )
+                cached_pdbqt = catalog_mols / f"{index:06d}.pdbqt"
+                if prepared and Path(str(prepared)).is_file():
+                    pdbqt_path = str(prepared)
+                elif cached_pdbqt.is_file():
+                    pdbqt_path = str(cached_pdbqt)
+                else:
+                    pdbqt_path = str(cached_pdbqt)
+                entries.append({
+                    "index": index,
+                    "name": str(member["name"]),
+                    "sdfPath": source,
+                    "pdbqtPath": pdbqt_path,
+                })
+            library_name = request.libraryId
+            library_dir_value = str(catalog_library_dir)
+            display_name = str(library.get("name") or request.libraryId)
+        else:
+            if library_name is None:
+                raise HTTPException(
+                    status_code=422,
+                    detail="library, libraryId or selectionId is required",
+                )
+            detail = load_detail(library_name)
+            if detail is None:
+                raise HTTPException(
+                    status_code=404, detail=f"library not found: {library_name}"
+                )
+            if not detail["entries"]:
+                raise HTTPException(
+                    status_code=409, detail=f"library {library_name} has no entries"
+                )
+            display_name = detail.get("displayName") or library_name
+            library_dir_value = str(library_dir(library_name))
+            entries = [
+                {"index": int(entry["index"]), "name": str(entry["name"])}
+                for entry in detail["entries"]
+            ]
+
     receptor = Path(request.receptorPath)
     if not receptor.exists():
         raise InvalidInputError(f"receptor file not found: {request.receptorPath}")
 
     params: dict[str, Any] = {
         "library": library_name,
-        "library_display_name": detail.get("displayName") or library_name,
-        "library_dir": str(library_dir(library_name)),
-        "entries": [
-            {"index": int(entry["index"]), "name": str(entry["name"])}
-            for entry in detail["entries"]
-        ],
+        "library_display_name": display_name,
+        "library_dir": library_dir_value,
+        "entries": entries,
         "receptor_path": request.receptorPath,
         "flex_pdbqt_path": request.flexReceptorPath,
         "center": list(request.center),
@@ -303,6 +401,8 @@ def start_run(request: ScreeningStartRequest) -> ScreeningRunCreated:
         "no_refine": request.noRefine,
         "engine": request.engine,
     }
+    if request.selectionId:
+        params["selection_id"] = request.selectionId
     if request.parallelism is not None:
         params["parallelism"] = request.parallelism
 

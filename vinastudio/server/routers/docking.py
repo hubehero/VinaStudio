@@ -55,6 +55,7 @@ from vinastudio.schemas.docking import (
     BatchJobCreated,
     BatchJobResult,
     BatchJobStatus,
+    BatchLigandItem,
     BatchLigandProgress,
     BatchLigandResult,
     CitationResponse,
@@ -309,7 +310,41 @@ def batch_docking(request: BatchDockingRequest) -> BatchJobCreated:
     receptor = Path(request.receptorPath)
     if not receptor.exists():
         raise InvalidInputError(f"receptor file not found: {request.receptorPath}")
-    if not request.ligands:
+
+    ligands = request.ligands
+    if request.selectionId:
+        from vinastudio.core.catalog import db as catalog_db
+        from vinastudio.core.catalog import store as catalog_store
+
+        with catalog_db.transaction(catalog_db.catalog_path()) as conn:
+            selection = catalog_store.get_selection(conn, request.selectionId)
+            if selection is None:
+                raise InvalidInputError(
+                    f"selection not found: {request.selectionId}"
+                )
+            members = catalog_store.selection_entries(conn, request.selectionId)
+        ligands = []
+        for member in members:
+            prepared = member.get("prepared_path")
+            source = member.get("source_path")
+            if prepared and Path(str(prepared)).is_file():
+                ligands.append(BatchLigandItem(
+                    ligandPath=str(prepared),
+                    label=str(member["name"]),
+                ))
+            elif source and Path(str(source)).is_file():
+                # The batch worker prepares this selected source lazily; no
+                # silent drop and no full-library pre-preparation.
+                ligands.append(BatchLigandItem(
+                    ligandPath=str(source),
+                    label=str(member["name"]),
+                    prepare=True,
+                ))
+            else:
+                raise InvalidInputError(
+                    f"selected molecule {member['name']} has no usable source or PDBQT"
+                )
+    if not ligands:
         raise InvalidInputError("ligands list is empty")
     _validate_box(request.receptorPath, request.center, request.size)
 
@@ -319,8 +354,13 @@ def batch_docking(request: BatchDockingRequest) -> BatchJobCreated:
         "center": list(request.center),
         "size": list(request.size),
         "ligands": [
-            {"ligandPath": lig.ligandPath, "ligandPdbqtString": lig.ligandPdbqtString, "label": lig.label}
-            for lig in request.ligands
+            {
+                "ligandPath": lig.ligandPath,
+                "ligandPdbqtString": lig.ligandPdbqtString,
+                "label": lig.label,
+                "prepare": lig.prepare,
+            }
+            for lig in ligands
         ],
         "scoring": request.scoring,
         "exhaustiveness": request.exhaustiveness,
@@ -334,11 +374,13 @@ def batch_docking(request: BatchDockingRequest) -> BatchJobCreated:
     }
     # `extra="forbid"` rejected the key up here; the worker pool picks it up
     # only when the client sent it (absent = server default, TASK-14 §4.2).
+    if request.selectionId:
+        params["selection_id"] = request.selectionId
     if request.parallelism is not None:
         params["parallelism"] = request.parallelism
 
     job_id = job_manager.start_batch_job(params)
-    return BatchJobCreated(jobId=job_id, status="queued", total=len(request.ligands))
+    return BatchJobCreated(jobId=job_id, status="queued", total=len(ligands))
 
 
 def _summary_best_affinity(state: JobState) -> float | None:
@@ -834,6 +876,26 @@ def get_batch_status(job_id: str) -> BatchJobStatus:
             )
             for r in state.batch_results
         ],
+        error=state.error,
+        elapsedMs=state.elapsed_ms,
+    )
+
+
+@router.get("/batch/{job_id}/progress", response_model=BatchJobStatus)
+def get_batch_progress(job_id: str) -> BatchJobStatus:
+    """Counters/current ligand only; the poll endpoint never ships every row."""
+    state = job_manager.get_job(job_id)
+    if state is None:
+        raise JobNotFoundError(f"job {job_id} not found")
+    return BatchJobStatus(
+        jobId=state.job_id,
+        status=state.status,
+        progress=state.progress,
+        totalLigands=state.total_ligands,
+        completedLigands=state.completed_ligands,
+        failedLigands=state.failed_ligands,
+        currentLigand=state.current_ligand,
+        ligands=[],
         error=state.error,
         elapsedMs=state.elapsed_ms,
     )

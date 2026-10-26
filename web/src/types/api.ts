@@ -890,7 +890,8 @@ export interface BatchDockingRequest {
   flexReceptorPath: string | null
   center: [number, number, number]
   size: [number, number, number]
-  ligands: BatchLigandItem[]
+  ligands?: BatchLigandItem[]
+  selectionId?: string
   scoring: ScoringFunction
   exhaustiveness: number
   nPoses: number
@@ -1397,6 +1398,8 @@ export interface ScreeningStartRequest {
   library?: string
   /** Catalog library id; mutually exclusive with library. */
   libraryId?: string
+  /** Frozen catalog selection id; mutually exclusive with library/libraryId. */
+  selectionId?: string
   receptorPath: string
   flexReceptorPath?: string | null
   center: [number, number, number]
@@ -1639,6 +1642,12 @@ export interface CatalogMolecule {
   molecularWeight: number | null
   qed: number | null
   lipinskiViolations: number | null
+  tpsa?: number | null
+  clogp?: number | null
+  hbd?: number | null
+  hba?: number | null
+  rotatableBonds?: number | null
+  descriptorVersion?: string | null
   status: string
   prepStatus: string
   primaryPath: string | null
@@ -1734,6 +1743,51 @@ export interface CatalogLibrary {
   members: CatalogLibraryMember[]
 }
 
+export interface CatalogSelectionSpec {
+  q?: string
+  filters?: Record<string, string[]>
+  maxMembers?: number
+}
+
+export interface CatalogSelectionMember {
+  entryIndex: number
+  identityKey: string
+  id: string
+  name: string
+  kindHint: CatalogKind | string
+  prepStatus: string
+  molecularWeight?: number | null
+  qed?: number | null
+  lipinskiViolations?: number | null
+  tpsa?: number | null
+  clogp?: number | null
+  hbd?: number | null
+  hba?: number | null
+  rotatableBonds?: number | null
+}
+
+export interface CatalogSelection {
+  id: string
+  name: string
+  source: string
+  spec: CatalogSelectionSpec
+  createdAt: number
+  resolvedAt: number | null
+  memberCount: number
+  preparedCount: number
+  truncated: boolean
+  schemaVersion: number
+  members: CatalogSelectionMember[]
+  total: number
+}
+
+export interface CatalogSelectionCreate {
+  name?: string
+  source?: string
+  spec: CatalogSelectionSpec
+  moleculeIds?: string[]
+}
+
 export interface CatalogSuggestion {
   id: string
   kind: string
@@ -1788,4 +1842,5 @@ export interface CatalogLibraryInput {
   name: string
   description?: string
   moleculeIds?: string[]
+  selectionId?: string
 }

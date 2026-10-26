@@ -464,12 +464,20 @@ export const useDockingStore = defineStore('docking', () => {
   async function refreshBatchStatus(): Promise<void> {
     if (!activeBatchId.value) return
     try {
-      batchStatus.value = await api.batchStatus(activeBatchId.value)
-      if (batchStatus.value?.status === 'completed') {
+      // Polling carries counters only; the full row array is fetched once on
+      // completion for the results table, not every three seconds.
+      const progress = await api.batchProgress(activeBatchId.value)
+      batchStatus.value = {
+        ...progress,
+        ligands: batchStatus.value?.ligands ?? [],
+      }
+      if (progress.status === 'completed') {
+        batchStatus.value = await api.batchStatus(activeBatchId.value)
         batchResult.value = await api.batchResult(activeBatchId.value)
         stopPolling()
         useProjectStore().recordResult(activeBatchId.value, '')
-      } else if (batchStatus.value?.status === 'failed' || batchStatus.value?.status === 'cancelled') {
+      } else if (progress.status === 'failed' || progress.status === 'cancelled') {
+        batchStatus.value = await api.batchStatus(activeBatchId.value)
         stopPolling()
       }
     } catch {

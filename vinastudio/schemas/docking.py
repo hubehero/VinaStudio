@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from vinastudio.config import DEFAULTS, SCORING_WEIGHT_COUNT, ScoringFunction
 
@@ -594,6 +594,8 @@ class BatchLigandItem(BaseModel):
     ligandPdbqtString: str | None = None
     label: str = ""
     """Optional label to distinguish results."""
+    prepare: bool = False
+    """Prepare a source SDF/MOL before docking (selection runs only)."""
 
 
 class BatchDockingRequest(BaseModel):
@@ -608,7 +610,8 @@ class BatchDockingRequest(BaseModel):
     flexReceptorPath: str | None = None
     center: tuple[float, float, float]
     size: tuple[float, float, float]
-    ligands: list[BatchLigandItem]
+    ligands: list[BatchLigandItem] = Field(default_factory=list)
+    selectionId: str | None = None
     scoring: ScoringFunction = "vina"
     exhaustiveness: int = 8
     nPoses: int = 20
@@ -633,6 +636,12 @@ class BatchDockingRequest(BaseModel):
             "command-line binary); 'vina-cli' asks for the binary explicitly."
         ),
     )
+
+    @model_validator(mode="after")
+    def _ligand_source(self) -> BatchDockingRequest:
+        if bool(self.selectionId) == bool(self.ligands):
+            raise ValueError("give exactly one of ligands or selectionId")
+        return self
 
 
 class BatchLigandResult(BaseModel):

@@ -27,6 +27,8 @@ from vinastudio.schemas.catalog import (
     LibraryOut,
     SavedViewCreate,
     SavedViewOut,
+    SelectionCreate,
+    SelectionOut,
     StudyCreate,
     StudyMemberAdd,
     StudyOut,
@@ -78,6 +80,13 @@ def search_molecules(
     role: str | None = None,
     mw_min: float | None = None,
     mw_max: float | None = None,
+    qed: str | None = None,
+    tpsa: str | None = None,
+    logp: str | None = None,
+    hbd: str | None = None,
+    hba: str | None = None,
+    rotatable: str | None = None,
+    prep: str | None = None,
     unassigned: bool = False,
 ) -> dict[str, Any]:
     db_path = _ready()
@@ -94,6 +103,13 @@ def search_molecules(
             "role": role,
             "mw_min": mw_min,
             "mw_max": mw_max,
+            "qed": qed,
+            "tpsa": tpsa,
+            "logp": logp,
+            "hbd": hbd,
+            "hba": hba,
+            "rotatable": rotatable,
+            "prep_status": prep,
             "unassigned": unassigned,
         }.items()
         if value not in (None, False, "")
@@ -102,10 +118,9 @@ def search_molecules(
         q=q, filters=filters, limit=limit, offset=offset, sort=sort, db_path=db_path
     )
     with db.connect(db_path) as conn:
-        enriched = []
-        for item in result["items"]:
-            detail = store.get_molecule(conn, item["id"])
-            enriched.append(detail or item)
+        details = store.get_molecules(conn, [item["id"] for item in result["items"]])
+        by_id = {item["id"]: item for item in details}
+        enriched = [by_id.get(item["id"], item) for item in result["items"]]
     return {
         "items": enriched,
         "total": result["total"],
@@ -128,6 +143,13 @@ def matching_molecule_ids(
     role: str | None = None,
     mw_min: float | None = None,
     mw_max: float | None = None,
+    qed: str | None = None,
+    tpsa: str | None = None,
+    logp: str | None = None,
+    hbd: str | None = None,
+    hba: str | None = None,
+    rotatable: str | None = None,
+    prep: str | None = None,
     unassigned: bool = False,
 ) -> dict[str, list[str]]:
     filters = {
@@ -143,6 +165,13 @@ def matching_molecule_ids(
             "role": role,
             "mw_min": mw_min,
             "mw_max": mw_max,
+            "qed": qed,
+            "tpsa": tpsa,
+            "logp": logp,
+            "hbd": hbd,
+            "hba": hba,
+            "rotatable": rotatable,
+            "prep_status": prep,
             "unassigned": unassigned,
         }.items()
         if value not in (None, False, "")
@@ -482,8 +511,20 @@ def create_library(request: LibraryCreate) -> dict[str, Any]:
     if workspace is None:
         raise InvalidInputError("no workspace configured")
     with db.transaction(_ready()) as conn:
+        molecule_ids = list(request.moleculeIds)
+        if request.selectionId:
+            selection = store.get_selection(conn, request.selectionId)
+            if selection is None:
+                raise InvalidInputError(f"selection not found: {request.selectionId}")
+            members = conn.execute(
+                "SELECT molecule_id FROM selection_members WHERE selection_id = ? ORDER BY entry_index",
+                (request.selectionId,),
+            ).fetchall()
+            molecule_ids = [str(row["molecule_id"]) for row in members]
+        if not molecule_ids:
+            raise InvalidInputError("library has no molecules")
         library_id = store.create_library(conn, name=request.name, description=request.description)
-        for index, molecule_id in enumerate(request.moleculeIds):
+        for index, molecule_id in enumerate(molecule_ids):
             detail = _detail(conn, molecule_id)
             prepared = next(
                 (item["path"] for item in detail["files"] if item["kind"] == "pdbqt"),
@@ -580,6 +621,85 @@ def create_saved_view(request: SavedViewCreate) -> dict[str, Any]:
 def delete_saved_view(view_id: str) -> dict[str, bool]:
     with db.transaction(_ready()) as conn:
         return {"deleted": store.delete_saved_view(conn, view_id)}
+
+
+# -- selections -------------------------------------------------------------
+
+
+@router.post("/selections", response_model=SelectionOut)
+def create_selection(request: SelectionCreate) -> dict[str, Any]:
+    """Resolve a query once and freeze the resulting member snapshot."""
+    db_path = _ready()
+    spec = request.spec
+    if request.moleculeIds:
+        with db.connect(db_path) as conn:
+            members = []
+            seen: set[str] = set()
+            for molecule_id in request.moleculeIds:
+                if molecule_id in seen:
+                    continue
+                detail = store.get_molecule(conn, molecule_id)
+                if detail is None:
+                    raise InvalidInputError(f"molecule not found: {molecule_id}")
+                seen.add(molecule_id)
+                members.append({
+                    "id": molecule_id,
+                    "identity_key": str(detail["identity_key"]),
+                })
+        total = len(members)
+        truncated = total > spec.maxMembers
+        members = members[: spec.maxMembers]
+        source = request.source if request.source != "query" else "ids"
+    else:
+        filters = dict(spec.filters)
+        total = query.matching_count(q=spec.q, filters=filters, db_path=db_path)
+        members = query.matching_rows(
+            q=spec.q,
+            filters=filters,
+            limit=min(spec.maxMembers, 50000),
+            db_path=db_path,
+        )
+        truncated = total > spec.maxMembers
+        source = request.source
+    with db.transaction(db_path) as conn:
+        selection_id = store.create_selection(
+            conn,
+            name=request.name,
+            source=source,
+            spec=spec.model_dump(),
+            members=members,
+            truncated=truncated,
+        )
+        result = store.get_selection(conn, selection_id)
+    if result is None:  # pragma: no cover - just inserted
+        raise InvalidInputError("could not create selection")
+    result["members"] = []
+    result["total"] = result["memberCount"]
+    return result
+
+
+@router.get("/selections/{selection_id}", response_model=SelectionOut)
+def get_selection(
+    selection_id: str,
+    limit: int = Query(default=200, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+) -> dict[str, Any]:
+    with db.connect(_ready()) as conn:
+        result = store.get_selection(conn, selection_id)
+        if result is None:
+            raise InvalidInputError(f"selection not found: {selection_id}")
+        members, total = store.list_selection_members(
+            conn, selection_id, limit=limit, offset=offset
+        )
+    result["members"] = members
+    result["total"] = total
+    return result
+
+
+@router.delete("/selections/{selection_id}")
+def delete_selection(selection_id: str) -> dict[str, bool]:
+    with db.transaction(_ready()) as conn:
+        return {"deleted": store.delete_selection(conn, selection_id)}
 
 
 @router.get("/suggestions", response_model=list[SuggestionOut])

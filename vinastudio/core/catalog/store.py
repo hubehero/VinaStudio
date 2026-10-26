@@ -185,8 +185,11 @@ def upsert_molecule(
             """INSERT INTO molecules
                (id, name, kind_hint, source, source_id, identity_key, identity_kind,
                 canonical_smiles, inchi_key, parent_inchi_key, formula, molecular_weight,
-                status, prep_status, metadata_json, search_text, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 'unknown', ?, '', ?, ?)""",
+                qed, lipinski_violations, tpsa, clogp, hbd, hba, rotatable_bonds,
+                descriptor_version, status, prep_status, metadata_json, search_text,
+                created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                       'active', 'unknown', ?, '', ?, ?)""",
             (
                 mol_id,
                 name.strip() or "untitled",
@@ -200,6 +203,14 @@ def upsert_molecule(
                 identity.parent_inchi_key,
                 identity.formula,
                 identity.molecular_weight,
+                identity.qed,
+                identity.lipinski_violations,
+                identity.tpsa,
+                identity.clogp,
+                identity.hbd,
+                identity.hba,
+                identity.rotatable_bonds,
+                identity.descriptor_version,
                 _json(metadata),
                 now,
                 now,
@@ -221,6 +232,14 @@ def upsert_molecule(
                  parent_inchi_key = COALESCE(parent_inchi_key, ?),
                  formula = COALESCE(formula, ?),
                  molecular_weight = COALESCE(molecular_weight, ?),
+                 qed = COALESCE(qed, ?),
+                 lipinski_violations = COALESCE(lipinski_violations, ?),
+                 tpsa = COALESCE(tpsa, ?),
+                 clogp = COALESCE(clogp, ?),
+                 hbd = COALESCE(hbd, ?),
+                 hba = COALESCE(hba, ?),
+                 rotatable_bonds = COALESCE(rotatable_bonds, ?),
+                 descriptor_version = COALESCE(descriptor_version, ?),
                  metadata_json = ?, updated_at = ?
                WHERE id = ?""",
             (
@@ -233,6 +252,14 @@ def upsert_molecule(
                 identity.parent_inchi_key,
                 identity.formula,
                 identity.molecular_weight,
+                identity.qed,
+                identity.lipinski_violations,
+                identity.tpsa,
+                identity.clogp,
+                identity.hbd,
+                identity.hba,
+                identity.rotatable_bonds,
+                identity.descriptor_version,
                 _json(current_meta),
                 now,
                 mol_id,
@@ -280,10 +307,52 @@ def get_molecule(conn: sqlite3.Connection, molecule_id: str) -> Json | None:
     return data
 
 
+def get_molecules(conn: sqlite3.Connection, molecule_ids: Iterable[str]) -> list[Json]:
+    """Batched form of :func:`get_molecule` for a search page.
+
+    One query per relation table, not six queries per row. The returned order
+    follows ``molecule_ids``; unknown ids are omitted.
+    """
+    ids = list(dict.fromkeys(str(item) for item in molecule_ids if item))
+    if not ids:
+        return []
+    placeholders = ",".join("?" for _ in ids)
+    rows = conn.execute(
+        f"SELECT * FROM molecules WHERE id IN ({placeholders})", ids
+    ).fetchall()
+    by_id = {str(row["id"]): _row_to_molecule(row) for row in rows}
+    for item in by_id.values():
+        item.update({"files": [], "aliases": [], "tags": [], "sources": [], "studies": [], "collections": []})
+
+    for key, sql in {
+        "files": f"SELECT * FROM molecule_files WHERE molecule_id IN ({placeholders}) ORDER BY kind, is_primary DESC",
+        "aliases": f"SELECT molecule_id, alias FROM molecule_aliases WHERE molecule_id IN ({placeholders}) ORDER BY alias",
+        "tags": f"SELECT molecule_id, tag FROM molecule_tags WHERE molecule_id IN ({placeholders}) ORDER BY tag",
+        "sources": f"SELECT molecule_id, source, source_id, url, license FROM molecule_sources WHERE molecule_id IN ({placeholders})",
+        "studies": f"""SELECT sm.molecule_id, s.id, s.name, s.pdb_id, sm.role, sm.is_primary
+                       FROM study_members sm JOIN studies s ON s.id = sm.study_id
+                       WHERE sm.molecule_id IN ({placeholders}) ORDER BY s.name""",
+        "collections": f"""SELECT cm.molecule_id, c.id, c.name, c.parent_id
+                           FROM collection_members cm JOIN collections c ON c.id = cm.collection_id
+                           WHERE cm.molecule_id IN ({placeholders}) ORDER BY c.name""",
+    }.items():
+        for relation in conn.execute(sql, ids).fetchall():
+            data = dict(relation)
+            molecule_id = str(data.pop("molecule_id"))
+            if key == "aliases":
+                by_id[molecule_id][key].append(data["alias"])
+            elif key == "tags":
+                by_id[molecule_id][key].append(data["tag"])
+            elif molecule_id in by_id:
+                by_id[molecule_id][key].append(data)
+    return [by_id[molecule_id] for molecule_id in ids if molecule_id in by_id]
+
+
 def update_molecule(conn: sqlite3.Connection, molecule_id: str, patch: Json) -> bool:
     allowed = {
         "name", "kind_hint", "source", "source_id", "status", "prep_status",
         "canonical_smiles", "formula", "molecular_weight", "qed", "lipinski_violations",
+        "tpsa", "clogp", "hbd", "hba", "rotatable_bonds", "descriptor_version",
     }
     updates = {key: value for key, value in patch.items() if key in allowed}
     if "metadata" in patch:
@@ -623,6 +692,228 @@ def create_saved_view(
 
 def delete_saved_view(conn: sqlite3.Connection, view_id: str) -> bool:
     cursor = conn.execute("DELETE FROM saved_views WHERE id = ?", (view_id,))
+    return cursor.rowcount > 0
+
+
+def create_selection(
+    conn: sqlite3.Connection,
+    *,
+    name: str = "",
+    source: str = "query",
+    spec: Json,
+    members: Iterable[dict[str, str]],
+    truncated: bool = False,
+) -> str:
+    """Freeze a query result into an immutable run selection.
+
+    ``members`` rows carry ``id`` and ``identity_key``; the identity is copied
+    so a later re-import cannot silently substitute a different compound.
+    """
+    selection_id = new_id("sel")
+    now = _now()
+    rows = list(members)
+    conn.execute(
+        """INSERT INTO selections
+           (id, name, source, spec_json, created_at, resolved_at, member_count, truncated, schema_version)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)""",
+        (
+            selection_id,
+            name.strip() or "Run selection",
+            source,
+            _json(spec),
+            now,
+            now,
+            len(rows),
+            int(truncated),
+        ),
+    )
+    conn.executemany(
+        """INSERT INTO selection_members(selection_id, molecule_id, entry_index, identity_key)
+           VALUES (?, ?, ?, ?)""",
+        [
+            (selection_id, item["id"], index, item["identity_key"])
+            for index, item in enumerate(rows)
+        ],
+    )
+    return selection_id
+
+
+def library_entries(conn: sqlite3.Connection, library_id: str) -> list[Json]:
+    """Catalog library members with their source/prepared paths.
+
+    Catalog libraries no longer need to be materialised before a screening
+    run; the worker can read the source files directly and prepare into its
+    own cache. The physical ``libraries/<id>/mols`` layout stays available for
+    legacy libraries and exports.
+    """
+    members = [
+        dict(row)
+        for row in conn.execute(
+            """SELECT lm.entry_index, lm.prepared_path,
+                      m.id, m.name, m.kind_hint, m.prep_status
+               FROM library_members lm JOIN molecules m ON m.id = lm.molecule_id
+               WHERE lm.library_id = ? ORDER BY lm.entry_index""",
+            (library_id,),
+        )
+    ]
+    if not members:
+        return []
+    files = conn.execute(
+        """SELECT lm.entry_index, mf.kind, mf.path
+           FROM library_members lm
+           JOIN molecule_files mf ON mf.molecule_id = lm.molecule_id
+           WHERE lm.library_id = ?
+             AND mf.kind IN ('pdbqt', 'source', 'sdf', 'mol', 'mol2', 'pdb')
+           ORDER BY lm.entry_index,
+                    CASE mf.kind
+                      WHEN 'pdbqt' THEN 0 WHEN 'sdf' THEN 1 WHEN 'source' THEN 2
+                      WHEN 'mol' THEN 3 WHEN 'mol2' THEN 4 ELSE 5
+                    END,
+                    mf.is_primary DESC, mf.path""",
+        (library_id,),
+    ).fetchall()
+    prepared: dict[int, str] = {}
+    source: dict[int, str] = {}
+    for row in files:
+        index = int(row["entry_index"])
+        if str(row["kind"]) == "pdbqt":
+            prepared.setdefault(index, str(row["path"]))
+        else:
+            source.setdefault(index, str(row["path"]))
+    for member in members:
+        index = int(member["entry_index"])
+        member["prepared_path"] = member.get("prepared_path") or prepared.get(index)
+        member["source_path"] = source.get(index)
+    return members
+
+
+def get_selection(conn: sqlite3.Connection, selection_id: str) -> Json | None:
+    row = conn.execute("SELECT * FROM selections WHERE id = ?", (selection_id,)).fetchone()
+    if row is None:
+        return None
+    prepared = conn.execute(
+        """SELECT COUNT(*) FROM selection_members sm
+           WHERE sm.selection_id = ? AND EXISTS (
+               SELECT 1 FROM molecule_files mf
+               WHERE mf.molecule_id = sm.molecule_id AND mf.kind = 'pdbqt'
+           )""",
+        (selection_id,),
+    ).fetchone()[0]
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "source": row["source"],
+        "spec": json.loads(row["spec_json"] or "{}"),
+        "createdAt": row["created_at"],
+        "resolvedAt": row["resolved_at"],
+        "memberCount": row["member_count"],
+        "preparedCount": int(prepared),
+        "truncated": bool(row["truncated"]),
+        "schemaVersion": row["schema_version"],
+    }
+
+
+def list_selection_members(
+    conn: sqlite3.Connection,
+    selection_id: str,
+    *,
+    limit: int = 200,
+    offset: int = 0,
+) -> tuple[list[Json], int]:
+    total = conn.execute(
+        "SELECT COUNT(*) FROM selection_members WHERE selection_id = ?", (selection_id,)
+    ).fetchone()[0]
+    rows = conn.execute(
+        """SELECT sm.entry_index, sm.identity_key, m.id, m.name, m.kind_hint,
+                  m.prep_status, m.molecular_weight, m.qed, m.lipinski_violations,
+                  m.tpsa, m.clogp, m.hbd, m.hba, m.rotatable_bonds
+           FROM selection_members sm JOIN molecules m ON m.id = sm.molecule_id
+           WHERE sm.selection_id = ?
+           ORDER BY sm.entry_index LIMIT ? OFFSET ?""",
+        (selection_id, max(1, min(int(limit), 200)), max(0, int(offset))),
+    ).fetchall()
+    return [dict(row) for row in rows], int(total)
+
+
+def selection_entries(conn: sqlite3.Connection, selection_id: str) -> list[Json]:
+    """Members plus the source/prepared file paths a run needs.
+
+    Two queries total for the whole selection: one for members, one for their
+    candidate files. The previous correlated subqueries cost two lookups per
+    molecule and became the dominant cost at 50k members.
+    """
+    members = [
+        dict(row)
+        for row in conn.execute(
+            """SELECT sm.entry_index, sm.identity_key,
+                      m.id, m.name, m.kind_hint, m.prep_status
+               FROM selection_members sm JOIN molecules m ON m.id = sm.molecule_id
+               WHERE sm.selection_id = ? ORDER BY sm.entry_index""",
+            (selection_id,),
+        )
+    ]
+    if not members:
+        return []
+    files = conn.execute(
+        """SELECT sm.entry_index, mf.kind, mf.path
+           FROM selection_members sm
+           JOIN molecule_files mf ON mf.molecule_id = sm.molecule_id
+           WHERE sm.selection_id = ?
+             AND mf.kind IN ('pdbqt', 'source', 'sdf', 'mol', 'mol2', 'pdb')
+           ORDER BY sm.entry_index,
+                    CASE mf.kind
+                      WHEN 'pdbqt' THEN 0 WHEN 'sdf' THEN 1 WHEN 'source' THEN 2
+                      WHEN 'mol' THEN 3 WHEN 'mol2' THEN 4 ELSE 5
+                    END,
+                    mf.is_primary DESC, mf.path""",
+        (selection_id,),
+    ).fetchall()
+    prepared: dict[int, str] = {}
+    source: dict[int, str] = {}
+    for row in files:
+        index = int(row["entry_index"])
+        kind = str(row["kind"])
+        if kind == "pdbqt":
+            prepared.setdefault(index, str(row["path"]))
+        else:
+            source.setdefault(index, str(row["path"]))
+    for member in members:
+        index = int(member["entry_index"])
+        member["prepared_path"] = prepared.get(index)
+        member["source_path"] = source.get(index)
+    return members
+
+_SELECTION_PRUNE_MARKER = "selection_pruned_at"
+
+
+def prune_selections(
+    conn: sqlite3.Connection,
+    *,
+    older_than_days: int = 30,
+    now: float | None = None,
+) -> int:
+    """Remove stale internal run snapshots at most once per day."""
+    current = _now() if now is None else now
+    marker = conn.execute(
+        "SELECT value FROM catalog_meta WHERE key = ?", (_SELECTION_PRUNE_MARKER,)
+    ).fetchone()
+    if marker is not None:
+        try:
+            if current - float(marker["value"]) < 86400:
+                return 0
+        except ValueError:
+            pass
+    cutoff = current - max(1, int(older_than_days)) * 86400
+    cursor = conn.execute("DELETE FROM selections WHERE created_at < ?", (cutoff,))
+    conn.execute(
+        "INSERT OR REPLACE INTO catalog_meta(key, value) VALUES (?, ?)",
+        (_SELECTION_PRUNE_MARKER, str(current)),
+    )
+    return int(cursor.rowcount)
+
+
+def delete_selection(conn: sqlite3.Connection, selection_id: str) -> bool:
+    cursor = conn.execute("DELETE FROM selections WHERE id = ?", (selection_id,))
     return cursor.rowcount > 0
 
 

@@ -221,6 +221,12 @@ def batch_docking_worker(params: dict[str, Any], pipe: Connection) -> None:
             continue
 
         try:
+            if lig.get("prepare") and ligand_path and not ligand_string:
+                from vinastudio.core.chem.ligand_prep import prepare_ligand
+
+                prepared = prepare_ligand(ligand_path)
+                ligand_string = prepared.pdbqt
+
             from vinastudio.core.docking import DockingParams, run_docking
 
             # N shards are the parallel budget; letting each also take a
@@ -314,8 +320,20 @@ def screening_worker(params: dict[str, Any], pipe: Connection) -> None:
     for position, entry in shard:
         entry_index = int(entry.get("index", position))
         name = str(entry.get("name") or f"mol_{entry_index}")
-        sdf = entry_sdf_path(libdir, entry_index)
-        pdbqt = entry_pdbqt_path(libdir, entry_index)
+        # A frozen catalog Selection supplies absolute source/prepared paths;
+        # legacy libraries still use the NNNNNN layout. The worker only reads
+        # the source and writes its prepared PDBQT, so a selection never has to
+        # copy the whole library into libraries/<id>/mols first.
+        sdf = (
+            Path(str(entry["sdfPath"]))
+            if entry.get("sdfPath")
+            else entry_sdf_path(libdir, entry_index)
+        )
+        pdbqt = (
+            Path(str(entry["pdbqtPath"]))
+            if entry.get("pdbqtPath")
+            else entry_pdbqt_path(libdir, entry_index)
+        )
         out_name = f"{entry_index:06d}-{slugify(name, fallback=f'mol-{entry_index}')}"
 
         _emit(pipe, "batch_progress", {
@@ -326,7 +344,10 @@ def screening_worker(params: dict[str, Any], pipe: Connection) -> None:
 
         # Source SDF wins over the prepared file's header SMILES (§4.6);
         # computed at entry start so failed rows carry the fields too.
-        profile = ligand_profile(str(sdf), pdbqt_path=str(pdbqt))
+        profile = ligand_profile(
+            str(sdf) if sdf.is_file() else None,
+            pdbqt_path=str(pdbqt),
+        )
         desc_fields = {
             "qed": profile["qed"],
             "lipinskiViolations": profile["lipinskiViolations"],
@@ -339,6 +360,7 @@ def screening_worker(params: dict[str, Any], pipe: Connection) -> None:
 
                 try:
                     prepared = prepare_ligand(str(sdf))
+                    pdbqt.parent.mkdir(parents=True, exist_ok=True)
                     pdbqt.write_text(prepared.pdbqt, encoding="utf-8")
                 except Exception as exc:
                     mark_prepare_failed(libdir, entry_index, str(exc))

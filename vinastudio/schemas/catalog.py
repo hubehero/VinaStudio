@@ -44,6 +44,12 @@ class CatalogMoleculeOut(_CatalogModel):
     molecular_weight: float | None = None
     qed: float | None = None
     lipinski_violations: int | None = None
+    tpsa: float | None = None
+    clogp: float | None = None
+    hbd: int | None = None
+    hba: int | None = None
+    rotatable_bonds: int | None = None
+    descriptor_version: str | None = None
     status: str = "active"
     prep_status: str = "unknown"
     primary_path: str | None = None
@@ -62,6 +68,53 @@ class CatalogSearchOut(_CatalogModel):
     limit: int
     offset: int
     facets: dict[str, list[dict[str, Any]]]
+
+
+class SelectionSpec(_CatalogModel):
+    """A replayable catalog query; UI filters map to ``filters``."""
+
+    q: str = ""
+    filters: dict[str, list[str]] = Field(default_factory=dict)
+    maxMembers: int = Field(default=50000, ge=1, le=50000)
+
+
+class SelectionCreate(_CatalogModel):
+    name: str = ""
+    source: str = "query"
+    spec: SelectionSpec = Field(default_factory=SelectionSpec)
+    moleculeIds: list[str] = Field(default_factory=list)
+
+
+class SelectionMemberOut(_CatalogModel):
+    entry_index: int
+    identity_key: str
+    id: str
+    name: str
+    kind_hint: str
+    prep_status: str = "unknown"
+    molecular_weight: float | None = None
+    qed: float | None = None
+    lipinski_violations: int | None = None
+    tpsa: float | None = None
+    clogp: float | None = None
+    hbd: int | None = None
+    hba: int | None = None
+    rotatable_bonds: int | None = None
+
+
+class SelectionOut(_CatalogModel):
+    id: str
+    name: str
+    source: str
+    spec: dict[str, Any] = Field(default_factory=dict)
+    created_at: float
+    resolved_at: float | None = None
+    member_count: int = 0
+    prepared_count: int = 0
+    truncated: bool = False
+    schema_version: int = 1
+    members: list[SelectionMemberOut] = Field(default_factory=list)
+    total: int = 0
 
 
 class CollectionMemberOut(_CatalogModel):
@@ -204,6 +257,7 @@ class LibraryCreate(_CatalogModel):
     name: str = Field(min_length=1, max_length=200)
     description: str = ""
     moleculeIds: list[str] = Field(default_factory=list)
+    selectionId: str | None = None
 
 
 class LibraryMemberAdd(_CatalogModel):

@@ -31,11 +31,14 @@ in another.
    study-pair suggestion derived from a PDB-style filename/source prefix.
 4. Organize with Collections and tags; search with free text or field filters.
 5. Prepare molecules (receptor/ligand PDBQT) when needed.
-6. Create a **Library** from selected ligands/collection/search result.
-7. Batch docking queues prepared library members; virtual screening consumes
-   the materialized library directory.
+6. Create a **Library** from selected ligands/collection/search result, or
+   save a filtered selection directly from the picker.
+7. Batch docking and virtual screening consume a frozen **run selection**:
+   source files are read directly and PDBQT is prepared lazily per ligand.
+   A physical `libraries/<id>/mols` directory remains for legacy libraries and
+   exports, not as a required copy before every run.
 
-## Search
+## Search and selection
 
 Examples:
 
@@ -47,11 +50,22 @@ study:"1IEP study"
 collection:"Kinase leads"
 kind:ligand
 mw:300-600
+qed:>=0.5
+tpsa:<=140
+logp:<=5
+rotatable:<=10
 ```
 
 Search runs on the server with SQLite FTS5 and structured indexes; the UI
 does not filter the full molecule list in the browser. Two-character Chinese
-queries fall back to a bounded substring search.
+queries fall back to a bounded substring search. Molecular descriptors
+(MW/QED/Lipinski/TPSA/LogP/HBD/HBA/rotatable bonds) are stored at import.
+
+The Catalog picker is shared by Batch and Screening. It supports scope
+(All/Study/Collection/Library/Unassigned), search, descriptor filters,
+prepared-only filtering, paging and select-all-matching. A large result becomes
+a server-resolved **run selection** (up to 50k) instead of a giant id array;
+the library chooser remains for reusable, user-managed sets.
 
 ## Identity and duplicates
 
@@ -79,10 +93,15 @@ does not delete user files.
   select-all-current-results and column visibility are available. The table
   virtualises rows with `ElTableV2`; the server still returns bounded pages, so
   paging remains the way to reach later rows.
+- Batch and Screening can start from a frozen selection id. Catalog libraries
+  are read from source paths; only the selected molecules are prepared, with
+  missing or failed preparations reported individually.
 - Screening shows the catalog library display name in the library, run and
   history views while retaining the stable directory id for requests; clicking
   a ranking row opens the per-ligand result (scores, SMILES, elapsed time and
   output directory).
+- The picker does not build a local fingerprint/ANN index or provide
+  substructure/similarity search; that remains a separate product decision.
 - Catalog 1iep has been exercised through preparation, Study → docking and an
   actual catalog-library virtual screening run.
 

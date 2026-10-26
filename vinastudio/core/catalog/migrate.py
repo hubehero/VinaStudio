@@ -20,6 +20,7 @@ log = logging.getLogger(__name__)
 
 _MANIFEST_MARKER = "legacy_manifest_imported"
 _LIBRARY_MARKER = "legacy_libraries_imported"
+_DESCRIPTOR_MARKER = "descriptor_v2_backfilled"
 
 
 def _backup_manifest(workspace: Path) -> None:
@@ -217,6 +218,59 @@ def _import_libraries(conn, workspace: Path) -> int:
     return imported
 
 
+def _backfill_descriptors(conn) -> int:
+    """Populate v2 descriptors for catalog rows created before schema v2.
+
+    The import path computes descriptors from the parsed structure; this is the
+    one-time catch-up for an existing workspace. Missing/offline source files
+    leave nulls rather than failing the catalog.
+    """
+    marker = conn.execute(
+        "SELECT value FROM catalog_meta WHERE key = ?", (_DESCRIPTOR_MARKER,)
+    ).fetchone()
+    if marker is not None:
+        return 0
+    rows = conn.execute(
+        """SELECT m.id, mf.path FROM molecules m
+           JOIN molecule_files mf ON mf.molecule_id = m.id
+           WHERE m.descriptor_version IS NULL AND m.kind_hint = 'ligand'
+             AND mf.kind = 'source'
+           ORDER BY m.id"""
+    ).fetchall()
+    updated = 0
+    for row in rows:
+        path = Path(str(row["path"]))
+        if not path.is_file():
+            continue
+        try:
+            identity = ligand_identity(path)
+        except (OSError, RuntimeError, ValueError):
+            continue
+        if identity.descriptor_version is None:
+            continue
+        store.update_molecule(
+            conn,
+            str(row["id"]),
+            {
+                "molecular_weight": identity.molecular_weight,
+                "qed": identity.qed,
+                "lipinski_violations": identity.lipinski_violations,
+                "tpsa": identity.tpsa,
+                "clogp": identity.clogp,
+                "hbd": identity.hbd,
+                "hba": identity.hba,
+                "rotatable_bonds": identity.rotatable_bonds,
+                "descriptor_version": identity.descriptor_version,
+            },
+        )
+        updated += 1
+    conn.execute(
+        "INSERT OR REPLACE INTO catalog_meta(key, value) VALUES (?, '1')",
+        (_DESCRIPTOR_MARKER,),
+    )
+    return updated
+
+
 def import_legacy(workspace: Path, db_path: Path | None = None) -> dict[str, Any]:
     """Import manifest + legacy libraries once; safe to call repeatedly."""
     _backup_manifest(workspace)
@@ -240,6 +294,8 @@ def import_legacy(workspace: Path, db_path: Path | None = None) -> dict[str, Any
                 "INSERT OR REPLACE INTO catalog_meta(key, value) VALUES (?, '1')",
                 (_LIBRARY_MARKER,),
             )
+        _backfill_descriptors(conn)
+        store.prune_selections(conn)
     return {
         "manifest": imported_manifest,
         "libraries": imported_libraries,

@@ -12,6 +12,41 @@ entries about the product — no internal task ids or workflow narration.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-26
+
+### 新增
+
+- **本地库选择器**：批量筛选与虚拟筛选共用 Catalog Picker，支持 Study/集合/
+  筛选库/未归类 scope、名称与标签检索、MW/QED/Lipinski/TPSA/LogP/可旋转键
+  过滤、仅已准备、分页和全选匹配；可把结果保存为筛选库。
+- **大规模运行选择**：大结果由服务端冻结为运行选择，批量/虚拟筛选只传
+  selection id；源文件按需读取，未准备配体在运行前惰性准备，不再复制整库。
+- **Catalog 描述符索引**：导入时保存描述符并建立索引，支持大库筛选；
+  选择器在 5k/50k 规模下完成分页与全选验证。
+
+### Added
+
+- **Local library picker**: Batch and Screening share a Catalog picker with
+  Study/Collection/Library scopes, name/tag search, MW/QED/Lipinski/TPSA/LogP/
+  rotatable-bond filters, prepared-only mode, paging and select-all-matching;
+  a result can be saved as a screening library.
+- **Large run selections**: the server freezes large results into a run
+  selection; Batch/Screening send only its id. Source structures are read
+  directly and missing ligands are prepared lazily instead of copying the whole
+  library.
+- **Catalog descriptor indexes**: descriptors are stored and indexed at import
+  for large-library filtering; the picker was exercised at 5k/50k scale.
+
+### 修复
+
+- **依赖安全更新**：setuptools 升级到 84.2.1，修复 Windows legacy wheel
+  安装路径可能写出目标目录的问题。
+
+### Fixed
+
+- **Dependency security update**: setuptools is updated to 84.2.1, fixing a
+  Windows legacy-wheel install path escape.
+
 ## [0.6.0] - 2026-10-25
 
 ### 新增

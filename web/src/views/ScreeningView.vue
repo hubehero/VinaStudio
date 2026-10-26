@@ -22,11 +22,12 @@ import { useI18n } from 'vue-i18n'
 
 import { api } from '@/api/http'
 import MoleculeSelect from '@/components/common/MoleculeSelect.vue'
+import CatalogSelectionDialog from '@/components/panels/catalog/CatalogSelectionDialog.vue'
 import ScreeningImportDialog from '@/components/screening/ScreeningImportDialog.vue'
 import { useBoxStore } from '@/stores/box'
 import { useMoleculeStore } from '@/stores/molecules'
 import { useScreeningStore } from '@/stores/screening'
-import type { RankingRow, RankingSortBy, ScoringFunction } from '@/types/api'
+import type { CatalogSelection, RankingRow, RankingSortBy, ScoringFunction } from '@/types/api'
 import { downloadTextFile } from '@/utils/download'
 
 const { t } = useI18n()
@@ -43,6 +44,8 @@ const scoringOptions: { value: ScoringFunction; label: string }[] = [
 const importOpen = ref(false)
 const entriesExpanded = ref(false)
 const starting = ref(false)
+const selectionOpen = ref(false)
+const selection = ref<CatalogSelection | null>(null)
 
 // -- config form (BatchDockingView field block, no ligand list) -------------
 const scoring = ref<ScoringFunction>('vina')
@@ -70,7 +73,7 @@ onMounted(async () => {
 watch(
   () => screening.libraries,
   (libraries) => {
-    if (screening.activeLibraryName === null && libraries.length === 1) {
+    if (selection.value === null && screening.activeLibraryName === null && libraries.length === 1) {
       void screening.selectLibrary(libraries[0]!.name)
     }
   },
@@ -84,15 +87,18 @@ onUnmounted(() => {
 const hasReceptor = computed(() => molecules.hasReceptor)
 /** Config card hides while the watched run is live (design §4). */
 const activeRunning = computed(() => screening.runStatus?.status === 'running')
+const hasRunSource = computed(
+  () => selection.value !== null || screening.activeLibraryName !== null,
+)
 const canStart = computed(
   () =>
-    screening.activeLibraryName !== null &&
+    hasRunSource.value &&
     hasReceptor.value &&
     parallelism.value !== null &&
     !starting.value,
 )
 const startTitle = computed<string | undefined>(() => {
-  if (screening.activeLibraryName === null) return t('screening.needLibrary')
+  if (!hasRunSource.value) return t('screening.needLibrary')
   if (!hasReceptor.value) return t('docking.noReceptor')
   if (parallelism.value === null) return t('docking.batch.parallelismUnavailable')
   return undefined
@@ -114,15 +120,16 @@ const boxLine = computed(() =>
 async function startScreening(): Promise<void> {
   if (!canStart.value) return
   const library = screening.activeLibraryName
+  const selected = selection.value
   const receptorPath = molecules.receptorPdbqtPath
-  if (library === null || receptorPath === null) {
+  if ((library === null && selected === null) || receptorPath === null) {
     ElMessage.error(t('docking.noReceptor'))
     return
   }
   starting.value = true
   try {
     await screening.startRun({
-      library,
+      ...(selected ? { selectionId: selected.id } : { library: library! }),
       receptorPath,
       flexReceptorPath: molecules.flexReceptorPath,
       center: box.center as [number, number, number],
@@ -145,7 +152,17 @@ async function startScreening(): Promise<void> {
 // -- library card ------------------------------------------------------------
 function onLibraryChange(name: string): void {
   entriesExpanded.value = false
+  selection.value = null
   void screening.selectLibrary(name)
+}
+
+function onSelectionPicked(picked: CatalogSelection): void {
+  selection.value = picked
+  ElMessage.success(t('screening.selectionReady', { n: picked.memberCount }))
+}
+
+function clearSelection(): void {
+  selection.value = null
 }
 
 async function onImported(name: string): Promise<void> {
@@ -415,6 +432,9 @@ function statusLabel(status: string): string {
           >
             {{ t('screening.import') }}
           </el-button>
+          <el-button size="small" @click="selectionOpen = true">
+            {{ t('screening.fromCatalogPicker') }}
+          </el-button>
           <el-button
             size="small"
             :disabled="screening.libraryDetail === null || entryRows.length === 0"
@@ -428,8 +448,12 @@ function statusLabel(status: string): string {
         class="vs-card__body"
         v-loading="screening.librariesLoading || screening.libraryLoading"
       >
+        <div v-if="selection" class="screening-selection">
+          <span>{{ t('screening.selectionReady', { n: selection.memberCount }) }}</span>
+          <el-button text size="small" @click="clearSelection">{{ t('common.clear') }}</el-button>
+        </div>
         <el-alert
-          v-if="screening.librariesError"
+          v-if="!selection && screening.librariesError"
           type="error"
           :closable="false"
           show-icon
@@ -442,11 +466,11 @@ function statusLabel(status: string): string {
           </template>
         </el-alert>
         <el-empty
-          v-else-if="screening.libraries.length === 0"
+          v-else-if="!selection && screening.libraries.length === 0"
           :description="t('screening.entriesEmpty')"
           :image-size="72"
         />
-        <template v-else>
+        <template v-else-if="!selection">
           <div v-if="libMeta !== ''" class="screening-libmeta">{{ libMeta }}</div>
           <div v-if="libraryPreview.names.length > 0" class="screening-preview">
             <span v-for="name in libraryPreview.names" :key="name">{{ name }}</span>
@@ -494,7 +518,7 @@ function statusLabel(status: string): string {
     </section>
 
     <!-- ② Config card -->
-    <section v-if="screening.activeLibraryName !== null && !activeRunning" class="vs-card">
+    <section v-if="hasRunSource && !activeRunning" class="vs-card">
       <div class="vs-card__header">
         <div class="vs-card__title">{{ t('screening.config') }}</div>
       </div>
@@ -822,6 +846,8 @@ function statusLabel(status: string): string {
       </template>
     </ElDrawer>
 
+    <CatalogSelectionDialog v-model="selectionOpen" @selected="onSelectionPicked" />
+
     <ScreeningImportDialog v-model="importOpen" @imported="onImported" />
   </div>
 </template>
@@ -1051,4 +1077,5 @@ function statusLabel(status: string): string {
 .screening-detail { display: grid; grid-template-columns: 112px 1fr; gap: 6px 10px; font-size: 12px; }
 .screening-detail dt { color: var(--vs-text-muted); }
 .screening-detail dd { margin: 0; word-break: break-word; }
+.screening-selection { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12px; color: var(--vs-text-muted); }
 </style>

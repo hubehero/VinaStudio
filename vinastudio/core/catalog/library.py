@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -60,6 +61,27 @@ def materialize_library(
         destination = resolve_within(root, library_id)
     except ValueError as exc:
         raise InvalidInputError(f"invalid library id: {library_id}") from exc
+    signature = hashlib.sha256(
+        json.dumps(
+            [
+                {
+                    "index": int(member.get("entry_index", 0)),
+                    "id": member.get("id"),
+                    "prepared": member.get("prepared_path"),
+                }
+                for member in library["members"]
+            ],
+            sort_keys=True,
+        ).encode()
+    ).hexdigest()
+    index_path = destination / "index.json"
+    try:
+        existing = json.loads(index_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        existing = {}
+    if existing.get("materializedSignature") == signature:
+        return destination
+
     mols = destination / MOLS_DIRNAME
     mols.mkdir(parents=True, exist_ok=True)
     entries: list[dict[str, object]] = []
@@ -102,10 +124,11 @@ def materialize_library(
         "displayName": library.get("name") or library_id,
         "created": store._now(),
         "entries": entries,
+        "materializedSignature": signature,
     }
     tmp = destination / "index.json.tmp"
     tmp.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-    os.replace(tmp, destination / "index.json")
+    os.replace(tmp, index_path)
     if used == 0:
         raise InvalidInputError(f"library {library_id} has no ligands to materialise")
     return destination

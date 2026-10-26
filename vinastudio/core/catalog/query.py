@@ -22,8 +22,9 @@ _SORTS = {
 _KNOWN_FIELDS = {
     "type", "kind", "role", "status", "prep", "prepared", "source",
     "tag", "study", "collection", "mw", "qed", "lipinski",
+    "tpsa", "logp", "hbd", "hba", "rotatable",
 }
-_MW_RE = re.compile(r"^(?:(>=|<=|>|<))?(\d+(?:\.\d+)?)(?:-(\d+(?:\.\d+)?))?$")
+_MW_RE = re.compile(r"^(?:(>=|<=|>|<))?(-?\d+(?:\.\d+)?)(?:-(-?\d+(?:\.\d+)?))?$")
 
 
 def _quote_fts(token: str) -> str:
@@ -142,8 +143,16 @@ def _build_where(
                 params.append(value)
         elif key == "mw":
             _add_filter(where, params, "m.molecular_weight", values, numeric=True)
-        elif key in {"qed", "lipinski"}:
-            column = "m.qed" if key == "qed" else "m.lipinski_violations"
+        elif key in {"qed", "lipinski", "tpsa", "logp", "hbd", "hba", "rotatable"}:
+            column = {
+                "qed": "m.qed",
+                "lipinski": "m.lipinski_violations",
+                "tpsa": "m.tpsa",
+                "logp": "m.clogp",
+                "hbd": "m.hbd",
+                "hba": "m.hba",
+                "rotatable": "m.rotatable_bonds",
+            }[key]
             _add_filter(where, params, column, values, numeric=True)
 
     for key, value in (filters or {}).items():
@@ -294,16 +303,33 @@ def _facets(
     params: list[Any],
     join: str,
 ) -> dict[str, list[dict[str, Any]]]:
-    def grouped(column: str, table_alias: str = "m") -> list[dict[str, Any]]:
-        rows = conn.execute(
-            f"""SELECT {table_alias}.{column} AS value, COUNT(*) AS count
-                FROM molecules m {join}
-                WHERE {where_expr} AND {table_alias}.{column} IS NOT NULL
-                GROUP BY {table_alias}.{column}
-                ORDER BY count DESC, value LIMIT 20""",
-            params,
-        ).fetchall()
-        return [dict(row) for row in rows]
+    """Build source/status/prep facets in one scan, tags in one join.
+
+    The three scalar facets share the same filtered set, so grouping by their
+    combined tuple avoids three separate passes with the same correlated
+    ``EXISTS`` predicates. Top-20 ordering is applied in Python.
+    """
+    rows = conn.execute(
+        f"""SELECT m.source AS source, m.status AS status,
+                   m.prep_status AS prep, COUNT(*) AS count
+            FROM molecules m {join}
+            WHERE {where_expr}
+            GROUP BY m.source, m.status, m.prep_status""",
+        params,
+    ).fetchall()
+    counters: dict[str, dict[str, int]] = {"source": {}, "status": {}, "prep": {}}
+    for row in rows:
+        count = int(row["count"])
+        for facet, column in (("source", "source"), ("status", "status"), ("prep", "prep")):
+            value = row[column]
+            if value is not None:
+                counters[facet][str(value)] = counters[facet].get(str(value), 0) + count
+
+    def top(values: dict[str, int]) -> list[dict[str, Any]]:
+        return [
+            {"value": value, "count": count}
+            for value, count in sorted(values.items(), key=lambda item: (-item[1], item[0]))[:20]
+        ]
 
     tags = conn.execute(
         f"""SELECT mt.tag AS value, COUNT(*) AS count
@@ -314,25 +340,17 @@ def _facets(
         params,
     ).fetchall()
     return {
-        "source": grouped("source"),
-        "status": grouped("status"),
-        "prep": grouped("prep_status"),
+        "source": top(counters["source"]),
+        "status": top(counters["status"]),
+        "prep": top(counters["prep"]),
         "tags": [dict(row) for row in tags],
     }
 
 
-def matching_ids(
-    *,
-    q: str = "",
-    filters: dict[str, Any] | None = None,
-    limit: int = 20000,
-    db_path: Path | None = None,
-) -> list[str]:
-    """Every matching molecule id, bounded for bulk operations.
 
-    The catalog UI may select results across pages; the server resolves the
-    same query once instead of shipping every row to the browser.
-    """
+def _matching_parts(
+    *, q: str = "", filters: dict[str, Any] | None = None
+) -> tuple[list[str], list[Any], str, str]:
     where_sql, params, fts_text, _ = _build_where(q, filters or {})
     clauses = [where_sql] if where_sql else []
     fallback = bool(fts_text and _looks_cjk(fts_text) and len(fts_text.strip('"')) < 3)
@@ -348,14 +366,63 @@ def matching_ids(
         params_match = params
     join = "JOIN molecule_fts ON molecule_fts.rowid = m.rowid" if fts_text and not fallback else ""
     where_expr = " AND ".join(clauses) if clauses else "1=1"
+    return clauses, params_match, join, where_expr
+
+
+def matching_rows(
+    *,
+    q: str = "",
+    filters: dict[str, Any] | None = None,
+    limit: int = 20000,
+    db_path: Path | None = None,
+) -> list[dict[str, str]]:
+    """Resolve a catalog query to ``(id, identity_key)`` snapshot rows.
+
+    This is the one place bulk selection resolves a query server-side; callers
+    never need to receive every id in the browser. Ordering is stable enough
+    for a frozen snapshot; later ranking belongs to the run, not the selector.
+    """
+    _, params_match, join, where_expr = _matching_parts(q=q, filters=filters)
     conn = connect(db_path)
     try:
         ensure_schema(conn)
         rows = conn.execute(
-            f"SELECT m.id FROM molecules m {join} WHERE {where_expr} "
-            "ORDER BY m.updated_at DESC, m.name COLLATE NOCASE LIMIT ?",
+            f"SELECT m.id, m.identity_key FROM molecules m {join} "
+            "WHERE {where_expr} ORDER BY m.updated_at DESC, m.name COLLATE NOCASE LIMIT ?".format(
+                where_expr=where_expr
+            ),
             [*params_match, max(1, min(limit, 50000))],
         ).fetchall()
     finally:
         conn.close()
-    return [str(row["id"]) for row in rows]
+    return [{"id": str(row["id"]), "identity_key": str(row["identity_key"])} for row in rows]
+
+
+def matching_count(
+    *, q: str = "", filters: dict[str, Any] | None = None, db_path: Path | None = None
+) -> int:
+    """Number of rows matching the same filters, without materialising ids."""
+    _, params_match, join, where_expr = _matching_parts(q=q, filters=filters)
+    conn = connect(db_path)
+    try:
+        ensure_schema(conn)
+        row = conn.execute(
+            f"SELECT COUNT(*) FROM molecules m {join} WHERE {where_expr}", params_match
+        ).fetchone()
+    finally:
+        conn.close()
+    return int(row[0]) if row is not None else 0
+
+
+def matching_ids(
+    *,
+    q: str = "",
+    filters: dict[str, Any] | None = None,
+    limit: int = 20000,
+    db_path: Path | None = None,
+) -> list[str]:
+    """Every matching molecule id, bounded for legacy bulk operations."""
+    return [
+        item["id"]
+        for item in matching_rows(q=q, filters=filters, limit=limit, db_path=db_path)
+    ]

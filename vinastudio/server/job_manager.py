@@ -227,6 +227,15 @@ class JobManager:
         job_dir.mkdir(parents=True, exist_ok=True)
 
         ligands = params.get("ligands", [])
+        persist_params = params
+        if params.get("selection_id"):
+            roster_path = job_dir / "ligands.jsonl"
+            roster_path.write_text(
+                "".join(json.dumps(entry, ensure_ascii=False) + "\n" for entry in ligands),
+                encoding="utf-8",
+            )
+            persist_params = {**params, "ligands_path": str(roster_path)}
+            persist_params.pop("ligands", None)
         shard_count = _batch_shard_count(params, len(ligands))
         state = JobState(
             job_id=job_id,
@@ -236,7 +245,7 @@ class JobManager:
             total_ligands=len(ligands),
             # No ligand path to name it by; the list renders a batch badge.
             label="",
-            params=_persistable_params(params),
+            params=_persistable_params(persist_params),
         )
         self._jobs[job_id] = state
 
@@ -265,6 +274,34 @@ class JobManager:
         )
         return job_id
 
+    @staticmethod
+    def _entry_roster(params: dict[str, Any]) -> list[dict[str, Any]]:
+        """Read a screening roster, preferring an on-disk manifest.
+
+        Selection runs write members to ``selection.jsonl`` and keep only its
+        path in ``job.json``; a 50k roster must not be duplicated into the job
+        index. Legacy library runs still carry the roster in params.
+        """
+        entries = params.get("entries")
+        if isinstance(entries, list):
+            return entries
+        path_value = params.get("entries_path")
+        if not isinstance(path_value, str) or not path_value:
+            return []
+        try:
+            lines = Path(path_value).read_text(encoding="utf-8").splitlines()
+        except OSError:
+            return []
+        rows: list[dict[str, Any]] = []
+        for line in lines:
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(row, dict):
+                rows.append(row)
+        return rows
+
     def start_screening_job(self, params: dict[str, Any]) -> str:
         """Spawn a virtual screening job over a library (TASK-13 §4.2).
 
@@ -279,6 +316,18 @@ class JobManager:
         job_dir.mkdir(parents=True, exist_ok=True)
 
         entries = params.get("entries", [])
+        persist_params = params
+        if params.get("selection_id"):
+            roster_path = job_dir / "selection.jsonl"
+            roster_path.write_text(
+                "".join(json.dumps(entry, ensure_ascii=False) + "\n" for entry in entries),
+                encoding="utf-8",
+            )
+            persist_params = {
+                **params,
+                "entries_path": str(roster_path),
+            }
+            persist_params.pop("entries", None)
         shard_count = _batch_shard_count(params, len(entries))
         state = JobState(
             job_id=job_id,
@@ -289,7 +338,7 @@ class JobManager:
             total_ligands=len(entries),
             # The library name is what the runs list shows.
             label=str(params.get("library") or ""),
-            params=_persistable_params(params),
+            params=_persistable_params(persist_params),
         )
         self._jobs[job_id] = state
 
@@ -400,7 +449,7 @@ class JobManager:
                 return None
             entries = [
                 entry
-                for entry in (state.params.get("entries") or [])
+                for entry in self._entry_roster(state.params)
                 if _entry_index(entry) not in skip
             ]
             _, done, failed, _ = screening_jsonl_progress(job_id)

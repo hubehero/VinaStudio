@@ -16,13 +16,15 @@ from pathlib import Path
 from typing import Any
 
 from rdkit import Chem
-from rdkit.Chem import Descriptors, rdMolDescriptors
+from rdkit.Chem import rdMolDescriptors
 from rdkit.Chem.MolStandardize import rdMolStandardize
 
 from vinastudio.core.chem.pdbqt import _SMILES_RE
+from vinastudio.core.chem.properties import compute_properties, lipinski_violations
 from vinastudio.core.chem.rdkit_io import mol_from_file
 
 _PDB_ID = re.compile(r"(?:^|[_-])([0-9][A-Za-z0-9]{3})(?:[_-]|$)")
+DESCRIPTOR_VERSION = "catalog-v2"
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,6 +36,14 @@ class Identity:
     parent_inchi_key: str | None = None
     formula: str | None = None
     molecular_weight: float | None = None
+    qed: float | None = None
+    lipinski_violations: int | None = None
+    tpsa: float | None = None
+    clogp: float | None = None
+    hbd: int | None = None
+    hba: int | None = None
+    rotatable_bonds: int | None = None
+    descriptor_version: str | None = None
 
 
 def content_sha256(path: str | Path) -> str:
@@ -74,9 +84,18 @@ def identity_from_mol(mol: Chem.Mol) -> Identity:
     except (RuntimeError, ValueError):
         formula = None
     try:
-        weight = float(Descriptors.MolWt(mol))
+        props = compute_properties(mol)
+        weight = float(props["molWt"])
+        qed = float(props["qed"])
+        lipinski = lipinski_violations(props)
+        tpsa = float(props["tpsa"])
+        clogp = float(props["molLogP"])
+        hbd = int(props["numHDonors"])
+        hba = int(props["numHAcceptors"])
+        rotatable = int(props["numRotatableBonds"])
     except (RuntimeError, ValueError):
         weight = None
+        qed = lipinski = tpsa = clogp = hbd = hba = rotatable = None
     if inchi_key:
         key, kind = f"inchikey:{inchi_key}", "inchikey"
     elif smiles:
@@ -91,6 +110,14 @@ def identity_from_mol(mol: Chem.Mol) -> Identity:
         parent_inchi_key=parent_key,
         formula=formula,
         molecular_weight=weight,
+        qed=qed,
+        lipinski_violations=lipinski,
+        tpsa=tpsa,
+        clogp=clogp,
+        hbd=hbd,
+        hba=hba,
+        rotatable_bonds=rotatable,
+        descriptor_version=DESCRIPTOR_VERSION if weight is not None else None,
     )
 
 
