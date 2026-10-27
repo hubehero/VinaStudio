@@ -6,7 +6,7 @@ import { useI18n } from 'vue-i18n'
 import { api } from '@/api/http'
 import SequenceView from '@/components/panels/SequenceView.vue'
 import { useCatalogStore } from '@/stores/catalog'
-import { DEFAULT_LIGAND_OPTIONS, DEFAULT_RECEPTOR_OPTIONS } from '@/stores/preparation-shared'
+import { DEFAULT_LIGAND_OPTIONS, defaultReceptorOptions } from '@/stores/preparation-shared'
 import type { CatalogMolecule, LigandOptions, ReceptorOptions, ReceptorSequence } from '@/types/api'
 
 const props = defineProps<{
@@ -21,7 +21,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const store = useCatalogStore()
 const busy = ref(false)
-const receptor = ref<ReceptorOptions>({ ...DEFAULT_RECEPTOR_OPTIONS, keepResidues: [] })
+const receptor = ref<ReceptorOptions>({ ...defaultReceptorOptions(), keepResidues: [] })
 const ligand = ref<LigandOptions>({ ...DEFAULT_LIGAND_OPTIONS })
 const keepText = ref('')
 const flexibleText = ref('')
@@ -38,7 +38,7 @@ watch(
   () => props.modelValue,
   (value) => {
     if (!value) return
-    receptor.value = { ...DEFAULT_RECEPTOR_OPTIONS, keepResidues: [] }
+    receptor.value = { ...defaultReceptorOptions(), keepResidues: [] }
     ligand.value = { ...DEFAULT_LIGAND_OPTIONS }
     keepText.value = ''
     flexibleText.value = ''

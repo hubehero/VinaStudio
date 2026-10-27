@@ -1,0 +1,28 @@
+pdb_id,target,target_zh,gene,target_class,class_zh,organism,chain,ligand,resolution,method,note
+1IEP,ABL1 kinase,ABL1 激酶,ABL1,kinase,激酶,Homo sapiens,A,imatinib (STI-571),2.1,X-RAY DIFFRACTION,BCR-ABL kinase domain; imatinib co-crystal
+1M17,EGFR tyrosine kinase,EGFR 酪氨酸激酶,EGFR,kinase,激酶,Homo sapiens,A,erlotinib,2.6,X-RAY DIFFRACTION,EGFR kinase domain; 4-anilinoquinazoline inhibitor
+1HWK,HMG-CoA reductase,HMG-CoA 还原酶,HMGCR,enzyme,酶,Homo sapiens,A,atorvastatin,2.22,X-RAY DIFFRACTION,Catalytic portion; statin co-crystal
+1EVE,Acetylcholinesterase,乙酰胆碱酯酶,ACHE,enzyme,酶,Tetronarce californica,A,donepezil (E2020),2.5,X-RAY DIFFRACTION,Torpedo AChE; donepezil complex
+1HSG,HIV-1 protease,HIV-1 蛋白酶,pol,protease,蛋白酶,HIV-1,"A,B",indinavir,2.0,X-RAY DIFFRACTION,Homodimer; protease inhibitor co-crystal
+1B9V,Influenza neuraminidase,流感病毒神经氨酸酶,NA,enzyme,酶,Influenza A virus,A,aromatic neuraminidase inhibitor,2.35,X-RAY DIFFRACTION,Influenza neuraminidase; inhibitor series
+1DHF,Dihydrofolate reductase,二氢叶酸还原酶,DHFR,enzyme,酶,Homo sapiens,A,methotrexate / folate,2.3,X-RAY DIFFRACTION,Human DHFR; antifolate target
+1O86,Angiotensin-converting enzyme,血管紧张素转换酶,ACE,enzyme,酶,Homo sapiens,A,lisinopril,2.0,X-RAY DIFFRACTION,Human ACE; lisinopril complex
+1EQG,Cyclooxygenase-1,环氧合酶-1,PTGS1,enzyme,酶,Ovis aries,A,ibuprofen,2.61,X-RAY DIFFRACTION,Ovine COX-1; ibuprofen complex
+5KIR,Cyclooxygenase-2,环氧合酶-2,PTGS2,enzyme,酶,Homo sapiens,A,rofecoxib (Vioxx),2.697,X-RAY DIFFRACTION,Human COX-2; selective inhibitor
+1ERE,Estrogen receptor alpha,雌激素受体 α,ESR1,nuclear_receptor,核受体,Homo sapiens,A,17beta-estradiol,3.1,X-RAY DIFFRACTION,Ligand-binding domain; estradiol complex
+1E3G,Androgen receptor,雄激素受体,AR,nuclear_receptor,核受体,Homo sapiens,A,metribolone (R1881),2.4,X-RAY DIFFRACTION,Ligand-binding domain; synthetic androgen
+1M2Z,Glucocorticoid receptor,糖皮质激素受体,NR3C1,nuclear_receptor,核受体,Homo sapiens,"A,B",dexamethasone,2.5,X-RAY DIFFRACTION,Ligand-binding domain dimer; glucocorticoid complex
+2PRG,PPAR gamma,PPARγ,PPARG,nuclear_receptor,核受体,Homo sapiens,"A,B",rosiglitazone,2.3,X-RAY DIFFRACTION,Ligand-binding domain; thiazolidinedione complex
+2Z5X,Monoamine oxidase A,单胺氧化酶 A,MAOA,enzyme,酶,Homo sapiens,A,harmine,2.2,X-RAY DIFFRACTION,MAO-A; harmine complex
+2V5Z,Monoamine oxidase B,单胺氧化酶 B,MAOB,enzyme,酶,Homo sapiens,A,safinamide,1.6,X-RAY DIFFRACTION,MAO-B; selective inhibitor
+1ATP,Protein kinase A,蛋白激酶 A,PRKACA,kinase,激酶,Mus musculus,"A,B",ATP,2.2,X-RAY DIFFRACTION,Catalytic subunit; ATP complex
+1HCK,Cyclin-dependent kinase 2,CDK2,CDK2,kinase,激酶,Homo sapiens,A,ATP,1.9,X-RAY DIFFRACTION,CDK2; ATP-site kinase
+2SRC,Src kinase,Src 激酶,SRC,kinase,激酶,Homo sapiens,A,AMP-PNP,1.5,X-RAY DIFFRACTION,c-Src kinase; non-hydrolysable ATP analog
+2RH1,Beta-2 adrenergic receptor,β2 肾上腺素受体,ADRB2,gpcr,G 蛋白偶联受体,Homo sapiens,A,carazolol,2.4,X-RAY DIFFRACTION,Engineered T4-lysozyme fusion; GPCR construct
+3UON,M2 muscarinic receptor,M2 毒蕈碱受体,CHRM2,gpcr,G 蛋白偶联受体,Homo sapiens,A,N-methylscopolamine (QNB),3.0,X-RAY DIFFRACTION,Engineered M2 receptor; antagonist complex
+6CM4,D2 dopamine receptor,D2 多巴胺受体,DRD2,gpcr,G 蛋白偶联受体,Homo sapiens,A,risperidone,2.867,X-RAY DIFFRACTION,Engineered D2 receptor; atypical antipsychotic complex
+3RZE,H1 histamine receptor,H1 组胺受体,HRH1,gpcr,G 蛋白偶联受体,Homo sapiens,A,doxepin,3.1,X-RAY DIFFRACTION,Engineered H1 receptor; antagonist complex
+4DKL,Mu opioid receptor,μ 阿片受体,OPRM1,gpcr,G 蛋白偶联受体,Homo sapiens,A,beta-funaltrexamine,2.8,X-RAY DIFFRACTION,Engineered mu receptor; morphinan antagonist
+5I6X,Serotonin transporter,5-羟色胺转运体,SLC6A4,transporter,转运体,Homo sapiens,A,paroxetine,3.14,X-RAY DIFFRACTION,SERT with Fab partner chains; paroxetine complex
+6D6U,GABA-A receptor,GABA-A 受体,GABRA1/GABRB2/GABRG2,ion_channel,离子通道,Homo sapiens,A-E,GABA + flumazenil,3.92,ELECTRON MICROSCOPY,Pentameric GABA-A complex; multiple subunits
+5VA1,hERG potassium channel,hERG 钾通道,KCNH2,ion_channel,离子通道,Homo sapiens,A,none,3.7,ELECTRON MICROSCOPY,Cryo-EM hERG; apo channel

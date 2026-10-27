@@ -71,22 +71,20 @@ export interface CatalogSettings {
   columns: string[]
 }
 
-export const CATALOG_COLUMNS = [
-  'name',
-  'kind',
-  'study',
-  'collections',
-  'source',
-  'prep',
-  'mw',
-  'tags',
-] as const
+/** Defaults applied when a new molecule enters the preparation flow. */
+export interface PreparationSettings {
+  /** Meeko template mismatches are a warning in teaching structures, not a hard stop. */
+  allowBadResidues: boolean
+}
+
+export const CATALOG_COLUMNS = ['name', 'kind', 'prep', 'mw', 'tags'] as const
 
 interface StoredSettings {
   version?: number
   viewer?: Partial<ViewerSettings>
   molecules?: Partial<MoleculeSettings>
   catalog?: Partial<CatalogSettings>
+  preparation?: Partial<PreparationSettings>
 }
 
 const DEFAULT_VIEWER: ViewerSettings = {
@@ -110,10 +108,15 @@ const DEFAULT_CATALOG: CatalogSettings = {
   columns: [...CATALOG_COLUMNS],
 }
 
+const DEFAULT_PREPARATION: PreparationSettings = {
+  allowBadResidues: true,
+}
+
 function loadFromStorage(): {
   viewer: ViewerSettings
   molecules: MoleculeSettings
   catalog: CatalogSettings
+  preparation: PreparationSettings
 } {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -159,6 +162,7 @@ function loadFromStorage(): {
         viewer: migrated,
         molecules: migrateMolecules(parsed.molecules),
         catalog: migrateCatalog(parsed.catalog),
+        preparation: migratePreparation(parsed.preparation),
       }
     }
   } catch {
@@ -168,6 +172,7 @@ function loadFromStorage(): {
     viewer: { ...DEFAULT_VIEWER },
     molecules: { ...DEFAULT_MOLECULES },
     catalog: { ...DEFAULT_CATALOG },
+    preparation: { ...DEFAULT_PREPARATION },
   }
 }
 
@@ -177,11 +182,23 @@ function migrateMolecules(stored: Partial<MoleculeSettings> | undefined): Molecu
 }
 
 function migrateCatalog(stored: Partial<CatalogSettings> | undefined): CatalogSettings {
+  const allowed = new Set<string>(CATALOG_COLUMNS)
   const columns = Array.isArray(stored?.columns)
-    ? stored.columns.filter((column): column is string => typeof column === 'string')
+    ? stored.columns.filter(
+        (column): column is string => typeof column === 'string' && allowed.has(column),
+      )
     : []
   return {
     columns: columns.length > 0 ? columns : [...DEFAULT_CATALOG.columns],
+  }
+}
+
+function migratePreparation(stored: Partial<PreparationSettings> | undefined): PreparationSettings {
+  return {
+    allowBadResidues:
+      typeof stored?.allowBadResidues === 'boolean'
+        ? stored.allowBadResidues
+        : DEFAULT_PREPARATION.allowBadResidues,
   }
 }
 
@@ -189,11 +206,12 @@ function saveToStorage(
   viewer: ViewerSettings,
   molecules: MoleculeSettings,
   catalog: CatalogSettings,
+  preparation: PreparationSettings,
 ): void {
   try {
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ version: STORAGE_VERSION, viewer, molecules, catalog }),
+      JSON.stringify({ version: STORAGE_VERSION, viewer, molecules, catalog, preparation }),
     )
   } catch {
     // Best-effort only.
@@ -205,12 +223,19 @@ export const useSettingsStore = defineStore('settings', () => {
   const viewer = ref<ViewerSettings>(stored.viewer)
   const molecules = ref<MoleculeSettings>(stored.molecules)
   const catalog = ref<CatalogSettings>(stored.catalog)
+  const preparation = ref<PreparationSettings>(stored.preparation)
 
   // Persist on change: all sections share one storage key, so either one
   // changing must write the whole payload (the others would otherwise be lost).
   watch(
-    [viewer, molecules, catalog],
-    () => saveToStorage(viewer.value, molecules.value, catalog.value),
+    [viewer, molecules, catalog, preparation],
+    () =>
+      saveToStorage(
+        viewer.value,
+        molecules.value,
+        catalog.value,
+        preparation.value,
+      ),
     { deep: true },
   )
 
@@ -218,10 +243,16 @@ export const useSettingsStore = defineStore('settings', () => {
     viewer.value = { ...DEFAULT_VIEWER }
   }
 
+  function resetPreparation(): void {
+    preparation.value = { ...DEFAULT_PREPARATION }
+  }
+
   return {
     viewer,
     molecules,
     catalog,
+    preparation,
     resetViewer,
+    resetPreparation,
   }
 })

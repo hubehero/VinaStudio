@@ -157,6 +157,13 @@ def _add_source(
     )
 
 
+def set_molecular_weight(conn: sqlite3.Connection, molecule_id: str, weight: float) -> None:
+    conn.execute(
+        "UPDATE molecules SET molecular_weight = ? WHERE id = ?",
+        (weight, molecule_id),
+    )
+
+
 def upsert_molecule(
     conn: sqlite3.Connection,
     *,

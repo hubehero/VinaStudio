@@ -487,6 +487,18 @@ function formatElapsed(ms: number | null): string {
               </div>
             </div>
 
+            <el-alert
+              v-if="docking.batchFailed > 0 && batchRows.length === 0"
+              type="error"
+              :closable="false"
+              show-icon
+              :title="t('docking.batch.noRows')"
+            >
+              <template #default>
+                {{ docking.batchError || t('docking.batch.noRowsHint') }}
+              </template>
+            </el-alert>
+
             <!-- Results table -->
             <div class="results-table-wrap">
               <ElTable :data="batchRows" size="small" max-height="400">
@@ -550,7 +562,7 @@ function formatElapsed(ms: number | null): string {
       </div>
     </section>
 
-    <CatalogSelectionDialog v-model="selectionOpen" @selected="onSelectionPicked" />
+    <CatalogSelectionDialog v-model="selectionOpen" kind="ligand" @selected="onSelectionPicked" />
   </div>
 </template>
 

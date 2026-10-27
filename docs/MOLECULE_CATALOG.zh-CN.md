@@ -35,6 +35,16 @@ Study 中承担不同角色。
    惰性准备 PDBQT；`libraries/<id>/mols` 仅保留给旧库与导出，不再是每次
    运行前必须复制的目录。
 
+## 内置本科药物库
+
+首次访问工作区时会播种一套带版本的本科教学库，包含 125 个常用药物
+（中英文名、类别、PubChem CID、InChIKey）。生成的是普通 Catalog 分子、
+集合和筛选库；删除后下次启动不会自动回灌。播种源文件是 2D SDF，对接前
+仍需正常准备 3D/PDBQT。范围、书目依据和科学边界见
+[BUILTIN_LIBRARY.zh-CN.md](BUILTIN_LIBRARY.zh-CN.md)。首次访问还会播种
+[BUILTIN_RECEPTORS.zh-CN.md](BUILTIN_RECEPTORS.zh-CN.md)：27 个 RCSB PDB
+药物靶点结构，作为受体分子放入按类别嵌套的集合（不是筛选库）。
+
 ## 检索与选择
 
 示例：

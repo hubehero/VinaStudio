@@ -88,6 +88,14 @@ export const useCatalogStore = defineStore('catalog', () => {
     selectedIds.value = []
     activeId.value = null
     scopeDetail.value = null
+    // A scope is a new list, not a filter refinement of the previous one.
+    // Keeping a hidden search/facet from another scope made a 125-member
+    // collection render as an empty table.
+    query.value = ''
+    kind.value = ''
+    status.value = ''
+    sourceFilter.value = ''
+    tagFilter.value = ''
     await Promise.all([loadScopeDetail(), search(true)])
   }
 

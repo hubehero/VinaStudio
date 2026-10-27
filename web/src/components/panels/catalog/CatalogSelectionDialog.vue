@@ -6,6 +6,7 @@ import { computed, h, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { api } from '@/api/http'
+import { chineseAlias } from '@/utils/catalog-name'
 import type {
   CatalogCollection,
   CatalogLibrary,
@@ -14,9 +15,10 @@ import type {
   CatalogStudy,
 } from '@/types/api'
 
-const props = withDefaults(defineProps<{ modelValue: boolean; title?: string }>(), {
-  title: '',
-})
+const props = withDefaults(
+  defineProps<{ modelValue: boolean; title?: string; kind?: 'ligand' | 'receptor' | 'all' }>(),
+  { title: '', kind: 'all' },
+)
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   selected: [selection: CatalogSelection]
@@ -85,6 +87,7 @@ function scopeFilters(): Record<string, string[]> {
 
 function selectionFilters(): Record<string, string[]> {
   const filters = scopeFilters()
+  if (props.kind !== 'all') filters.kind = [props.kind]
   if (preparedOnly.value) filters.prep_status = ['prepared']
   if (mwMin.value !== null) filters.mw_min = [String(mwMin.value)]
   if (mwMax.value !== null) filters.mw_max = [String(mwMax.value)]
@@ -101,6 +104,7 @@ function searchParams(): Record<string, string | number | boolean | undefined> {
     offset: offset.value,
     sort: 'updated',
   }
+  if (props.kind !== 'all') params.kind = props.kind
   if (scope.value.startsWith('study:')) params.study_id = scope.value.slice(6)
   if (scope.value.startsWith('collection:')) params.collection_id = scope.value.slice(11)
   if (scope.value.startsWith('library:')) params.library_id = scope.value.slice(8)
@@ -177,16 +181,25 @@ const columns = computed<Column<CatalogMolecule>[]>(() => [
     dataKey: 'name',
     title: t('catalog.name'),
     width: 260,
-    cellRenderer: ({ rowData }) =>
-      h(
-        'button',
-        {
-          type: 'button',
-          class: 'selection-name',
-          onClick: () => toggleSelected(rowData.id),
-        },
-        rowData.name,
-      ),
+    cellRenderer: ({ rowData }) => {
+      const zh = chineseAlias(rowData.aliases)
+      return h('div', { class: 'selection-name-cell' }, [
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'selection-name',
+            title: rowData.name,
+            onClick: (event: Event) => {
+              event.stopPropagation()
+              toggleSelected(rowData.id)
+            },
+          },
+          rowData.name,
+        ),
+        zh ? h('span', { class: 'selection-name-zh', title: zh }, zh) : null,
+      ])
+    },
   },
   {
     key: 'kind',
@@ -369,7 +382,7 @@ watch([scope, preparedOnly], () => {
             :data="rows"
             :width="width"
             :height="height"
-            :row-height="38"
+            :row-height="46"
             row-key="id"
             :row-class="rowClass"
           />
@@ -459,7 +472,9 @@ watch([scope, preparedOnly], () => {
   border: 1px solid var(--vs-border);
   border-radius: var(--vs-radius);
 }
-.selection-name {
+:deep(.selection-name-cell) { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+:deep(.selection-name-zh) { max-width: 100%; overflow: hidden; color: var(--vs-text-muted); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+:deep(.selection-name) {
   max-width: 100%;
   overflow: hidden;
   padding: 0;

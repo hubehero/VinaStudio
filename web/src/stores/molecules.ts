@@ -6,7 +6,7 @@ import { i18n } from '@/i18n'
 import { api } from '@/api/http'
 import {
   DEFAULT_LIGAND_OPTIONS,
-  DEFAULT_RECEPTOR_OPTIONS,
+  defaultReceptorOptions,
   describeFailure,
 } from '@/stores/preparation-shared'
 import type {
@@ -526,7 +526,7 @@ export const useMoleculeStore = defineStore('molecules', () => {
       artifacts: [],
       pdbqt: null,
       error: null,
-      receptorOptions: { ...DEFAULT_RECEPTOR_OPTIONS },
+      receptorOptions: defaultReceptorOptions(),
       ligandOptions: { ...DEFAULT_LIGAND_OPTIONS },
       groupId: groupId ?? null,
       groupName: groupName ?? null,
@@ -893,7 +893,7 @@ export const useMoleculeStore = defineStore('molecules', () => {
       artifacts: entry.artifacts ?? [],
       pdbqt: entry.pdbqt,
       error: entry.error as MoleculeItem['error'],
-      receptorOptions: { ...DEFAULT_RECEPTOR_OPTIONS, ...entry.receptorOptions },
+      receptorOptions: { ...defaultReceptorOptions(), ...entry.receptorOptions },
       ligandOptions: { ...DEFAULT_LIGAND_OPTIONS, ...entry.ligandOptions },
       groupId: entry.groupId,
       groupName: entry.groupName,

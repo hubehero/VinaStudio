@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import logging
+import mimetypes
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import FileResponse
 
 from vinastudio.core.catalog import db, migrate, query, store, suggest
 from vinastudio.core.catalog.identity import identity_for_file
@@ -288,6 +290,36 @@ def prepare_molecule(
                 (pdbqt, molecule_id),
             )
         return _detail(conn, molecule_id)
+
+
+@router.get("/molecules/{molecule_id}/preview")
+def molecule_preview(molecule_id: str) -> FileResponse:
+    """Serve the renderable source for a Catalog molecule.
+
+    Catalog sources may live outside ``jobs/`` (for example the bundled
+    undergraduate library), so they cannot use the artifacts mount. Resolving
+    by molecule id keeps this endpoint from accepting an arbitrary path.
+    """
+    with db.connect(_ready()) as conn:
+        detail = store.get_molecule(conn, molecule_id)
+    if detail is None:
+        raise InvalidInputError(f"molecule not found: {molecule_id}")
+    kind = str(detail.get("kind_hint") or "unknown")
+    if kind == "receptor":
+        preferred = {"pdb": 0, "cif": 1, "source": 2}
+    else:
+        preferred = {"sdf": 0, "mol": 1, "source": 2}
+    candidates = sorted(
+        detail.get("files", []),
+        key=lambda item: preferred.get(str(item.get("kind")), 9),
+    )
+    for item in candidates:
+        path = Path(str(item.get("path") or ""))
+        suffix = path.suffix.lower()
+        allowed = {".pdb", ".cif", ".sdf", ".mol"} if kind == "receptor" else {".sdf", ".mol"}
+        if suffix in allowed and path.is_file():
+            return FileResponse(str(path), media_type=mimetypes.guess_type(str(path))[0])
+    raise HTTPException(status_code=404, detail="no renderable source for this molecule")
 
 
 @router.post("/molecules/import", response_model=list[CatalogMoleculeOut])

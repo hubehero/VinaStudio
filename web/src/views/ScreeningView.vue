@@ -846,7 +846,7 @@ function statusLabel(status: string): string {
       </template>
     </ElDrawer>
 
-    <CatalogSelectionDialog v-model="selectionOpen" @selected="onSelectionPicked" />
+    <CatalogSelectionDialog v-model="selectionOpen" kind="ligand" @selected="onSelectionPicked" />
 
     <ScreeningImportDialog v-model="importOpen" @imported="onImported" />
   </div>

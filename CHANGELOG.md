@@ -12,6 +12,52 @@ entries about the product — no internal task ids or workflow narration.
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-10-27
+
+### 新增
+
+- **内置本科药物库**：内置 125 个本科药理学/药物化学常用药物，带中文通用名、
+  类别与来源信息；首次打开工作区时播种，可编辑或删除。
+- **内置本科受体库**：内置 27 个 RCSB PDB 药物靶点结构，按靶点类别放入嵌套
+  集合；详情显示 PDB ID、物种、链、共晶配体、方法、分辨率和构建体备注。
+- **Catalog 展示**：名称显示英文与中文通用名；表格精简为名称/类型/准备/
+  分子量/标签，Study、来源和集合移到右侧详情；受体显示由建模蛋白残基计算
+  的蛋白分子量，并标注不包含配体、水和缺失残基。
+- **受体准备默认值**：新增“默认允许模板匹配失败的残基”设置，默认开启；
+  设置作用于新准备会话与新分子，单个分子仍可在准备对话框中单独开关。
+  被模板排除的残基继续写入准备报告。
+
+### Added
+
+- **Built-in undergraduate drug library**: 125 teaching drugs with Chinese
+  generic names, classes and provenance, seeded on first workspace access and
+  editable or removable.
+- **Built-in undergraduate receptor collection**: 27 RCSB PDB drug-target
+  structures grouped by target class; details show PDB ID, organism, chains,
+  co-crystal ligand, method, resolution and construct note.
+- **Catalog presentation**: English and Chinese names are shown together; the
+  table keeps name/type/preparation/MW/tags while Study, source and collections
+  move to the detail panel. Receptors show the protein mass calculated from
+  modelled residues, explicitly excluding ligands, waters and missing residues.
+- **Receptor preparation default**: a new “Allow residues that fail template
+  matching by default” setting, on by default. It applies to new preparation
+  sessions and molecules; each preparation can still override it, and ignored
+  residues stay in the report.
+
+### 修复
+
+- **受体详情**：无共晶配体的结构显示“无（apo）”，不再把内部标记 `none`
+  直接展示给用户。
+- **Catalog 列设置**：旧版保存的 Study/来源/集合列会迁移到新的五列布局，
+  避免窄窗口下互相覆盖。
+
+### Fixed
+
+- **Receptor details**: apo structures now show “None (apo)” instead of the raw
+  internal `none` marker.
+- **Catalog column settings**: saved Study/source/collection columns migrate to
+  the five-column layout, avoiding overlap in narrow windows.
+
 ## [0.6.1] - 2026-10-26
 
 ### 新增

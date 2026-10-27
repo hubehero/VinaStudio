@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Search, Upload } from '@element-plus/icons-vue'
-import { ElAutoResizer, ElMessage, ElMessageBox, ElTableV2 } from 'element-plus'
+import { CopyDocument, Search, Upload } from '@element-plus/icons-vue'
+import { ElAutoResizer, ElMessage, ElMessageBox, ElPopover, ElTableV2 } from 'element-plus'
 import type { Column } from 'element-plus'
 import { computed, h, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -13,15 +13,15 @@ import MoleculeLibraryDialog from '@/components/panels/MoleculeLibraryDialog.vue
 import SketcherDialog from '@/components/sketcher/SketcherDialog.vue'
 import ViewportCanvas from '@/components/viewer/ViewportCanvas.vue'
 import { useCatalogStore } from '@/stores/catalog'
+import { defaultReceptorOptions } from '@/stores/preparation-shared'
+import { chineseAlias } from '@/utils/catalog-name'
 import { CATALOG_COLUMNS, useSettingsStore } from '@/stores/settings'
-import { useWorkspaceStore } from '@/stores/workspace'
-import type { CatalogCollectionMember, CatalogLibraryMember, CatalogMolecule, CatalogStudyMember, SampleFile } from '@/types/api'
+import type { CatalogLibraryMember, CatalogMolecule, CatalogStudyMember, SampleFile } from '@/types/api'
 
 const { t } = useI18n()
 const router = useRouter()
 const store = useCatalogStore()
 const settings = useSettingsStore()
-const workspace = useWorkspaceStore()
 
 const targetStudyId = ref('')
 const targetCollectionId = ref('')
@@ -44,6 +44,54 @@ onMounted(() => {
 })
 
 const active = computed(() => store.activeMolecule)
+const isReceptor = computed(() => active.value?.kindHint === 'receptor')
+
+function metadataText(key: string): string | null {
+  const value = active.value?.metadata?.[key]
+  if (typeof value === 'string' && value.trim()) return value
+  if (typeof value === 'number') return String(value)
+  return null
+}
+
+const receptorRows = computed(() => {
+  const mol = active.value
+  if (!mol || mol.kindHint !== 'receptor') return []
+  const pdbId = metadataText('pdbId')
+    ?? (mol.identityKey.startsWith('pdb:') ? mol.identityKey.slice(4) : null)
+    ?? mol.sourceId
+  const recordedUrl = mol.sources.find((item) => item.url)?.url
+  const sourceUrl = recordedUrl && /^https?:\/\//i.test(recordedUrl)
+    ? recordedUrl
+    : pdbId
+      ? `https://www.rcsb.org/structure/${pdbId}`
+      : null
+  const classZh = metadataText('classZh')
+  const targetClass = metadataText('targetClass')
+  const classText = [classZh, targetClass].filter(Boolean).join(' · ')
+  const resolution = metadataText('resolution')
+  const ligand = metadataText('ligand')
+  const ligandText = ligand
+    ? ['none', 'apo', '—', '-', 'n/a'].includes(ligand.trim().toLowerCase())
+      ? t('catalog.noCoLigand')
+      : ligand
+    : null
+  return [
+    { label: t('catalog.pdbId'), value: pdbId, href: sourceUrl },
+    {
+      label: t('catalog.proteinMass'),
+      value: mol.molecularWeight ? `${mol.molecularWeight.toFixed(1)} Da` : null,
+    },
+    { label: t('catalog.targetClass'), value: classText || null },
+    { label: t('catalog.gene'), value: metadataText('gene') },
+    { label: t('catalog.organism'), value: metadataText('organism') },
+    { label: t('catalog.chains'), value: metadataText('chain') },
+    { label: t('catalog.coLigand'), value: ligandText },
+    { label: t('catalog.method'), value: metadataText('method') },
+    { label: t('catalog.resolution'), value: resolution ? `${resolution} Å` : null },
+  ].filter((row) => row.value)
+})
+
+const receptorNote = computed(() => (isReceptor.value ? metadataText('note') : null))
 const studyMembers = computed<CatalogStudyMember[]>(() => {
   const detail = store.scopeDetail
   return store.scope.kind === 'study' && detail && 'members' in detail
@@ -56,13 +104,6 @@ const libraryMembers = computed<CatalogLibraryMember[]>(() => {
     ? (detail.members as CatalogLibraryMember[])
     : []
 })
-const collectionMembers = computed<CatalogCollectionMember[]>(() => {
-  const detail = store.scopeDetail
-  return store.scope.kind === 'collection' && detail && 'members' in detail
-    ? ((detail.members ?? []) as CatalogCollectionMember[])
-    : []
-})
-
 const collectionCount = computed(() => {
   const detail = store.scopeDetail
   return store.scope.kind === 'collection' && detail && 'moleculeCount' in detail
@@ -70,7 +111,51 @@ const collectionCount = computed(() => {
     : 0
 })
 
+const libraryPreparedCount = computed(
+  () => libraryMembers.value.filter((member) => member.preparedPath !== null).length,
+)
+
 const selectedCount = computed(() => store.selectedIds.length)
+const flatScope = computed(
+  () => store.scope.kind === 'library' || store.scope.kind === 'collection',
+)
+
+const readableTagFacets = computed(() =>
+  store.facets.tags.filter(
+    (item) =>
+      item.value !== 'builtin'
+      && item.value !== 'undergraduate'
+      && !item.value.startsWith('class:')
+      && !item.value.startsWith('target_class:'),
+  ),
+)
+const visibleTagFacets = computed(() => {
+  const top = readableTagFacets.value.slice(0, 6)
+  const selected = store.tagFilter
+    ? readableTagFacets.value.find((item) => item.value === store.tagFilter)
+    : undefined
+  return selected && !top.some((item) => item.value === selected.value)
+    ? [selected, ...top]
+    : top
+})
+const hiddenTagFacets = computed(() =>
+  readableTagFacets.value.filter(
+    (item) => !visibleTagFacets.value.some((visible) => visible.value === item.value),
+  ),
+)
+const tagFacetQuery = ref('')
+const filteredHiddenTags = computed(() => {
+  const needle = tagFacetQuery.value.trim().toLowerCase()
+  return needle
+    ? hiddenTagFacets.value.filter((item) => item.value.toLowerCase().includes(needle))
+    : hiddenTagFacets.value
+})
+const hasFacets = computed(
+  () =>
+    store.facets.source.length > 0
+    || store.facets.status.length > 0
+    || readableTagFacets.value.length > 0,
+)
 
 function columnVisible(key: string): boolean {
   return settings.catalog.columns.includes(key)
@@ -126,61 +211,39 @@ const tableColumns = computed<Column<CatalogMolecule>[]>(() => {
       key: 'name',
       dataKey: 'name',
       title: t('catalog.name'),
-      width: 200,
+      width: 170,
       flexGrow: 1,
-      cellRenderer: ({ rowData }) =>
-        h(
-          'button',
-          {
-            type: 'button',
-            class: 'catalog-name-link',
-            onClick: () => store.selectMolecule(rowData.id),
-          },
-          rowData.name,
-        ),
+      cellRenderer: ({ rowData }) => {
+        const zh = chineseAlias(rowData.aliases)
+        return h('div', { class: 'catalog-name-cell' }, [
+          h(
+            'button',
+            {
+              type: 'button',
+              class: 'catalog-name-link',
+              title: rowData.name,
+              onClick: () => store.selectMolecule(rowData.id),
+            },
+            rowData.name,
+          ),
+          zh ? h('span', { class: 'catalog-name-zh', title: zh }, zh) : null,
+        ])
+      },
     })
   }
-  if (columnVisible('kind')) {
+  if (!flatScope.value && columnVisible('kind')) {
     columns.push({
       key: 'kind',
       title: t('catalog.kind'),
-      width: 90,
+      width: 64,
       cellRenderer: ({ rowData }) => rowData.kindHint,
-    })
-  }
-  if (columnVisible('study')) {
-    columns.push({
-      key: 'study',
-      title: t('catalog.study'),
-      width: 160,
-      cellRenderer: ({ rowData }) =>
-        rowData.studies.length
-          ? rowData.studies.map((item: { name: string }) => item.name).join(', ')
-          : t('catalog.unassigned'),
-    })
-  }
-  if (columnVisible('collections')) {
-    columns.push({
-      key: 'collections',
-      title: t('catalog.collections'),
-      width: 150,
-      cellRenderer: ({ rowData }) =>
-        rowData.collections.map((item: { name: string }) => item.name).join(', ') || '—',
-    })
-  }
-  if (columnVisible('source')) {
-    columns.push({
-      key: 'source',
-      title: t('catalog.source'),
-      width: 95,
-      cellRenderer: ({ rowData }) => rowData.source,
     })
   }
   if (columnVisible('prep')) {
     columns.push({
       key: 'prep',
       title: t('catalog.prep'),
-      width: 100,
+      width: 70,
       cellRenderer: ({ rowData }) => rowData.prepStatus,
     })
   }
@@ -188,7 +251,7 @@ const tableColumns = computed<Column<CatalogMolecule>[]>(() => {
     columns.push({
       key: 'mw',
       title: t('catalog.mw'),
-      width: 86,
+      width: 76,
       align: 'right',
       cellRenderer: ({ rowData }) =>
         rowData.molecularWeight === null ? '—' : rowData.molecularWeight.toFixed(1),
@@ -198,15 +261,19 @@ const tableColumns = computed<Column<CatalogMolecule>[]>(() => {
     columns.push({
       key: 'tags',
       title: t('catalog.tags'),
-      width: 160,
-      cellRenderer: ({ rowData }) =>
-        h(
+      width: 120,
+      cellRenderer: ({ rowData }) => {
+        const visible = rowData.tags
+          .filter((tag: string) => tag !== 'builtin' && tag !== 'undergraduate' && !tag.startsWith('class:') && !tag.startsWith('target_class:'))
+          .slice(0, 2)
+        return h(
           'span',
           { class: 'catalog-tag-cell' },
-          rowData.tags.length
-            ? rowData.tags.map((tag: string) => h('span', { class: 'catalog-tag' }, tag))
+          visible.length
+            ? visible.map((tag: string) => h('span', { class: 'catalog-tag' }, tag))
             : '—',
-        ),
+        )
+      },
     })
   }
   return columns
@@ -347,32 +414,28 @@ async function addToCollection(): Promise<void> {
   ElMessage.success(t('catalog.added'))
 }
 
-function artifactUrl(path: string | null): string | null {
-  if (!path) return null
-  const root = workspace.workspacePath
-  if (!root || !path.startsWith(root)) return null
-  let relative = path.slice(root.length).replace(/^[/\\]/, '')
-  if (!relative.startsWith('jobs/')) return null
-  relative = relative.slice('jobs/'.length)
-  return `/artifacts/${relative
-    .split(/[/\\]/)
-    .map((part) => encodeURIComponent(part))
-    .join('/')}`
-}
-
 const receptorUrl = computed(() => {
   const mol = active.value
   if (!mol || mol.kindHint !== 'receptor') return null
-  const source = mol.files.find((file) => file.kind === 'pdb') ?? mol.files.find((file) => file.kind === 'source' && /\.(pdb|cif)$/i.test(file.path))
-  return artifactUrl(source?.path ?? mol.primaryPath)
+  return `/api/catalog/molecules/${encodeURIComponent(mol.id)}/preview`
 })
 
 const ligandUrl = computed(() => {
   const mol = active.value
   if (!mol || mol.kindHint === 'receptor') return null
-  const source = mol.files.find((file) => file.kind === 'sdf') ?? mol.files.find((file) => /\.(sdf|mol)$/i.test(file.path))
-  return artifactUrl(source?.path ?? mol.primaryPath)
+  return `/api/catalog/molecules/${encodeURIComponent(mol.id)}/preview`
 })
+
+async function copySmiles(): Promise<void> {
+  const value = active.value?.canonicalSmiles
+  if (!value) return
+  try {
+    await navigator.clipboard.writeText(value)
+    ElMessage.success(t('catalog.smilesCopied'))
+  } catch {
+    ElMessage.error(t('common.copyFailed'))
+  }
+}
 
 async function saveCurrentView(): Promise<void> {
   const name = await promptName(t('catalog.saveView'))
@@ -522,6 +585,10 @@ async function removeTag(tag: string): Promise<void> {
   await store.patchMolecule(mol.id, { tags: mol.tags.filter((item) => item !== tag) })
 }
 
+function openCollection(collection: { id: string; name: string }): void {
+  void store.setScope({ kind: 'collection', id: collection.id, name: collection.name })
+}
+
 function collectionNodes(): { collection: (typeof store.collections)[number]; depth: number }[] {
   const byParent = new Map<string | null, typeof store.collections>()
   for (const collection of store.collections) {
@@ -569,7 +636,7 @@ async function prepareSuggestion(suggestion: { moleculeIds: string[] }): Promise
   const id = suggestion.moleculeIds[0]
   if (!id) return
   try {
-    await store.prepareMolecule(id)
+    await store.prepareMolecule(id, { receptorOptions: defaultReceptorOptions() })
     await store.refresh()
     ElMessage.success(t('catalog.prepared'))
   } catch (cause) {
@@ -762,21 +829,19 @@ async function applySuggestion(id: string): Promise<void> {
               <button type="button" class="tree-delete" @click="removeScopeMember(member.id, member.role)">×</button>
             </div>
           </div>
-          <div v-else-if="store.scope.kind === 'library'" class="catalog-members">
-            <div v-for="member in libraryMembers" :key="member.id" class="catalog-member">
-              <span class="catalog-member__role">{{ member.entryIndex }}</span>
-              <span>{{ member.name }}</span>
-              <span class="muted">{{ member.preparedPath ? t('catalog.prepared') : t('catalog.prepare') }}</span>
-              <button type="button" class="tree-delete" @click="removeScopeMember(member.id)">×</button>
-            </div>
+          <div v-else-if="store.scope.kind === 'library'" class="catalog-scope-summary">
+            <span>{{ t('catalog.collectionMembers', { n: libraryMembers.length }) }}</span>
+            <span class="muted">
+              {{ t('catalog.libraryPrepared', {
+                prepared: libraryPreparedCount,
+                total: libraryMembers.length,
+              }) }}
+            </span>
+            <span class="muted">{{ t('catalog.scopeMembersHint') }}</span>
           </div>
-          <div v-else-if="store.scope.kind === 'collection'" class="catalog-members">
-            <span class="muted">{{ t('catalog.collectionMembers', { n: collectionCount }) }}</span>
-            <div v-for="member in collectionMembers" :key="member.id" class="catalog-member">
-              <span>{{ member.name }}</span>
-              <span class="catalog-member__role">{{ member.kindHint }}</span>
-              <button type="button" class="tree-delete" @click="removeScopeMember(member.id)">×</button>
-            </div>
+          <div v-else-if="store.scope.kind === 'collection'" class="catalog-scope-summary">
+            <span>{{ t('catalog.collectionMembers', { n: collectionCount }) }}</span>
+            <span class="muted">{{ t('catalog.scopeMembersHint') }}</span>
           </div>
         </section>
         <div v-if="selectedCount > 0" class="catalog-bulk">
@@ -801,37 +866,77 @@ async function applySuggestion(id: string): Promise<void> {
           <el-button size="small" text @click="store.clearSelection()">{{ t('catalog.clearSelection') }}</el-button>
         </div>
 
-        <div v-if="store.facets.source.length || store.facets.tags.length || store.facets.status.length" class="catalog-facets">
-          <button
-            v-for="item in store.facets.source"
-            :key="`s-${item.value}`"
-            type="button"
-            class="facet-chip"
-            :class="{ active: store.sourceFilter === item.value }"
-            @click="store.toggleFacet('source', item.value)"
-          >{{ item.value }} <small>{{ item.count }}</small></button>
-          <button
-            v-for="item in store.facets.tags"
-            :key="`t-${item.value}`"
-            type="button"
-            class="facet-chip"
-            :class="{ active: store.tagFilter === item.value }"
-            @click="store.toggleFacet('tag', item.value)"
-          >#{{ item.value }} <small>{{ item.count }}</small></button>
-          <button
-            v-for="item in store.facets.status"
-            :key="`st-${item.value}`"
-            type="button"
-            class="facet-chip"
-            :class="{ active: store.status === item.value }"
-            @click="store.toggleFacet('status', item.value)"
-          >{{ item.value }} <small>{{ item.count }}</small></button>
+        <div
+          v-if="hasFacets || store.sourceFilter || store.tagFilter || store.status"
+          class="catalog-facets"
+        >
+          <div v-if="store.facets.source.length" class="facet-group">
+            <span class="facet-label">{{ t('catalog.facetSource') }}</span>
+            <button
+              v-for="item in store.facets.source"
+              :key="`s-${item.value}`"
+              type="button"
+              class="facet-chip"
+              :class="{ active: store.sourceFilter === item.value }"
+              @click="store.toggleFacet('source', item.value)"
+            >{{ item.value }} <small>{{ item.count }}</small></button>
+          </div>
+          <div v-if="store.facets.status.length" class="facet-group">
+            <span class="facet-label">{{ t('catalog.facetStatus') }}</span>
+            <button
+              v-for="item in store.facets.status"
+              :key="`st-${item.value}`"
+              type="button"
+              class="facet-chip"
+              :class="{ active: store.status === item.value }"
+              @click="store.toggleFacet('status', item.value)"
+            >{{ item.value }} <small>{{ item.count }}</small></button>
+          </div>
+          <div v-if="readableTagFacets.length" class="facet-group facet-group--tags">
+            <span class="facet-label">{{ t('catalog.facetTags') }}</span>
+            <button
+              v-for="item in visibleTagFacets"
+              :key="`t-${item.value}`"
+              type="button"
+              class="facet-chip"
+              :class="{ active: store.tagFilter === item.value }"
+              @click="store.toggleFacet('tag', item.value)"
+            >#{{ item.value }} <small>{{ item.count }}</small></button>
+            <ElPopover v-if="hiddenTagFacets.length" trigger="click" :width="260">
+              <template #reference>
+                <button type="button" class="facet-chip facet-chip--more">
+                  +{{ hiddenTagFacets.length }} {{ t('catalog.moreTags') }}
+                </button>
+              </template>
+              <div class="facet-more">
+                <el-input
+                  v-model="tagFacetQuery"
+                  size="small"
+                  clearable
+                  :placeholder="t('catalog.filterTags')"
+                />
+                <div class="facet-more__list">
+                  <button
+                    v-for="item in filteredHiddenTags"
+                    :key="`m-${item.value}`"
+                    type="button"
+                    class="facet-chip"
+                    :class="{ active: store.tagFilter === item.value }"
+                    @click="store.toggleFacet('tag', item.value)"
+                  >#{{ item.value }} <small>{{ item.count }}</small></button>
+                  <span v-if="filteredHiddenTags.length === 0" class="facet-empty">
+                    {{ t('catalog.noMatchingTags') }}
+                  </span>
+                </div>
+              </div>
+            </ElPopover>
+          </div>
           <button
             v-if="store.sourceFilter || store.tagFilter || store.status"
             type="button"
             class="facet-chip facet-chip--clear"
             @click="store.clearFacets()"
-          >×</button>
+          >{{ t('catalog.clearFacets') }}</button>
         </div>
 
         <el-alert v-if="store.error" type="error" :title="store.error" :closable="false" show-icon />
@@ -844,7 +949,7 @@ async function applySuggestion(id: string): Promise<void> {
                 :data="store.molecules"
                 :width="width"
                 :height="height"
-                :row-height="40"
+                :row-height="48"
                 row-key="id"
                 :row-class="rowClass"
                 :row-event-handlers="tableRowEvents"
@@ -867,6 +972,9 @@ async function applySuggestion(id: string): Promise<void> {
       <aside class="catalog-detail">
         <template v-if="active">
           <h2>{{ active.name }}</h2>
+          <p v-if="chineseAlias(active.aliases)" class="catalog-detail__zh">
+            {{ chineseAlias(active.aliases) }}
+          </p>
           <p class="muted">{{ active.kindHint }} · {{ active.source || t('catalog.local') }}</p>
           <el-button
             v-if="active.prepStatus !== 'prepared'"
@@ -882,11 +990,16 @@ async function applySuggestion(id: string): Promise<void> {
             :ligand-url="ligandUrl"
             class="catalog-detail__view"
           />
-          <dl>
+          <template v-if="isReceptor">
+          <dl class="catalog-receptor-facts">
+            <template v-for="row in receptorRows" :key="row.label">
+              <dt>{{ row.label }}</dt>
+              <dd>
+                <a v-if="row.href" :href="row.href" target="_blank" rel="noreferrer">{{ row.value }}</a>
+                <span v-else>{{ row.value }}</span>
+              </dd>
+            </template>
             <dt>{{ t('catalog.identity') }}</dt><dd><code>{{ active.identityKey }}</code></dd>
-            <dt>{{ t('catalog.formula') }}</dt><dd>{{ active.formula || '—' }}</dd>
-            <dt>{{ t('catalog.mw') }}</dt><dd>{{ active.molecularWeight?.toFixed(2) ?? '—' }}</dd>
-            <dt>{{ t('catalog.smiles') }}</dt><dd class="break">{{ active.canonicalSmiles || '—' }}</dd>
             <dt>{{ t('catalog.study') }}</dt>
             <dd>{{ active.studies.map((item: { name: string; role: string }) => `${item.name} (${item.role})`).join(', ') || '—' }}</dd>
             <dt>{{ t('catalog.tags') }}</dt>
@@ -905,6 +1018,59 @@ async function applySuggestion(id: string): Promise<void> {
               </div>
             </dd>
           </dl>
+          <p v-if="isReceptor && active.molecularWeight" class="catalog-receptor-note catalog-receptor-note--muted">
+            {{ t('catalog.proteinMassNote') }}
+          </p>
+          <p v-if="receptorNote" class="catalog-receptor-note">
+            <strong>{{ t('catalog.constructNote') }}:</strong> {{ receptorNote }}
+          </p>
+          </template>
+          <dl v-else>
+            <dt>{{ t('catalog.identity') }}</dt><dd><code>{{ active.identityKey }}</code></dd>
+            <dt>{{ t('catalog.formula') }}</dt><dd>{{ active.formula || '—' }}</dd>
+            <dt>{{ t('catalog.mw') }}</dt><dd>{{ active.molecularWeight?.toFixed(2) ?? '—' }}</dd>
+            <dt>{{ t('catalog.smiles') }}</dt>
+            <dd class="catalog-smiles">
+              <code :title="active.canonicalSmiles || ''">{{ active.canonicalSmiles || '—' }}</code>
+              <el-button
+                v-if="active.canonicalSmiles"
+                text
+                size="small"
+                :icon="CopyDocument"
+                :title="t('common.copy')"
+                @click="copySmiles"
+              />
+            </dd>
+            <dt>{{ t('catalog.study') }}</dt>
+            <dd>{{ active.studies.map((item: { name: string; role: string }) => `${item.name} (${item.role})`).join(', ') || '—' }}</dd>
+            <dt>{{ t('catalog.tags') }}</dt>
+            <dd>
+              <el-tag
+                v-for="tag in active.tags"
+                :key="tag"
+                size="small"
+                effect="plain"
+                closable
+                @close="removeTag(tag)"
+              >{{ tag }}</el-tag>
+              <div class="tag-input">
+                <el-input v-model="tagInput" size="small" :placeholder="t('catalog.addTag')" @keyup.enter="addTag" />
+                <el-button size="small" @click="addTag">{{ t('catalog.add') }}</el-button>
+              </div>
+            </dd>
+          </dl>
+          <section v-if="active.collections.length" class="catalog-collections">
+            <h3>{{ t('catalog.collections') }}</h3>
+            <div class="catalog-collection-links">
+              <button
+                v-for="collection in active.collections"
+                :key="collection.id"
+                type="button"
+                :title="collection.name"
+                @click="openCollection(collection)"
+              >{{ collection.name }}</button>
+            </div>
+          </section>
           <h3>{{ t('catalog.files') }}</h3>
           <ul class="catalog-files">
             <li v-for="file in active.files" :key="`${file.kind}-${file.path}`">
@@ -1056,16 +1222,26 @@ async function applySuggestion(id: string): Promise<void> {
 }
 .column-picker { display: flex; flex-direction: column; gap: 2px; }
 .column-picker :deep(.el-checkbox) { height: 24px; }
-.catalog-facets { display: flex; flex-wrap: wrap; gap: 4px; }
+.catalog-facets { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+.facet-group { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; min-width: 0; }
+.facet-label { color: var(--vs-text-faint); font-size: 10px; letter-spacing: .04em; }
+.facet-group--tags { flex: 1 1 260px; }
+.facet-chip--more { border-style: dashed; }
+.facet-more { display: flex; flex-direction: column; gap: 8px; }
+.facet-more__list { display: flex; flex-wrap: wrap; gap: 4px; max-height: 240px; overflow: auto; }
+.facet-empty { font-size: 12px; color: var(--vs-text-faint); }
 .facet-chip { border: 1px solid var(--vs-border); border-radius: 999px; background: transparent; color: var(--vs-text-muted); padding: 1px 7px; font-size: 11px; cursor: pointer; }
 .facet-chip.active { border-color: var(--vs-accent); color: var(--vs-accent); background: var(--vs-accent-soft); }
 .facet-chip small { opacity: 0.7; }
 .facet-chip--clear { color: var(--vs-danger); }
+.catalog-scope-summary { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 12px; }
 .catalog-table-wrap { flex: 1; min-height: 160px; border: 1px solid var(--vs-border); border-radius: var(--vs-radius); overflow: hidden; }
-.catalog-name-link { border: 0; background: transparent; color: inherit; padding: 0; font: inherit; text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+:deep(.catalog-name-cell) { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+:deep(.catalog-name-zh) { overflow: hidden; color: var(--vs-text-muted); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+:deep(.catalog-name-link) { border: 0; background: transparent; color: inherit; padding: 0; font: inherit; text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .catalog-name-link:hover { color: var(--vs-accent); text-decoration: underline; }
-.catalog-tag-cell { display: inline-flex; gap: 3px; overflow: hidden; }
-.catalog-tag { border: 1px solid var(--vs-border); border-radius: 999px; padding: 0 5px; font-size: 10px; }
+:deep(.catalog-tag-cell) { display: inline-flex; gap: 3px; max-width: 100%; overflow: hidden; flex-wrap: nowrap; white-space: nowrap; }
+:deep(.catalog-tag) { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 1px solid var(--vs-border); border-radius: 999px; padding: 0 5px; font-size: 10px; }
 .catalog-pager { display: flex; align-items: center; justify-content: flex-end; gap: 8px; font-size: 12px; color: var(--vs-text-muted); }
 .catalog-detail {
   min-height: 0;
@@ -1076,10 +1252,32 @@ async function applySuggestion(id: string): Promise<void> {
   padding: 12px;
 }
 .catalog-detail h2 { margin: 0 0 2px; font-size: 15px; }
+.catalog-detail__zh { margin: 0 0 2px; color: var(--vs-text-muted); font-size: 12px; }
+.catalog-receptor-facts dd a { color: var(--vs-accent); text-decoration: none; }
+.catalog-receptor-facts dd a:hover { text-decoration: underline; }
+.catalog-receptor-note { margin: 8px 0; padding: 7px 8px; border-left: 2px solid var(--vs-accent); background: var(--vs-bg-sunken); color: var(--vs-text-muted); font-size: 11px; line-height: 1.5; }
+.catalog-receptor-note--muted { border-left-color: var(--vs-border); }
 .catalog-detail__view { height: 180px; margin: 8px 0; }
 .catalog-detail dl { display: grid; grid-template-columns: 82px 1fr; gap: 4px 8px; font-size: 11.5px; }
 .catalog-detail dt { color: var(--vs-text-faint); }
 .catalog-detail dd { margin: 0; overflow-wrap: anywhere; }
+.catalog-collections h3 { margin: 10px 0 5px; font-size: 12px; }
+.catalog-collection-links { display: flex; flex-wrap: wrap; gap: 4px; }
+.catalog-collection-links button {
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--vs-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--vs-text-muted);
+  padding: 2px 8px;
+  font: inherit;
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.catalog-collection-links button:hover { border-color: var(--vs-accent); color: var(--vs-accent); }
 .catalog-files { list-style: none; padding: 0; margin: 0; font-size: 11px; }
 .catalog-files li { display: flex; gap: 6px; padding: 3px 0; overflow-wrap: anywhere; }
 .catalog-files span { color: var(--vs-accent); flex: 0 0 auto; }

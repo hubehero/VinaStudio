@@ -1,4 +1,5 @@
 import { ApiError } from '@/api/http'
+import { useSettingsStore } from '@/stores/settings'
 import type {
   DomainErrorBody,
   LigandOptions,
@@ -31,6 +32,18 @@ export const DEFAULT_RECEPTOR_OPTIONS: ReceptorOptions = {
   allowBadResidues: false,
   normaliseAtomOrder: true,
   keepResidues: [],
+}
+
+/**
+ * New preparation sessions follow the user's default. The returned object is
+ * copied per molecule, so opening the prepare dialog cannot change the setting.
+ */
+export function defaultReceptorOptions(): ReceptorOptions {
+  const settings = useSettingsStore()
+  return {
+    ...DEFAULT_RECEPTOR_OPTIONS,
+    allowBadResidues: settings.preparation.allowBadResidues,
+  }
 }
 
 export function describeFailure(error: unknown): PreparationFailure {

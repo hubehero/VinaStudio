@@ -123,9 +123,12 @@ A receptor is the protein you dock into. VinaStudio accepts PDB and mmCIF files.
 2. The manager inspects the file and proposes a type. If it guesses wrong, set it
    to **Receptor** explicitly.
 3. Open the preparation options. The defaults remove waters and non-polymer
-   groups; keep them unless you have a reason not to. To retain a structural
-   water or metal, enter its residue key (for example `B:601`) in **Keep selected
-   water/metal**. Flexible side chains can be picked here as well.
+   groups and allow residues that fail Meeko template matching (you can change
+   that default in Settings, or switch it for this molecule only). To retain a
+   structural water or metal, enter its residue key (for example `B:601`) in
+   **Keep selected water/metal**. Flexible side chains can be picked here as
+   well. Ignored residues are always listed in the report; allowing them does
+   not make their bond orders or protonation modelled.
 4. Run the preparation. The result is a **PDBQT** file — the format Vina reads.
 5. Check the summary: residue and atom counts, any ignored residues, and the
    warnings. A drop in atom count is expected: PDBQT keeps heavy atoms and polar

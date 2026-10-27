@@ -119,8 +119,8 @@ uv run python scripts/validate_benchmark.py --case 1iep --case 2hyy
 - `exhaustiveness`、`nPoses`、`seed`、`scoring`：对该 case 的 Vina 参数。
 - `rmsdThreshold`：默认 2.0 Å。
 - `affinityRange`：可选；只用于“是否落在本 case 预期区间”，不是亲和力预测。
-- `allowBadResidues`：默认 false；只有在你明确接受 Meeko 模板排除时才开，
-  排除项会写入报告。
+- `allowBadResidues`：界面默认 true（可在设置中改为默认关闭），API 默认 false；
+  只有在你明确接受 Meeko 模板排除时才开，排除项会写入报告。
 
 ## 6. 扩展到 10–20 个体系
 

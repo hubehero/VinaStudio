@@ -180,7 +180,8 @@ The project is being built in phases. What works today:
 - **Molecule Catalog** — a workspace-level database that deduplicates
   receptors/ligands, groups receptor–ligand pairs into Studies and organises
   them with collections; server-side search, suggestions, bulk tags, screening
-  libraries and virtual screening, with a backed-up migration of legacy data.
+  libraries and virtual screening. The first workspace opens with 125 editable
+  undergraduate drugs and migrates legacy data with a backup.
 - **Structure input** — SMILES to 3D ligand, the built-in 2D sketcher (see
   above), and one Catalog import path for files, samples and online compound
   libraries.

@@ -38,6 +38,18 @@ in another.
    A physical `libraries/<id>/mols` directory remains for legacy libraries and
    exports, not as a required copy before every run.
 
+## Built-in undergraduate library
+
+A first workspace access seeds a versioned, editable teaching library with 125
+common undergraduate drugs (English/Chinese names, class, PubChem CID and
+InChIKey). It creates ordinary Catalog molecules, a Collection and a Library;
+deleting it does not restore it on the next launch. The seeded source records
+are 2D SDF, so prepare them for 3D/PDBQT before docking. See
+[BUILTIN_LIBRARY.md](BUILTIN_LIBRARY.md) for scope, textbook orientation and
+scientific limits. The same first access also seeds
+[BUILTIN_RECEPTORS.md](BUILTIN_RECEPTORS.md): 27 RCSB PDB drug-target
+structures as receptor molecules in class Collections (not screening libraries).
+
 ## Search and selection
 
 Examples:

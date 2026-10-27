@@ -79,6 +79,7 @@ function handleLanguageChange(val: string | number | boolean | undefined): void 
 
 function handleReset(): void {
   settings.resetViewer()
+  settings.resetPreparation()
   void ui.resetPreferences()
 }
 
@@ -226,6 +227,14 @@ defineExpose({ open })
               </ElRadio>
             </ElRadioGroup>
           </div>
+
+          <label class="settings-item">
+            <div class="settings-item__info">
+              <span class="settings-item__label">{{ t('settings.prepareAllowBad') }}</span>
+              <span class="settings-item__desc">{{ t('settings.prepareAllowBadDesc') }}</span>
+            </div>
+            <ElSwitch v-model="settings.preparation.allowBadResidues" size="small" />
+          </label>
 
           <div class="settings-item">
             <div class="settings-item__info">

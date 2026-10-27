@@ -12,7 +12,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from vinastudio.core.catalog import db, store
+from vinastudio.core.catalog import db, seed, store
 from vinastudio.core.catalog.identity import Identity, identity_for_file, ligand_identity
 from vinastudio.core.workspace import load_molecule_manifest
 
@@ -296,6 +296,9 @@ def import_legacy(workspace: Path, db_path: Path | None = None) -> dict[str, Any
             )
         _backfill_descriptors(conn)
         store.prune_selections(conn)
+        if seed.seed_enabled():
+            seed.seed_builtin_library(conn, workspace)
+            seed.seed_builtin_receptors(conn, workspace)
     return {
         "manifest": imported_manifest,
         "libraries": imported_libraries,

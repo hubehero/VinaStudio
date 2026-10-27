@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { nextTick } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 
+import { defaultReceptorOptions } from './preparation-shared'
 import { useSettingsStore } from './settings'
 
 const STORAGE_KEY = 'vinastudio-settings'
@@ -46,6 +47,34 @@ describe('viewer settings migration', () => {
     expect(settings.viewer.adaptiveAO).toBe(true)
     expect(settings.viewer.renderQuality).toBe('medium')
     expect(settings.molecules.viewMode).toBe('type')
+    expect(settings.preparation.allowBadResidues).toBe(true)
+    expect(defaultReceptorOptions().allowBadResidues).toBe(true)
+  })
+
+  it('migrates the old eight-column default to the compact table', () => {
+    seed({
+      catalog: {
+        columns: ['name', 'kind', 'study', 'collections', 'source', 'prep', 'mw', 'tags'],
+      },
+    })
+
+    expect(useSettingsStore().catalog.columns).toEqual(['name', 'kind', 'prep', 'mw', 'tags'])
+  })
+
+  it('keeps an explicit preparation default', () => {
+    seed({ preparation: { allowBadResidues: false } })
+
+    expect(useSettingsStore().preparation.allowBadResidues).toBe(false)
+  })
+
+  it('copies the preparation default so one molecule cannot change it', () => {
+    seed({ preparation: { allowBadResidues: false } })
+    const settings = useSettingsStore()
+    const options = defaultReceptorOptions()
+
+    options.allowBadResidues = true
+
+    expect(settings.preparation.allowBadResidues).toBe(false)
   })
 
   it('writes the current schema version back when a value changes', async () => {
