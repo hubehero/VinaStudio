@@ -6,9 +6,11 @@ import hashlib
 import io
 import json
 import logging
+import math
 import os
 import shutil
 import tempfile
+import threading
 import time
 import uuid
 import zipfile
@@ -125,6 +127,17 @@ _BUNDLE_INLINE_KEYS = frozenset({
 _BUNDLE_DOWNLOADS: dict[str, Path] = {}
 _BUNDLE_DOWNLOAD_LIMIT = 128
 
+# Interactive score/optimize/randomize build affinity maps in the API process.
+# One in-flight map set is already ~150 MB at the default 1iep box; concurrent
+# calls could otherwise take down the process that owns every running job.
+_INTERACTIVE_MAPS = threading.BoundedSemaphore(1)
+try:
+    _INTERACTIVE_MAX_CELLS = int(
+        os.environ.get("VINASTUDIO_MAX_INTERACTIVE_MAP_CELLS", "5000000")
+    )
+except ValueError:
+    _INTERACTIVE_MAX_CELLS = 5_000_000
+
 
 def _validate_box(
     receptor_path: str,
@@ -154,14 +167,26 @@ def get_defaults() -> DockingDefaultsResponse:
 
 @router.get("/info", response_model=VinaInfoResponse)
 def get_info() -> VinaInfoResponse:
-    """Return Vina library version and capabilities."""
+    """Return the installed Vina/CLI metadata and capabilities."""
     import multiprocessing
+    from importlib.metadata import PackageNotFoundError
+    from importlib.metadata import version as package_version
 
+    from vinastudio.core.engines import CLI_BACKEND, resolve_backend
+
+    try:
+        engine_version = package_version("vina")
+    except PackageNotFoundError:
+        try:
+            engine_version = "vina-cli" if resolve_backend() == CLI_BACKEND else "unknown"
+        except (ValueError, RuntimeError):
+            engine_version = "unavailable"
+    cpu_count = multiprocessing.cpu_count()
     return VinaInfoResponse(
-        version="autoDockVina",
+        version=engine_version,
         supportedScoringFunctions=list(SCORING_WEIGHT_COUNT.keys()),
-        cpuCount=multiprocessing.cpu_count(),
-        maxCPUs=1024,
+        cpuCount=cpu_count,
+        maxCPUs=cpu_count,
     )
 
 
@@ -220,6 +245,14 @@ def start_docking(request: DockingRequest) -> DockingJobCreated:
     # Validate AD4 needs maps
     if request.scoring == "ad4" and not request.mapPaths:
         raise InvalidInputError("ad4 scoring requires mapPaths")
+    if request.mapPaths:
+        if len(request.mapPaths) != 1:
+            raise InvalidInputError("mapPaths must contain one AutoGrid4 map prefix")
+        prefix = Path(request.mapPaths[0])
+        if prefix.suffix.lower() == ".map":
+            raise InvalidInputError(
+                "mapPaths expects the AutoGrid4 prefix, not an individual .map file"
+            )
     if not request.mapPaths:
         _validate_box(request.receptorPath, request.center, request.size)
 
@@ -307,6 +340,10 @@ def start_ensemble_docking(request: EnsembleDockingRequest) -> DockingJobCreated
 @router.post("/batch", response_model=BatchJobCreated)
 def batch_docking(request: BatchDockingRequest) -> BatchJobCreated:
     """Start a batch docking job in a spawned child process."""
+    if request.scoring == "ad4":
+        raise InvalidInputError(
+            "batch docking supports vina/vinardo; AD4 maps are not part of this request"
+        )
     receptor = Path(request.receptorPath)
     if not receptor.exists():
         raise InvalidInputError(f"receptor file not found: {request.receptorPath}")
@@ -323,6 +360,13 @@ def batch_docking(request: BatchDockingRequest) -> BatchJobCreated:
                     f"selection not found: {request.selectionId}"
                 )
             members = catalog_store.selection_entries(conn, request.selectionId)
+            expected = int(selection["memberCount"])
+            if selection.get("stale") or len(members) != expected:
+                raise InvalidInputError(
+                    f"selection {request.selectionId} is stale ({len(members)}/{expected} "
+                    "members); recreate the selection before running it"
+                )
+        params_label = str(selection.get("name") or request.selectionId)
         ligands = []
         for member in members:
             prepared = member.get("prepared_path")
@@ -376,6 +420,7 @@ def batch_docking(request: BatchDockingRequest) -> BatchJobCreated:
     # only when the client sent it (absent = server default, TASK-14 §4.2).
     if request.selectionId:
         params["selection_id"] = request.selectionId
+        params["label"] = params_label
     if request.parallelism is not None:
         params["parallelism"] = request.parallelism
 
@@ -593,7 +638,7 @@ def validate_job_poses(job_id: str, request: ValidatePosesRequest) -> ValidatePo
 def rmsd_against_reference(job_id: str, request: RmsdRequest) -> RmsdResponse:
     """Heavy-atom RMSD of each pose against a co-crystal reference ligand.
 
-    Symmetry-corrected (``GetBestRMS``); report-only. A reference that is a
+    Symmetry-corrected, fixed-frame (``CalcRMS``); report-only. A reference that is a
     different chemical structure returns ``structureMatch=False`` with empty
     ``values`` — a warning, never a rejection.
     """
@@ -650,7 +695,7 @@ def cluster_job_poses(job_id: str, request: ClusterRequest) -> ClusterResponse:
 
     On-demand and report-only: the result is never written into the job
     (front-end caches it; persistence is TASK-07's call). Distances share
-    ``rmsd.rmsd_between`` — the same GetBestRMS path as redocking RMSD.
+    ``rmsd.rmsd_between`` — the same no-superposition symmetry path as redocking RMSD.
     """
     from vinastudio.core.chem.cluster import cluster_poses
     from vinastudio.core.chem.rmsd import load_poses
@@ -1021,6 +1066,31 @@ def export_pose(job_id: str, request: ExportPoseRequest) -> ExportPoseResponse:
     )
 
 
+def _interactive_map_cells(
+    center: tuple[float, float, float],
+    size: tuple[float, float, float],
+    spacing: float,
+    force_even_voxels: bool,
+) -> int:
+    """Vina grid cells for one interactive map set."""
+    box = Box(center=center, size=size, spacing=spacing, force_even_voxels=force_even_voxels)
+    return math.prod(box.voxels)
+
+
+def _check_interactive_map_budget(
+    center: tuple[float, float, float],
+    size: tuple[float, float, float],
+    spacing: float,
+    force_even_voxels: bool,
+) -> None:
+    cells = _interactive_map_cells(center, size, spacing, force_even_voxels)
+    if cells > _INTERACTIVE_MAX_CELLS:
+        raise InvalidInputError(
+            f"interactive box has {cells:,} grid cells (limit "
+            f"{_INTERACTIVE_MAX_CELLS:,}); use a smaller box or run a docking job"
+        )
+
+
 def _configure_vina(
     request: ScoreRequest | OptimizeRequest | RandomizeRequest,
 ) -> Any:
@@ -1045,6 +1115,9 @@ def _configure_vina(
         request.size,
         spacing=request.spacing,
         force_even_voxels=request.forceEvenVoxels,
+    )
+    _check_interactive_map_budget(
+        request.center, request.size, request.spacing, request.forceEvenVoxels
     )
 
     from vina import Vina  # type: ignore[import-untyped]
@@ -1135,8 +1208,9 @@ def score_pose(request: ScoreRequest) -> ScoreResponse:
         with tempfile.TemporaryDirectory(prefix="vinastudio-score-") as scratch:
             return ScoreResponse(**score_cli(_interactive_params(request), scratch))
 
-    v = _configure_vina(request)
-    energies = v.score(unbound_energy=request.unboundEnergy)
+    with _INTERACTIVE_MAPS:
+        v = _configure_vina(request)
+        energies = v.score(unbound_energy=request.unboundEnergy)
     # score() returns [total, lig_inter, flex_inter, other_inter, flex_intra, lig_intra, torsions, lig_intra_best]
     return ScoreResponse(
         total=energies[0],
@@ -1159,15 +1233,16 @@ def optimize_pose(request: OptimizeRequest) -> OptimizeResponse:
             energy, pose = optimize_cli(_interactive_params(request), request.maxSteps, scratch)
         return OptimizeResponse(energy=energy, ligandPdbqt=pose)
 
-    v = _configure_vina(request)
-    # optimize() returns the same eight-value decomposition as score(); the
-    # response reports the total, which is its first column. (It used to be
-    # handed the whole array, which the response model rejected outright.)
-    breakdown = v.optimize(max_steps=request.maxSteps)
-    return OptimizeResponse(
-        energy=float(breakdown[0]),
-        ligandPdbqt=_exported_pose(v, "optimisation"),
-    )
+    with _INTERACTIVE_MAPS:
+        v = _configure_vina(request)
+        # optimize() returns the same eight-value decomposition as score(); the
+        # response reports the total, which is its first column. (It used to be
+        # handed the whole array, which the response model rejected outright.)
+        breakdown = v.optimize(max_steps=request.maxSteps)
+        return OptimizeResponse(
+            energy=float(breakdown[0]),
+            ligandPdbqt=_exported_pose(v, "optimisation"),
+        )
 
 
 @router.post("/randomize", response_model=RandomizeResponse)
@@ -1189,9 +1264,10 @@ def randomize_pose(request: RandomizeRequest) -> RandomizeResponse:
             pose = randomize_cli(_interactive_params(request), request.maxSteps, scratch)
         return RandomizeResponse(ligandPdbqt=pose)
 
-    v = _configure_vina(request)
-    v.randomize(max_steps=request.maxSteps)
-    return RandomizeResponse(ligandPdbqt=_exported_pose(v, "randomisation"))
+    with _INTERACTIVE_MAPS:
+        v = _configure_vina(request)
+        v.randomize(max_steps=request.maxSteps)
+        return RandomizeResponse(ligandPdbqt=_exported_pose(v, "randomisation"))
 
 
 @router.get("/jobs/{job_id}/export-csv")

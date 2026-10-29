@@ -110,8 +110,12 @@ class SelectionOut(_CatalogModel):
     created_at: float
     resolved_at: float | None = None
     member_count: int = 0
+    live_member_count: int = 0
     prepared_count: int = 0
     truncated: bool = False
+    stale: bool = False
+    invalidated_at: float | None = None
+    invalid_reason: str | None = None
     schema_version: int = 1
     members: list[SelectionMemberOut] = Field(default_factory=list)
     total: int = 0

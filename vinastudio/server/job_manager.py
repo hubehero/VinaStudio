@@ -243,8 +243,9 @@ class JobManager:
             scoring=params.get("scoring", "vina"),
             is_batch=True,
             total_ligands=len(ligands),
-            # No ligand path to name it by; the list renders a batch badge.
-            label="",
+            # Selection-based batches carry a human label; ligand-file batches
+            # render a batch badge rather than inventing a name.
+            label=_job_label(params) if params.get("label") else "",
             params=_persistable_params(persist_params),
         )
         self._jobs[job_id] = state
@@ -275,7 +276,7 @@ class JobManager:
         return job_id
 
     @staticmethod
-    def _entry_roster(params: dict[str, Any]) -> list[dict[str, Any]]:
+    def entry_roster(params: dict[str, Any]) -> list[dict[str, Any]]:
         """Read a screening roster, preferring an on-disk manifest.
 
         Selection runs write members to ``selection.jsonl`` and keep only its
@@ -449,7 +450,7 @@ class JobManager:
                 return None
             entries = [
                 entry
-                for entry in self._entry_roster(state.params)
+                for entry in self.entry_roster(state.params)
                 if _entry_index(entry) not in skip
             ]
             _, done, failed, _ = screening_jsonl_progress(job_id)
@@ -597,6 +598,11 @@ class JobManager:
         with self._lock:
             state = self._jobs.get(job_id)
             if state is None:
+                return
+            # Cancel/shutdown claim the terminal state before killing workers.
+            # Pipe-buffered events can arrive afterwards; they must not turn a
+            # cancelled job back into a completed one.
+            if state.status in {"completed", "failed", "cancelled"}:
                 return
 
             if kind == "stage":
@@ -885,21 +891,27 @@ class JobManager:
             log.warning("results backfill failed", exc_info=True)
 
     def shutdown(self) -> None:
-        """Terminate all running jobs."""
-        pending: list[tuple[dict[str, Any], list[dict[str, Any]]]] = []
+        """Terminate all running jobs without letting late events revive them."""
+        job_ids: list[str] = []
         with self._lock:
             processes: list[BaseProcess] = []
             for state in self._jobs.values():
                 if state.status == "running":
                     state.status = "cancelled"
-                    pending.append(
-                        (_job_json_payload(state), list(state.batch_results))
-                    )
+                    job_ids.append(state.job_id)
                     processes.extend(state._processes)
-        for payload, rows in pending:
-            _write_job_json(payload["jobId"], payload, ligand_rows=rows)
+        # Stop children before writing the terminal snapshot; a live shard
+        # could otherwise append rows to a job.json already marked cancelled.
         for process in processes:
             _stop_process(process)
+        with self._lock:
+            pending: list[tuple[dict[str, Any], list[dict[str, Any]]]] = []
+            for job_id in job_ids:
+                state = self._jobs.get(job_id)
+                if state is not None and state.status == "cancelled":
+                    pending.append((_job_json_payload(state), list(state.batch_results)))
+        for payload, rows in pending:
+            _write_job_json(payload["jobId"], payload, ligand_rows=rows)
 
 
 def _stop_process(process: BaseProcess | None) -> None:
@@ -1134,6 +1146,9 @@ def _job_label(params: dict[str, Any]) -> str:
     always fell back to "ligand"; camel stays accepted for API payloads
     and the existing fixtures (TASK-27 B1).
     """
+    label = params.get("label")
+    if isinstance(label, str) and label:
+        return label
     for key in ("ligand_path", "ligandPath"):
         ligand_path = params.get(key)
         if isinstance(ligand_path, str) and ligand_path:

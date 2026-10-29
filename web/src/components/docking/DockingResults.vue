@@ -248,6 +248,43 @@ function rmsdClass(poseIndex: number): string {
   return value < result.threshold ? 'rmsd--ok' : 'rmsd--bad'
 }
 
+const topPoseRmsd = computed(() => {
+  const value = docking.rmsd?.values[0]
+  return typeof value === 'number' ? value : null
+})
+
+const bestPoseRmsd = computed(() => {
+  const values = docking.rmsd?.values ?? []
+  return values.length ? Math.min(...values) : null
+})
+
+const protocolLines = computed(() => {
+  const params = docking.jobResult?.params as Record<string, unknown> | null
+  if (!params) return []
+  const vector = (value: unknown): string => {
+    if (!Array.isArray(value) || value.length !== 3) return '—'
+    return value.map((item) => Number(item).toFixed(3)).join(', ')
+  }
+  return [
+    `${t('docking.protocol.scoring')}: ${String(params.scoring ?? '—')}`,
+    `${t('docking.protocol.engine')}: ${String(params.engine ?? 'vina')}`,
+    `${t('docking.protocol.exhaustiveness')}: ${String(params.exhaustiveness ?? '—')}`,
+    `${t('docking.protocol.seed')}: ${String(params.seed ?? '—')}`,
+    `${t('docking.protocol.poses')}: ${String(params.n_poses ?? '—')}`,
+    `${t('docking.protocol.center')}: ${vector(params.center)}`,
+    `${t('docking.protocol.size')}: ${vector(params.size)}`,
+  ]
+})
+
+async function copyProtocol(): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(protocolLines.value.join('\n'))
+    ElMessage.success(t('docking.protocol.copied'))
+  } catch {
+    ElMessage.error(t('docking.protocol.copyFailed'))
+  }
+}
+
 /** Poses shown in the table — filtered to cluster representatives when asked. */
 const displayedPoses = computed(() => {
   const result = docking.clusters
@@ -431,6 +468,45 @@ async function runCluster(): Promise<void> {
       <p v-if="docking.rmsdError" class="rmsd-error">
         {{ t('docking.rmsd.error') }}
       </p>
+
+      <section v-if="docking.rmsd" class="redock-console">
+        <div class="redock-console__head">
+          <span class="redock-console__title">{{ t('docking.redock.title') }}</span>
+          <span
+            class="redock-console__verdict"
+            :class="topPoseRmsd !== null && topPoseRmsd < docking.rmsd.threshold ? 'is-pass' : 'is-warn'"
+          >
+            {{ topPoseRmsd !== null && topPoseRmsd < docking.rmsd.threshold
+              ? t('docking.redock.recovered')
+              : t('docking.redock.notRecovered') }}
+          </span>
+        </div>
+        <div class="redock-console__metrics">
+          <div>
+            <span>{{ t('docking.redock.topPose') }}</span>
+            <strong>{{ topPoseRmsd === null ? '—' : `${topPoseRmsd.toFixed(2)} Å` }}</strong>
+          </div>
+          <div>
+            <span>{{ t('docking.redock.bestPose') }}</span>
+            <strong>{{ bestPoseRmsd === null ? '—' : `${bestPoseRmsd.toFixed(2)} Å` }}</strong>
+          </div>
+          <div>
+            <span>{{ t('docking.redock.successRate') }}</span>
+            <strong>{{ Math.round(docking.rmsd.successRate * 100) }}%</strong>
+          </div>
+        </div>
+        <p class="redock-console__hint">{{ t('docking.redock.hint', { threshold: docking.rmsd.threshold }) }}</p>
+      </section>
+
+      <section v-if="protocolLines.length" class="protocol-card">
+        <div class="protocol-card__head">
+          <span class="protocol-card__title">{{ t('docking.protocol.title') }}</span>
+          <ElButton size="small" link @click="copyProtocol">{{ t('common.copy') }}</ElButton>
+        </div>
+        <ul>
+          <li v-for="line in protocolLines" :key="line">{{ line }}</li>
+        </ul>
+      </section>
 
       <p v-if="docking.clusters" class="cluster-note">
         {{
@@ -712,6 +788,21 @@ async function runCluster(): Promise<void> {
   width: 160px;
 }
 
+.redock-console { margin: 10px 0; padding: 9px 10px; border: 1px solid var(--vs-border); border-radius: var(--vs-radius); background: var(--vs-bg-sunken); }
+.redock-console__head { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.redock-console__title { font-size: 12px; font-weight: 600; }
+.redock-console__verdict { font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; }
+.redock-console__verdict.is-pass { color: var(--vs-success, #3fb950); }
+.redock-console__verdict.is-warn { color: var(--vs-warning, #d29922); }
+.redock-console__metrics { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 7px; font-size: 11px; }
+.redock-console__metrics div { display: flex; flex-direction: column; gap: 1px; }
+.redock-console__metrics span { color: var(--vs-text-muted); }
+.redock-console__metrics strong { font-variant-numeric: tabular-nums; }
+.redock-console__hint { margin: 6px 0 0; color: var(--vs-text-muted); font-size: 10.5px; }
+.protocol-card { margin: 10px 0; padding: 9px 10px; border: 1px solid var(--vs-border); border-radius: var(--vs-radius); }
+.protocol-card__head { display: flex; justify-content: space-between; align-items: center; }
+.protocol-card__title { font-size: 12px; font-weight: 600; }
+.protocol-card ul { margin: 5px 0 0; padding-left: 16px; color: var(--vs-text-muted); font-size: 10.5px; line-height: 1.6; font-variant-numeric: tabular-nums; }
 .rmsd-note {
   margin: 4px 0 8px;
   font-size: 12px;

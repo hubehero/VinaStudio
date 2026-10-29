@@ -84,6 +84,22 @@ const scoringText = computed(() => {
 
 const elapsedText = computed(() => formatElapsed(docking.elapsedMs))
 
+const protocol = computed(() => {
+  const params = docking.jobResult?.params as Record<string, unknown> | null
+  if (!params) return null
+  const vector = (value: unknown): string => {
+    if (!Array.isArray(value) || value.length !== 3) return '—'
+    return value.map((item) => Number(item).toFixed(2)).join(', ')
+  }
+  return {
+    engine: String(params.engine ?? 'vina'),
+    exhaustiveness: String(params.exhaustiveness ?? '—'),
+    seed: String(params.seed ?? '—'),
+    center: vector(params.center),
+    size: vector(params.size),
+  }
+})
+
 // -- metrics -----------------------------------------------------------------
 
 const validationCounts = computed(() => {
@@ -303,6 +319,14 @@ async function downloadCsv(): Promise<void> {
           <div class="report-meta__row">
             <dt>{{ t('docking.resultsReport.metaElapsed') }}</dt>
             <dd>{{ elapsedText }}</dd>
+          </div>
+          <div v-if="protocol" class="report-meta__row">
+            <dt>{{ t('docking.resultsReport.metaProtocol') }}</dt>
+            <dd class="vs-mono">{{ protocol.engine }} · E={{ protocol.exhaustiveness }} · seed={{ protocol.seed }}</dd>
+          </div>
+          <div v-if="protocol" class="report-meta__row">
+            <dt>{{ t('docking.resultsReport.metaBox') }}</dt>
+            <dd class="vs-mono">{{ protocol.center }} / {{ protocol.size }}</dd>
           </div>
         </dl>
 

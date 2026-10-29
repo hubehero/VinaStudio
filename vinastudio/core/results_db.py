@@ -232,7 +232,7 @@ def _run_label(payload: dict[str, Any], params: dict[str, Any]) -> str:
     ligand_path = params.get("ligand_path")
     if isinstance(ligand_path, str) and ligand_path:
         return Path(ligand_path).name
-    return str(payload.get("label") or "")
+    return str(params.get("label") or payload.get("label") or "")
 
 
 def _receptor_name(params: dict[str, Any]) -> str:

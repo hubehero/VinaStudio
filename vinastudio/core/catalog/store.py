@@ -383,7 +383,36 @@ def update_molecule(conn: sqlite3.Connection, molecule_id: str, patch: Json) -> 
     return True
 
 
+def libraries_for_molecule(conn: sqlite3.Connection, molecule_id: str) -> list[str]:
+    return [
+        str(row["library_id"])
+        for row in conn.execute(
+            "SELECT library_id FROM library_members WHERE molecule_id = ?",
+            (molecule_id,),
+        )
+    ]
+
+
 def delete_molecule(conn: sqlite3.Connection, molecule_id: str) -> bool:
+    # A frozen selection is a promise about the exact members of a run. A
+    # deleted molecule cannot be silently removed from that promise: mark the
+    # affected snapshots stale first, then let the FK cascade remove the rows.
+    affected = [
+        str(row["selection_id"])
+        for row in conn.execute(
+            "SELECT selection_id FROM selection_members WHERE molecule_id = ?",
+            (molecule_id,),
+        )
+    ]
+    if affected:
+        now = _now()
+        conn.executemany(
+            """UPDATE selections
+               SET invalidated_at = COALESCE(invalidated_at, ?),
+                   invalid_reason = COALESCE(invalid_reason, 'member_deleted')
+               WHERE id = ?""",
+            [(now, selection_id) for selection_id in affected],
+        )
     cursor = conn.execute("DELETE FROM molecules WHERE id = ?", (molecule_id,))
     return cursor.rowcount > 0
 
@@ -409,20 +438,24 @@ def create_collection(
     return collection_id
 
 
-def add_collection_member(conn: sqlite3.Connection, collection_id: str, molecule_id: str) -> None:
-    conn.execute(
+def add_collection_member(conn: sqlite3.Connection, collection_id: str, molecule_id: str) -> bool:
+    cursor = conn.execute(
         "INSERT OR IGNORE INTO collection_members(collection_id, molecule_id) VALUES (?, ?)",
         (collection_id, molecule_id),
     )
-    _recalculate_search_text(conn, molecule_id)
+    if cursor.rowcount:
+        _recalculate_search_text(conn, molecule_id)
+    return cursor.rowcount > 0
 
 
-def remove_collection_member(conn: sqlite3.Connection, collection_id: str, molecule_id: str) -> None:
-    conn.execute(
+def remove_collection_member(conn: sqlite3.Connection, collection_id: str, molecule_id: str) -> bool:
+    cursor = conn.execute(
         "DELETE FROM collection_members WHERE collection_id = ? AND molecule_id = ?",
         (collection_id, molecule_id),
     )
-    _recalculate_search_text(conn, molecule_id)
+    if cursor.rowcount:
+        _recalculate_search_text(conn, molecule_id)
+    return cursor.rowcount > 0
 
 
 def create_study(
@@ -451,8 +484,8 @@ def add_study_member(
     role: str,
     is_primary: bool = False,
     sort_order: int = 0,
-) -> None:
-    conn.execute(
+) -> bool:
+    cursor = conn.execute(
         """INSERT INTO study_members(study_id, molecule_id, role, is_primary, sort_order)
            VALUES (?, ?, ?, ?, ?)
            ON CONFLICT(study_id, molecule_id, role) DO UPDATE SET
@@ -461,14 +494,17 @@ def add_study_member(
         (study_id, molecule_id, role, int(is_primary), sort_order),
     )
     _recalculate_search_text(conn, molecule_id)
+    return cursor.rowcount > 0
 
 
-def remove_study_member(conn: sqlite3.Connection, study_id: str, molecule_id: str, role: str) -> None:
-    conn.execute(
+def remove_study_member(conn: sqlite3.Connection, study_id: str, molecule_id: str, role: str) -> bool:
+    cursor = conn.execute(
         "DELETE FROM study_members WHERE study_id = ? AND molecule_id = ? AND role = ?",
         (study_id, molecule_id, role),
     )
-    _recalculate_search_text(conn, molecule_id)
+    if cursor.rowcount:
+        _recalculate_search_text(conn, molecule_id)
+    return cursor.rowcount > 0
 
 
 def create_library(
@@ -495,8 +531,8 @@ def add_library_member(
     *,
     entry_index: int,
     prepared_path: str | None = None,
-) -> None:
-    conn.execute(
+) -> bool:
+    cursor = conn.execute(
         """INSERT INTO library_members
            (library_id, molecule_id, entry_index, prepared_path, added_at)
            VALUES (?, ?, ?, ?, ?)
@@ -505,6 +541,7 @@ def add_library_member(
              prepared_path = COALESCE(excluded.prepared_path, library_members.prepared_path)""",
         (library_id, molecule_id, entry_index, prepared_path, _now()),
     )
+    return cursor.rowcount > 0
 
 
 def summary(conn: sqlite3.Connection) -> Json:
@@ -798,6 +835,16 @@ def get_selection(conn: sqlite3.Connection, selection_id: str) -> Json | None:
     row = conn.execute("SELECT * FROM selections WHERE id = ?", (selection_id,)).fetchone()
     if row is None:
         return None
+    live_count = conn.execute(
+        "SELECT COUNT(*) FROM selection_members WHERE selection_id = ?",
+        (selection_id,),
+    ).fetchone()[0]
+    identity_mismatch = conn.execute(
+        """SELECT COUNT(*) FROM selection_members sm
+           JOIN molecules m ON m.id = sm.molecule_id
+           WHERE sm.selection_id = ? AND sm.identity_key != m.identity_key""",
+        (selection_id,),
+    ).fetchone()[0]
     prepared = conn.execute(
         """SELECT COUNT(*) FROM selection_members sm
            WHERE sm.selection_id = ? AND EXISTS (
@@ -806,6 +853,8 @@ def get_selection(conn: sqlite3.Connection, selection_id: str) -> Json | None:
            )""",
         (selection_id,),
     ).fetchone()[0]
+    invalidated_at = row["invalidated_at"]
+    invalid_reason = row["invalid_reason"]
     return {
         "id": row["id"],
         "name": row["name"],
@@ -814,8 +863,16 @@ def get_selection(conn: sqlite3.Connection, selection_id: str) -> Json | None:
         "createdAt": row["created_at"],
         "resolvedAt": row["resolved_at"],
         "memberCount": row["member_count"],
+        "liveMemberCount": int(live_count),
         "preparedCount": int(prepared),
         "truncated": bool(row["truncated"]),
+        "stale": (
+            bool(invalidated_at)
+            or int(live_count) != int(row["member_count"])
+            or int(identity_mismatch) != 0
+        ),
+        "invalidatedAt": invalidated_at,
+        "invalidReason": invalid_reason,
         "schemaVersion": row["schema_version"],
     }
 

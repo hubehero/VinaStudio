@@ -15,7 +15,7 @@ import shutil
 from pathlib import Path
 
 from rdkit import Chem
-from rdkit.Chem import AllChem
+from rdkit.Chem import rdDepictor
 
 from vinastudio.config import RESOURCES_DIR
 from vinastudio.core.catalog import store
@@ -26,8 +26,9 @@ from vinastudio.core.paths import slugify
 
 log = logging.getLogger(__name__)
 
-SEED_VERSION = "1"
+SEED_VERSION = "2"
 MARKER = "builtin_undergrad_drugs_v1"
+DEPICTION_MARKER = "builtin_undergrad_depiction_v2"
 DATA_FILE = RESOURCES_DIR / "catalog" / "undergraduate_drugs.csv"
 RECEPTOR_DATA_FILE = RESOURCES_DIR / "catalog" / "undergraduate_receptors.csv"
 RECEPTOR_PDB_DIR = RESOURCES_DIR / "catalog" / "receptors"
@@ -58,15 +59,92 @@ def _rows() -> list[dict[str, str]]:
         return []
 
 
+_RING_TEMPLATES_LOADED = False
+
+
+def _load_ring_templates() -> None:
+    global _RING_TEMPLATES_LOADED
+    if _RING_TEMPLATES_LOADED:
+        return
+    _RING_TEMPLATES_LOADED = True
+    try:
+        rdDepictor.LoadDefaultRingSystemTemplates()
+    except Exception:  # templates are an enhancement, not a hard dependency
+        log.debug("RDKit ring templates unavailable", exc_info=True)
+
+
 def _write_2d_sdf(smiles: str, target: Path, name: str) -> bool:
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
         return False
-    AllChem.Compute2DCoords(mol)
+    # RDKit's default depictor crosses bonds in bridged polycyclics and large
+    # macrocycles (morphine, rifampicin, azithromycin).  CoordGen plus the
+    # default ring templates gives a recognisable textbook layout; canonical
+    # orientation keeps the same molecule from flipping between regenerations.
+    previous = rdDepictor.GetPreferCoordGen()
+    rdDepictor.SetPreferCoordGen(True)
+    try:
+        _load_ring_templates()
+        rdDepictor.Compute2DCoords(mol, canonOrient=True)
+    finally:
+        rdDepictor.SetPreferCoordGen(previous)
+    # 2D coordinates alone do not encode tetrahedral stereochemistry.  Write
+    # wedge/hash bonds so a depiction is not a flat, misleading skeleton.
+    Chem.WedgeMolBonds(mol, mol.GetConformer())
+    # Mark the stereo as absolute, not relative, for SDF readers.
+    mol.SetProp("_MolFileChiralFlag", "1")
     mol.SetProp("_Name", name)
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(Chem.MolToMolBlock(mol) + "$$$$\n", encoding="utf-8")
+    target.write_text(
+        Chem.MolToMolBlock(mol, includeStereo=True) + "$$$$\n", encoding="utf-8"
+    )
     return True
+
+
+def _backfill_builtin_depictions(conn, workspace: Path) -> None:
+    """Refresh cached built-in SDFs after a depiction-engine change.
+
+    Only files that still belong to the built-in Catalog row are rewritten.
+    A user-deleted SDF stays deleted, and an edited source path outside
+    ``ligands/builtin`` is never touched.
+    """
+    marker = conn.execute(
+        "SELECT value FROM catalog_meta WHERE key = ?", (DEPICTION_MARKER,)
+    ).fetchone()
+    if marker is not None:
+        return
+    source_dir = workspace / "ligands" / "builtin"
+    complete = True
+    for row in _rows():
+        target = source_dir / f"{int(row['cid']):08d}-{slugify(row['name'].strip())}.sdf"
+        if not target.is_file():
+            continue
+        owned = conn.execute(
+            """
+            SELECT 1
+            FROM molecules m
+            JOIN molecule_files f ON f.molecule_id = m.id
+            WHERE m.source = 'PubChem' AND m.source_id = ? AND f.path = ?
+            LIMIT 1
+            """,
+            (row["cid"].strip(), str(target)),
+        ).fetchone()
+        if owned is None:
+            continue
+        try:
+            if not _write_2d_sdf(row["smiles"].strip(), target, row["name"].strip()):
+                complete = False
+                log.warning("could not refresh built-in depiction: %s", row["name"])
+        except OSError:
+            # A read-only workspace must not break Catalog startup; retry on a
+            # later launch rather than recording a half-finished refresh.
+            complete = False
+            log.warning("could not write built-in depiction: %s", target, exc_info=True)
+    if complete:
+        conn.execute(
+            "INSERT OR REPLACE INTO catalog_meta(key, value) VALUES (?, ?)",
+            (DEPICTION_MARKER, SEED_VERSION),
+        )
 
 
 def _ensure_collection(conn, name: str, parent_id: str | None = None) -> str:
@@ -218,6 +296,7 @@ def seed_builtin_library(conn, workspace: Path) -> int:
         "SELECT value FROM catalog_meta WHERE key = ?", (MARKER,)
     ).fetchone()
     if marker is not None:
+        _backfill_builtin_depictions(conn, workspace)
         return 0
     rows = _rows()
     if not rows:
@@ -309,6 +388,10 @@ def seed_builtin_library(conn, workspace: Path) -> int:
     conn.execute(
         "INSERT OR REPLACE INTO catalog_meta(key, value) VALUES (?, ?)",
         (MARKER, SEED_VERSION),
+    )
+    conn.execute(
+        "INSERT OR REPLACE INTO catalog_meta(key, value) VALUES (?, ?)",
+        (DEPICTION_MARKER, SEED_VERSION),
     )
     log.info("seeded built-in undergraduate library: %d molecule(s)", added)
     return added

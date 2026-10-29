@@ -204,6 +204,17 @@ def _build_where(
         elif key == "mw_max":
             where.append("m.molecular_weight <= ?")
             params.append(float(values[0]))
+        elif key in {"qed", "lipinski", "tpsa", "logp", "hbd", "hba", "rotatable"}:
+            column = {
+                "qed": "m.qed",
+                "lipinski": "m.lipinski_violations",
+                "tpsa": "m.tpsa",
+                "logp": "m.clogp",
+                "hbd": "m.hbd",
+                "hba": "m.hba",
+                "rotatable": "m.rotatable_bonds",
+            }[key]
+            _add_filter(where, params, column, values, numeric=True)
         elif key == "unassigned":
             where.append("NOT EXISTS (SELECT 1 FROM study_members sm WHERE sm.molecule_id = m.id)")
 
@@ -237,6 +248,10 @@ def search_molecules(
     if where_sql:
         clauses.append(where_sql)
     fallback = bool(fts_text and _looks_cjk(fts_text) and len(fts_text.strip('"')) < 3)
+    # bm25 only exists when the FTS join is in the query. A bare ?sort=rank
+    # must not produce a 500 (no such column: molecule_fts).
+    if sort == "rank" and (not fts_text or fallback):
+        order = _SORTS["updated"]
     if fts_text and not fallback:
         clauses.append("molecule_fts MATCH ?")
         params_match = [*params, fts_text]

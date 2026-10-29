@@ -29,6 +29,7 @@ const showSuggestions = ref(false)
 const importing = ref(false)
 const prepareOpen = ref(false)
 const tagInput = ref('')
+const aliasInput = ref('')
 const bulkTagInput = ref('')
 const smilesOpen = ref(false)
 const smilesText = ref('')
@@ -172,6 +173,18 @@ function columnLabel(key: string): string {
   return t(`catalog.${key === 'prep' ? 'prep' : key}`)
 }
 
+function kindLabel(value: string): string {
+  if (value === 'receptor') return t('molecules.typeReceptor')
+  if (value === 'ligand') return t('molecules.typeLigand')
+  return t('common.unknown')
+}
+
+function prepLabel(value: string): string {
+  if (value === 'prepared') return t('catalog.prepared')
+  if (value === 'unprepared' || value === 'unknown') return t('catalog.unprepared')
+  return value
+}
+
 function resetColumns(): void {
   settings.catalog.columns = [...CATALOG_COLUMNS]
 }
@@ -236,7 +249,7 @@ const tableColumns = computed<Column<CatalogMolecule>[]>(() => {
       key: 'kind',
       title: t('catalog.kind'),
       width: 64,
-      cellRenderer: ({ rowData }) => rowData.kindHint,
+      cellRenderer: ({ rowData }) => h('span', kindLabel(rowData.kindHint)),
     })
   }
   if (columnVisible('prep')) {
@@ -244,7 +257,7 @@ const tableColumns = computed<Column<CatalogMolecule>[]>(() => {
       key: 'prep',
       title: t('catalog.prep'),
       width: 70,
-      cellRenderer: ({ rowData }) => rowData.prepStatus,
+      cellRenderer: ({ rowData }) => h('span', prepLabel(rowData.prepStatus)),
     })
   }
   if (columnVisible('mw')) {
@@ -404,14 +417,22 @@ async function createLibrary(): Promise<void> {
 
 async function addToStudy(): Promise<void> {
   if (!targetStudyId.value) return
-  await store.addSelectedToStudy(targetStudyId.value)
-  ElMessage.success(t('catalog.added'))
+  try {
+    await store.addSelectedToStudy(targetStudyId.value)
+    ElMessage.success(t('catalog.added'))
+  } catch (cause) {
+    ElMessage.error(cause instanceof Error ? cause.message : String(cause))
+  }
 }
 
 async function addToCollection(): Promise<void> {
   if (!targetCollectionId.value) return
-  await store.addSelectedToCollection(targetCollectionId.value)
-  ElMessage.success(t('catalog.added'))
+  try {
+    await store.addSelectedToCollection(targetCollectionId.value)
+    ElMessage.success(t('catalog.added'))
+  } catch (cause) {
+    ElMessage.error(cause instanceof Error ? cause.message : String(cause))
+  }
 }
 
 const receptorUrl = computed(() => {
@@ -423,7 +444,7 @@ const receptorUrl = computed(() => {
 const ligandUrl = computed(() => {
   const mol = active.value
   if (!mol || mol.kindHint === 'receptor') return null
-  return `/api/catalog/molecules/${encodeURIComponent(mol.id)}/preview`
+  return `/api/catalog/molecules/${encodeURIComponent(mol.id)}/preview3d`
 })
 
 async function copySmiles(): Promise<void> {
@@ -583,6 +604,20 @@ async function removeTag(tag: string): Promise<void> {
   const mol = active.value
   if (!mol) return
   await store.patchMolecule(mol.id, { tags: mol.tags.filter((item) => item !== tag) })
+}
+
+async function addAlias(): Promise<void> {
+  const mol = active.value
+  const alias = aliasInput.value.trim()
+  if (!mol || !alias || mol.aliases.includes(alias)) return
+  await store.patchMolecule(mol.id, { aliases: [...mol.aliases, alias] })
+  aliasInput.value = ''
+}
+
+async function removeAlias(alias: string): Promise<void> {
+  const mol = active.value
+  if (!mol) return
+  await store.patchMolecule(mol.id, { aliases: mol.aliases.filter((item) => item !== alias) })
 }
 
 function openCollection(collection: { id: string; name: string }): void {
@@ -956,6 +991,11 @@ async function applySuggestion(id: string): Promise<void> {
               />
             </template>
           </el-auto-resizer>
+          <el-empty
+            v-if="!store.loading && store.molecules.length === 0"
+            :description="t('catalog.noMatches')"
+            class="catalog-empty"
+          />
         </div>
 
         <footer class="catalog-pager">
@@ -975,7 +1015,7 @@ async function applySuggestion(id: string): Promise<void> {
           <p v-if="chineseAlias(active.aliases)" class="catalog-detail__zh">
             {{ chineseAlias(active.aliases) }}
           </p>
-          <p class="muted">{{ active.kindHint }} · {{ active.source || t('catalog.local') }}</p>
+          <p class="muted">{{ kindLabel(active.kindHint) }} · {{ active.source || t('catalog.local') }}</p>
           <el-button
             v-if="active.prepStatus !== 'prepared'"
             size="small"
@@ -1059,6 +1099,29 @@ async function applySuggestion(id: string): Promise<void> {
               </div>
             </dd>
           </dl>
+          <section class="catalog-aliases">
+            <h3>{{ t('molecules.aliases') }}</h3>
+            <div class="catalog-alias-tags">
+              <el-tag
+                v-for="alias in active.aliases"
+                :key="alias"
+                size="small"
+                effect="plain"
+                closable
+                @close="removeAlias(alias)"
+              >{{ alias }}</el-tag>
+              <span v-if="!active.aliases.length" class="muted">{{ t('common.none') }}</span>
+            </div>
+            <div class="tag-input">
+              <el-input
+                v-model="aliasInput"
+                size="small"
+                :placeholder="t('molecules.aliasPlaceholder')"
+                @keyup.enter="addAlias"
+              />
+              <el-button size="small" @click="addAlias">{{ t('molecules.addAlias') }}</el-button>
+            </div>
+          </section>
           <section v-if="active.collections.length" class="catalog-collections">
             <h3>{{ t('catalog.collections') }}</h3>
             <div class="catalog-collection-links">
@@ -1235,7 +1298,7 @@ async function applySuggestion(id: string): Promise<void> {
 .facet-chip small { opacity: 0.7; }
 .facet-chip--clear { color: var(--vs-danger); }
 .catalog-scope-summary { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 12px; }
-.catalog-table-wrap { flex: 1; min-height: 160px; border: 1px solid var(--vs-border); border-radius: var(--vs-radius); overflow: hidden; }
+.catalog-table-wrap { position: relative; flex: 1; min-height: 160px; border: 1px solid var(--vs-border); border-radius: var(--vs-radius); overflow: hidden; }
 :deep(.catalog-name-cell) { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
 :deep(.catalog-name-zh) { overflow: hidden; color: var(--vs-text-muted); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
 :deep(.catalog-name-link) { border: 0; background: transparent; color: inherit; padding: 0; font: inherit; text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
@@ -1261,6 +1324,10 @@ async function applySuggestion(id: string): Promise<void> {
 .catalog-detail dl { display: grid; grid-template-columns: 82px 1fr; gap: 4px 8px; font-size: 11.5px; }
 .catalog-detail dt { color: var(--vs-text-faint); }
 .catalog-detail dd { margin: 0; overflow-wrap: anywhere; }
+.catalog-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.catalog-aliases { margin-top: 8px; }
+.catalog-aliases h3 { margin: 8px 0 5px; font-size: 12px; }
+.catalog-alias-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
 .catalog-collections h3 { margin: 10px 0 5px; font-size: 12px; }
 .catalog-collection-links { display: flex; flex-wrap: wrap; gap: 4px; }
 .catalog-collection-links button {

@@ -9,9 +9,11 @@ the user has prepared it.
 
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 
 from rdkit import Chem
+from rdkit.Chem import AllChem
 
 from vinastudio.core.chem.export import pdbqt_to_pdb, poses_to_sdf
 from vinastudio.core.chem.formats import detect_format, is_supported
@@ -78,6 +80,67 @@ def renderable_ligand(path: str | Path) -> str:
     # Ensure the output is valid SDF (with terminator) so 3Dmol's parser
     # can handle it, including single-atom molecules like metal ions.
     return f"{block.rstrip()}\n$$$$\n"
+
+
+def _renderable_ligand_3d(path: Path) -> str:
+    """Return SDF text with a real 3D conformer when the source is 2D.
+
+    The stored source is intentionally left untouched: preparation owns the
+    docking conformer and a 2D source is a legitimate, identity-preserving input.
+    This copy is only for the viewport, and is algorithmic rather than an
+    experimental structure.
+    """
+    file_path, fmt = _require(path, "ligand")
+    if fmt == "pdbqt":
+        return renderable_ligand(file_path)
+
+    mol, _ = read_mol(file_path)
+    if mol.GetNumConformers() > 0 and mol.GetConformer().Is3D():
+        block = Chem.MolToMolBlock(mol, includeStereo=True)
+    else:
+        work = Chem.AddHs(mol)
+        params = AllChem.ETKDGv3()
+        params.randomSeed = 0xC0FFEE
+        params.maxIterations = 100
+        try:
+            result = AllChem.EmbedMolecule(work, params)
+        except (RuntimeError, ValueError):
+            result = -1
+        if result != 0:
+            # Large glycosides/macrocycles can fail the default smoothing pass;
+            # this fallback still returns a valid, non-experimental conformer.
+            params.useRandomCoords = True
+            params.ignoreSmoothingFailures = True
+            try:
+                result = AllChem.EmbedMolecule(work, params)
+            except (RuntimeError, ValueError):
+                result = -1
+        if result != 0:
+            return renderable_ligand(file_path)
+        try:
+            if AllChem.MMFFHasAllMoleculeParams(work):
+                AllChem.MMFFOptimizeMolecule(work, maxIters=50)
+            else:
+                AllChem.UFFOptimizeMolecule(work, maxIters=50)
+        except (RuntimeError, ValueError):  # FF failures are not a reason to hide the molecule
+            pass
+        block = Chem.MolToMolBlock(Chem.RemoveHs(work), includeStereo=True)
+    if block is None:
+        raise InvalidInputError(f"could not convert {file_path.name} to MOL block")
+    return f"{block.rstrip()}\n$$$$\n"
+
+
+@lru_cache(maxsize=256)
+def _renderable_ligand_3d_cached(path: str, mtime_ns: int, size: int) -> str:
+    del mtime_ns, size
+    return _renderable_ligand_3d(Path(path))
+
+
+def renderable_ligand_3d(path: str | Path) -> str:
+    """Cached 3D viewport copy of a ligand source."""
+    file_path = Path(path)
+    stat = file_path.stat()
+    return _renderable_ligand_3d_cached(str(file_path), stat.st_mtime_ns, stat.st_size)
 
 
 def renderable(path: str | Path, kind: str) -> tuple[str, str]:

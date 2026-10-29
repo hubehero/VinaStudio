@@ -66,7 +66,9 @@ const ligands = ref<QueueRow[]>([])
 const ligandInput = ref<string | null>(null)
 
 const hasReceptor = computed(() => molecules.hasReceptor)
-const hasLigands = computed(() => ligands.value.length > 0 || selection.value !== null)
+const hasLigands = computed(
+  () => ligands.value.length > 0 || (selection.value !== null && !selection.value.stale),
+)
 
 const canStart = computed(
   () => hasReceptor.value && hasLigands.value && !docking.batchIsRunning,
@@ -181,7 +183,7 @@ const queueColumns = computed<Column<QueueRow>[]>(() => [
   },
   {
     key: 'qed',
-    title: 'QED',
+    title: t('docking.batch.colQed'),
     width: 90,
     align: 'right',
     cellRenderer: ({ rowData }) =>
@@ -189,7 +191,7 @@ const queueColumns = computed<Column<QueueRow>[]>(() => [
   },
   {
     key: 'lipinski',
-    title: 'Lipinski',
+    title: t('docking.batch.colLipinski'),
     width: 90,
     align: 'right',
     cellRenderer: ({ rowData }) =>
@@ -307,6 +309,18 @@ function formatElapsed(ms: number | null): string {
 
           <!-- Config form (idle state) -->
           <div v-else-if="!docking.batchIsRunning && !docking.batchIsCompleted" class="form">
+            <el-alert
+              v-if="docking.batchStatusStr === 'failed'"
+              type="error"
+              :closable="false"
+              show-icon
+              :title="t('docking.batch.failed')"
+              class="batch-failure"
+            >
+              <template #default>
+                {{ docking.batchError || t('docking.batch.noRowsHint') }}
+              </template>
+            </el-alert>
             <!-- Which receptor the batch docks against -->
             <div class="form__field">
               <label class="form__label">{{ t('molecules.typeReceptor') }}</label>
@@ -363,7 +377,10 @@ function formatElapsed(ms: number | null): string {
                 </ElButton>
                 <span v-if="selection" class="selection-chip">
                   {{ t('docking.batch.selectionReady', { n: selection.memberCount }) }}
-                  <span v-if="selection.preparedCount < selection.memberCount" class="selection-missing">
+                  <span v-if="selection.stale" class="selection-missing">
+                    {{ t('selection.stale', { live: selection.liveMemberCount ?? 0, expected: selection.memberCount }) }}
+                  </span>
+                  <span v-else-if="selection.preparedCount < selection.memberCount" class="selection-missing">
                     {{ t('docking.batch.selectionPrepared', {
                       prepared: selection.preparedCount,
                       total: selection.memberCount,
@@ -538,7 +555,7 @@ function formatElapsed(ms: number | null): string {
 
             <div class="form__actions">
               <ElButton @click="docking.resetBatch()">
-                {{ t('docking.batch.start') }} (New)
+                {{ t('docking.batch.newRun') }}
               </ElButton>
               <ElButton :icon="Download" @click="downloadBatchCsv">
                 {{ t('docking.batch.exportCsv') }}

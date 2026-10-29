@@ -976,6 +976,10 @@ export interface ProjectDockingConfig {
   cpu: number
   seed: number
   noRefine: boolean
+  maxEvals?: number
+  verbosity?: number
+  mapPaths?: string[] | null
+  weights?: number[] | null
 }
 
 export interface ProjectLigand {
@@ -1774,8 +1778,12 @@ export interface CatalogSelection {
   createdAt: number
   resolvedAt: number | null
   memberCount: number
+  liveMemberCount?: number
   preparedCount: number
   truncated: boolean
+  stale?: boolean
+  invalidatedAt?: number | null
+  invalidReason?: string | null
   schemaVersion: number
   members: CatalogSelectionMember[]
   total: number

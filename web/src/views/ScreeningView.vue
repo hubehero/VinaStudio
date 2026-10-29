@@ -88,7 +88,7 @@ const hasReceptor = computed(() => molecules.hasReceptor)
 /** Config card hides while the watched run is live (design §4). */
 const activeRunning = computed(() => screening.runStatus?.status === 'running')
 const hasRunSource = computed(
-  () => selection.value !== null || screening.activeLibraryName !== null,
+  () => (selection.value !== null && !selection.value.stale) || screening.activeLibraryName !== null,
 )
 const canStart = computed(
   () =>
@@ -450,6 +450,9 @@ function statusLabel(status: string): string {
       >
         <div v-if="selection" class="screening-selection">
           <span>{{ t('screening.selectionReady', { n: selection.memberCount }) }}</span>
+          <span v-if="selection.stale" class="selection-missing">
+            {{ t('selection.stale', { live: selection.liveMemberCount ?? 0, expected: selection.memberCount }) }}
+          </span>
           <el-button text size="small" @click="clearSelection">{{ t('common.clear') }}</el-button>
         </div>
         <el-alert

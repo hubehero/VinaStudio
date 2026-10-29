@@ -29,6 +29,10 @@ class ProjectDockingConfig(BaseModel):
     cpu: int = 0
     seed: int = 0
     noRefine: bool = False
+    maxEvals: int = 0
+    verbosity: int = 1
+    mapPaths: list[str] | None = None
+    weights: list[float] | None = None
 
 
 class ProjectLigand(BaseModel):

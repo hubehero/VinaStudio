@@ -2,7 +2,7 @@
 import { Search } from '@element-plus/icons-vue'
 import { ElAutoResizer, ElButton, ElCheckbox, ElDialog, ElInput, ElInputNumber, ElMessage, ElMessageBox, ElOption, ElOptionGroup, ElSelect, ElTableV2 } from 'element-plus'
 import type { Column } from 'element-plus'
-import { computed, h, ref, watch } from 'vue'
+import { computed, h, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { api } from '@/api/http'
@@ -310,8 +310,23 @@ watch(
   },
 )
 
-watch([scope, preparedOnly], () => {
-  void search(true)
+let filterTimer: ReturnType<typeof setTimeout> | undefined
+
+function queueSearch(): void {
+  if (filterTimer !== undefined) clearTimeout(filterTimer)
+  filterTimer = setTimeout(() => {
+    filterTimer = undefined
+    void search(true)
+  }, 200)
+}
+
+watch(
+  [scope, preparedOnly, mwMin, mwMax, qedMin, tpsaMax, logpMax],
+  queueSearch,
+)
+
+onUnmounted(() => {
+  if (filterTimer !== undefined) clearTimeout(filterTimer)
 })
 </script>
 

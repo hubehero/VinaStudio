@@ -297,7 +297,7 @@ def inspect_receptor(path: str | Path) -> ReceptorInspection:
 # --------------------------------------------------------------------------
 
 
-def _resolve_histidine_ambiguity(text: str) -> tuple[str, list[str]]:
+def _resolve_histidine_ambiguity(text: str) -> tuple[str, list[str], list[str]]:
     """Rename plain ``HIS`` residues to HID/HIE/HIP from their imidazole H.
 
     Meeko's automatic protonation-state selection raises a ``RuntimeError``
@@ -305,8 +305,9 @@ def _resolve_histidine_ambiguity(text: str) -> tuple[str, list[str]]:
     it cannot break the tie.  Protonation must follow the hydrogens actually
     present on the residue: renaming every HIS to HIE makes Meeko reject
     doubly-protonated (HIP-like) residues such as 1iep A:246 as excess-H
-    template mismatches.  HID has HD1 only, HIE has HE2 only, HIP has both;
-    a residue with neither imidazole H defaults to HIE.
+    template mismatches.  HID has HD1 only, HIE has HE2 only, HIP has both.
+    A residue with neither imidazole H has no input evidence for a tautomer;
+    it defaults to HIE for Meeko, and the caller reports that assumption.
     """
     lines = text.splitlines()
     has_hd1: dict[str, bool] = {}
@@ -329,6 +330,7 @@ def _resolve_histidine_ambiguity(text: str) -> tuple[str, list[str]]:
             has_he2[key] = True
 
     states: dict[str, str] = {}
+    defaults: list[str] = []
     for i, key in his_line_keys:
         hd1 = has_hd1.get(key, False)
         he2 = has_he2.get(key, False)
@@ -337,11 +339,17 @@ def _resolve_histidine_ambiguity(text: str) -> tuple[str, list[str]]:
         elif hd1:
             state = "HID"
         else:
-            state = "HIE"  # HE2 present, or neither (safe docking default)
+            state = "HIE"
+            if not hd1 and not he2 and key not in defaults:
+                defaults.append(key)
         states[key] = state
         line = lines[i]
         lines[i] = line[:17] + state + line[20:]
-    return "\n".join(lines), [f"{key} {states[key]}" for key in sorted(states)]
+    return (
+        "\n".join(lines),
+        [f"{key} {states[key]}" for key in sorted(states)],
+        defaults,
+    )
 
 
 # --------------------------------------------------------------------------
@@ -402,7 +410,12 @@ def prepare_receptor(
     # Resolve ambiguous histidine protonation (HIS → HID/HIE/HIP by HD1/HE2)
     # so meeko does not raise a RuntimeError when templates tie, and so
     # doubly-protonated residues are not forced onto the HIE template.
-    text, histidine_states = _resolve_histidine_ambiguity(text)
+    text, histidine_states, histidine_defaults = _resolve_histidine_ambiguity(text)
+    if histidine_defaults:
+        warnings.append(
+            "histidine tautomer unresolved (no HD1/HE2); defaulted to HIE: "
+            + ", ".join(histidine_defaults)
+        )
 
     requested_keep = {key.strip() for key in options.keep_residues if key.strip()}
     known_solvent = set(waters) | set(hetero)

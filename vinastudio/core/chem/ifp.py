@@ -10,6 +10,7 @@ column the fingerprint residue keys need (task book勘误 ①②).
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from vinastudio.core.chem.autodock_types import element_for
@@ -83,7 +84,7 @@ def parse_receptor_atoms(path: str) -> list[dict[str, Any]]:
     atoms = []
     parsed = 0
     # Preparation writes `.pdbqt`; the column the element lives in depends on it.
-    is_pdbqt = path.endswith(".pdbqt")
+    is_pdbqt = Path(path).suffix.lower() == ".pdbqt"
     try:
         with open(path, encoding="utf-8") as f:
             for line in f:
@@ -114,9 +115,9 @@ def parse_ligand_atoms(path: str = "", pdbqt_string: str = "") -> list[dict[str,
         try:
             with open(path, encoding="utf-8") as f:
                 content = f.read()
-            if path.endswith(".pdbqt"):
+            if Path(path).suffix.lower() == ".pdbqt":
                 atoms = parse_ligand_pdbqt(content)
-            elif path.endswith(".sdf"):
+            elif Path(path).suffix.lower() == ".sdf":
                 atoms = parse_ligand_sdf(content)
         except OSError as exc:
             raise InvalidInputError(f"cannot read ligand file {path}: {brief_error(exc)}") from exc

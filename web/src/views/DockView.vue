@@ -1,18 +1,23 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import DockingForm from '@/components/docking/DockingForm.vue'
 import DockingInteractions from '@/components/docking/DockingInteractions.vue'
 import DockingLog from '@/components/docking/DockingLog.vue'
 import DockingResults from '@/components/docking/DockingResults.vue'
 import DockingWorkbench from '@/components/docking/DockingWorkbench.vue'
+import HelpLink from '@/components/HelpLink.vue'
 import ViewportCanvas from '@/components/viewer/ViewportCanvas.vue'
 import { useBoxStore } from '@/stores/box'
 import { useDockingStore } from '@/stores/docking'
+import { useDockingFormStore } from '@/stores/docking-form'
 import { useMoleculeStore } from '@/stores/molecules'
 import type { InteractionData } from '@/types/api'
 
+const { t } = useI18n()
 const docking = useDockingStore()
+const dockingForm = useDockingFormStore()
 const molecules = useMoleculeStore()
 const box = useBoxStore()
 
@@ -40,7 +45,9 @@ watch(
 const ligandUrl = computed(() => (docking.currentPoseSdf ? null : molecules.ligandSdfUrl))
 
 onMounted(() => {
-  void docking.loadDefaults()
+  void docking.loadDefaults().then(() => {
+    if (docking.defaults) dockingForm.applyDefaults(docking.defaults)
+  })
 })
 </script>
 
@@ -64,6 +71,11 @@ onMounted(() => {
            for.  It renders nothing while no result exists, so the form still
            occupies the top of the sidebar before the first run. -->
       <DockingResults />
+      <div v-if="docking.status === 'failed'" class="docking-failure">
+        <div class="docking-failure__title">{{ t('docking.status.failed') }}</div>
+        <p>{{ docking.error || t('docking.errorStartFailed') }}</p>
+        <HelpLink topic="dockingFailed" />
+      </div>
       <DockingForm />
       <DockingLog />
       <DockingInteractions v-model="interactions" />
@@ -90,6 +102,16 @@ onMounted(() => {
   min-height: 0;
 }
 
+.docking-failure {
+  padding: 10px 12px;
+  border: 1px solid var(--vs-danger);
+  border-radius: var(--vs-radius);
+  background: color-mix(in srgb, var(--vs-danger) 10%, transparent);
+  color: var(--vs-text);
+  font-size: 12px;
+}
+.docking-failure__title { font-weight: 600; margin-bottom: 4px; color: var(--vs-danger); }
+.docking-failure p { margin: 0 0 6px; overflow-wrap: anywhere; }
 .docking-view__side {
   min-height: 0;
   overflow: auto;

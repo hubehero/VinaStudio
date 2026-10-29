@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { FolderOpened, Document } from '@element-plus/icons-vue'
-import { ElButton, ElDialog, ElInput, ElMessage, ElTable, ElTableColumn } from 'element-plus'
+import { ElButton, ElDialog, ElInput, ElMessage, ElMessageBox, ElTable, ElTableColumn } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -108,6 +108,15 @@ async function handleLoad(path: string): Promise<void> {
 }
 
 async function handleDelete(filename: string): Promise<void> {
+  try {
+    await ElMessageBox.confirm(
+      t('project.deleteConfirm', { name: filename }),
+      t('common.delete'),
+      { type: 'warning', confirmButtonText: t('common.delete'), cancelButtonText: t('common.cancel') },
+    )
+  } catch {
+    return
+  }
   const success = await project.deleteProject(filename)
   if (success) {
     ElMessage.success(t('project.deletedSuccess'))

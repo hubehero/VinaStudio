@@ -5,6 +5,7 @@ import { ref } from 'vue'
 import { api } from '@/api/http'
 import { i18n } from '@/i18n'
 import { useBoxStore } from '@/stores/box'
+import { useDockingFormStore } from '@/stores/docking-form'
 import { useMoleculeStore } from '@/stores/molecules'
 import type { ProjectFile, ProjectListEntry } from '@/types/api'
 
@@ -22,6 +23,7 @@ export const useProjectStore = defineStore('project', () => {
     currentPath.value = null
     projectName.value = 'untitled'
     isDirty.value = false
+    useDockingFormStore().reset()
   }
 
   function markDirty(): void {
@@ -182,16 +184,7 @@ export const useProjectStore = defineStore('project', () => {
         center: [...box.center],
         size: [...box.size],
       },
-      docking: currentProject.value?.docking ?? {
-        scoring: 'vina',
-        exhaustiveness: 8,
-        nPoses: 20,
-        energyRange: 3.0,
-        minRmsd: 1.0,
-        cpu: 0,
-        seed: 0,
-        noRefine: false,
-      },
+      docking: useDockingFormStore().snapshot(),
       lastJobId: currentProject.value?.lastJobId ?? null,
       results: currentProject.value?.results ?? [],
     }
@@ -209,6 +202,7 @@ export const useProjectStore = defineStore('project', () => {
   async function restoreFromProject(project: ProjectFile): Promise<void> {
     const box = useBoxStore()
     const molecules = useMoleculeStore()
+    useDockingFormStore().applyProject(project.docking)
 
     // Restore box — pure data, always succeeds.
     if (project.box) {

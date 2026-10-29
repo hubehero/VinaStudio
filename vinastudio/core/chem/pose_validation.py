@@ -113,7 +113,7 @@ def validate_pose(
                 findings.append(
                     Finding(
                         code="reference_unmatched",
-                        severity="warning",
+                        severity="error",
                         message_key=f"{MESSAGE_KEY_PREFIX}reference_unmatched",
                         detail={
                             "poseAtoms": pose_mol.GetNumAtoms(),

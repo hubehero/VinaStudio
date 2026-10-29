@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { DataAnalysis, Download, RefreshRight, VideoPause, VideoPlay } from '@element-plus/icons-vue'
 import { ElButton, ElInput, ElInputNumber, ElMessage, ElOption, ElProgress, ElSelect, ElSlider, ElSwitch } from 'element-plus'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
@@ -10,6 +11,7 @@ import MoleculeSelect from '@/components/common/MoleculeSelect.vue'
 import { downloadTextFile } from '@/utils/download'
 import { useBoxStore } from '@/stores/box'
 import { useDockingStore } from '@/stores/docking'
+import { useDockingFormStore } from '@/stores/docking-form'
 import { useMoleculeStore } from '@/stores/molecules'
 import type { ScoringFunction } from '@/types/api'
 
@@ -27,24 +29,26 @@ const scoringOptions: { value: ScoringFunction; label: string }[] = [
   { value: 'ad4', label: 'AutoDock4' },
 ]
 
-const scoring = ref<ScoringFunction>('vina')
-const exhaustiveness = ref(8)
-const nPoses = ref(20)
-const energyRange = ref(3.0)
-const minRmsd = ref(1.0)
-const maxEvals = ref(0)
-const cpu = ref(0)
-const seed = ref(0)
-const noRefine = ref(false)
-const verbosity = ref(1)
-const mapPathsRaw = ref('')
-const weightsRaw = ref('')
+const form = useDockingFormStore()
+const {
+  scoring,
+  exhaustiveness,
+  nPoses,
+  energyRange,
+  minRmsd,
+  maxEvals,
+  cpu,
+  seed,
+  noRefine,
+  verbosity,
+  mapPathsRaw,
+  weightsRaw,
+  ensembleMode,
+  ensembleReceptorIds,
+} = storeToRefs(form)
 
 const hasReceptor = computed(() => molecules.hasReceptor)
 const hasLigand = computed(() => molecules.hasLigand)
-
-const ensembleMode = ref(false)
-const ensembleReceptorIds = ref<string[]>([])
 
 const selectedEnsembleReceptors = computed(() =>
   molecules.usableReceptors.filter((mol) => ensembleReceptorIds.value.includes(mol.id)),

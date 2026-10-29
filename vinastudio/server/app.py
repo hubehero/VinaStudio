@@ -6,6 +6,7 @@ import asyncio
 import logging
 import mimetypes
 import os
+import sqlite3
 import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -164,6 +165,13 @@ def _add_domain_error_handler(app: FastAPI) -> None:
         if error.status_code >= 500:
             log.exception("unhandled domain error: %s", error)
         return JSONResponse(status_code=error.status_code, content=payload)
+
+    @app.exception_handler(sqlite3.IntegrityError)
+    async def _handle_integrity(_request: Request, error: sqlite3.IntegrityError) -> JSONResponse:
+        # A client-visible constraint conflict is a 409, not an unhandled 500.
+        # The exception text is not exposed; it may contain SQL/table details.
+        log.info("catalog constraint conflict: %s", error)
+        return JSONResponse(status_code=409, content={"detail": "database constraint conflict"})
 
 
 def _mount_artifacts(app: FastAPI) -> None:

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import en from 'element-plus/es/locale/lang/en'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
-import { ElMessage } from 'element-plus'
+import { ElButton, ElMessage } from 'element-plus'
 import { computed, onBeforeUnmount, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -172,6 +172,15 @@ function onWorkspaceComplete() {
   // Just need to fetch system data and start services
   void system.refresh().then(() => startServices())
 }
+
+async function retryWorkspace(): Promise<void> {
+  await workspace.fetchWorkspace()
+  if (workspace.isConfigured) {
+    await system.refresh()
+    await molecules.loadFromManifest()
+    startServices()
+  }
+}
 </script>
 
 <template>
@@ -182,6 +191,14 @@ function onWorkspaceComplete() {
     </div>
 
     <!-- Show workspace wizard on first launch -->
+    <!-- A dead local service is not a first-launch state: do not offer a
+         workspace directory that every subsequent request cannot use. -->
+    <div v-else-if="workspace.error && !workspace.workspace" class="workspace-error">
+      <h2>{{ t('errors.backendUnreachable') }}</h2>
+      <p>{{ workspace.error }}</p>
+      <ElButton type="primary" @click="retryWorkspace">{{ t('common.retry') }}</ElButton>
+    </div>
+
     <WorkspaceWizard
       v-else-if="!workspace.isConfigured"
       @complete="onWorkspaceComplete"
@@ -224,6 +241,21 @@ function onWorkspaceComplete() {
   height: 100vh;
   background: var(--vs-bg-app, #0d1526);
 }
+
+.workspace-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 100vh;
+  padding: 24px;
+  text-align: center;
+  background: var(--vs-bg-app, #0d1526);
+  color: var(--vs-text, #e6edf3);
+}
+.workspace-error h2 { margin: 0; font-size: 18px; }
+.workspace-error p { max-width: 560px; margin: 0; color: var(--vs-text-muted, #8b949e); overflow-wrap: anywhere; }
 
 .workspace-loading__spinner {
   width: 32px;

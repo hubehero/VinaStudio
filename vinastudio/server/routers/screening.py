@@ -255,6 +255,10 @@ def get_screening_library(name: str) -> LibraryDetail:
 @router.post("/runs", response_model=ScreeningRunCreated)
 def start_run(request: ScreeningStartRequest) -> ScreeningRunCreated:
     """Start a screening run over a legacy library, catalog library or selection."""
+    if request.scoring == "ad4":
+        raise InvalidInputError(
+            "screening supports vina/vinardo; AD4 maps are not part of this request"
+        )
     library_name = request.library
     library_dir_value: str
     display_name: str
@@ -277,6 +281,15 @@ def start_run(request: ScreeningStartRequest) -> ScreeningRunCreated:
                     status_code=404, detail=f"selection not found: {request.selectionId}"
                 )
             members = catalog_store.selection_entries(conn, request.selectionId)
+            expected = int(selection["memberCount"])
+            if selection.get("stale") or len(members) != expected:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"selection {request.selectionId} is stale ({len(members)}/{expected} "
+                        "members); recreate the selection before running it"
+                    ),
+                )
         if not members:
             raise HTTPException(
                 status_code=409, detail=f"selection {request.selectionId} has no entries"
@@ -451,7 +464,7 @@ def resume_run(job_id: str) -> ScreeningRunStatus:
         raise HTTPException(
             status_code=409, detail="screening.jsonl has no terminal rows to resume"
         )
-    roster = state.params.get("entries") or []
+    roster = job_manager.entry_roster(state.params)
     remaining = [
         entry for entry in roster
         if isinstance(entry, dict) and int(entry.get("index", -1)) not in skip

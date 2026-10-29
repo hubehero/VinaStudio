@@ -277,6 +277,7 @@ def failure_reasons(
     best_affinity: float | None,
     best_pose_error: bool,
     error_poses: int = 0,
+    reference_unmatched: bool = False,
 ) -> list[str]:
     """The single place that decides whether a completed case passes."""
     reasons: list[str] = []
@@ -289,8 +290,12 @@ def failure_reasons(
         reasons.append(
             f"best RMSD {best_rmsd:.3f} Å exceeds {case.rmsd_threshold:.3f} Å"
         )
+    if reference_unmatched:
+        reasons.append("reference could not be matched; reference-relative checks were skipped")
     if best_pose_error:
         reasons.append("the best pose has a geometry error")
+    if error_poses > 0 and not best_pose_error:
+        reasons.append(f"{error_poses} pose(s) have geometry errors")
     if case.affinity_range is not None and best_affinity is not None:
         low, high = case.affinity_range
         if not low <= best_affinity <= high:
@@ -474,9 +479,10 @@ def format_markdown(report: ValidationReport) -> str:
     lines += [
         "",
         "A pass means: at least one pose, best RMSD within the configured threshold, "
-        "no geometry error in the best pose, and any configured affinity range met. "
-        "Warnings are recorded but do not fail a case. Skipped cases mean their "
-        "optional input files are absent; they are not evidence of success.",
+        "the reference could be matched for reference-relative checks, no geometry "
+        "error in any pose, and any configured affinity range met. Warnings are "
+        "recorded but do not fail a case. Skipped cases mean their optional input "
+        "files are absent; they are not evidence of success.",
         "",
     ]
     return "\n".join(lines)

@@ -41,6 +41,21 @@ def _source_sdf(conn: sqlite3.Connection, molecule_id: str) -> Path | None:
     return None
 
 
+def invalidate_library_materialization(workspace: Path, library_id: str) -> None:
+    """Remove a derived legacy-layout copy after a membership change.
+
+    The Catalog view is authoritative; the ``libraries/<id>`` directory is a
+    legacy screening view. Leaving the old copy in place made the two views
+    disagree after a member deletion.
+    """
+    try:
+        destination = resolve_within(libraries_root(workspace / "libraries"), library_id)
+    except ValueError:
+        return
+    if destination.is_dir():
+        shutil.rmtree(destination, ignore_errors=True)
+
+
 def materialize_library(
     conn: sqlite3.Connection,
     library_id: str,
@@ -61,6 +76,7 @@ def materialize_library(
         destination = resolve_within(root, library_id)
     except ValueError as exc:
         raise InvalidInputError(f"invalid library id: {library_id}") from exc
+    members = store.library_entries(conn, library_id)
     signature = hashlib.sha256(
         json.dumps(
             [
@@ -69,7 +85,7 @@ def materialize_library(
                     "id": member.get("id"),
                     "prepared": member.get("prepared_path"),
                 }
-                for member in library["members"]
+                for member in members
             ],
             sort_keys=True,
         ).encode()
@@ -86,9 +102,10 @@ def materialize_library(
     mols.mkdir(parents=True, exist_ok=True)
     entries: list[dict[str, object]] = []
     used = 0
-    for member in library["members"]:
-        source = _source_sdf(conn, member["id"])
-        if source is None:
+    for member in members:
+        source_value = member.get("source_path")
+        source = Path(str(source_value)) if source_value else None
+        if source is None or not source.is_file():
             raise InvalidInputError(
                 f"molecule {member['name']} has no renderable SDF source; "
                 "prepare/export it before adding it to a screening library"
@@ -96,11 +113,7 @@ def materialize_library(
         index = int(member["entry_index"])
         target = mols / f"{index:06d}.sdf"
         _write_sdf(source, target)
-        detail = store.get_molecule(conn, member["id"])
-        prepared = member.get("prepared_path") or next(
-            (item["path"] for item in (detail or {}).get("files", []) if item["kind"] == "pdbqt"),
-            None,
-        )
+        prepared = member.get("prepared_path")
         if prepared:
             try:
                 prepared_path = resolve_within(workspace, str(prepared))

@@ -145,14 +145,24 @@ async def upload(
         from vinastudio.core.workspace import ligands_dir, receptors_dir
 
         dest_dir = receptors_dir(ws) if suffix in RECEPTOR_SUFFIXES else ligands_dir(ws)
-        # Handle filename collisions by appending a counter.
-        target_path = dest_dir / name
-        counter = 1
-        while target_path.exists():
-            stem = Path(name).stem
-            target_path = dest_dir / f"{stem}_{counter}{suffix}"
-            counter += 1
-        target_path.write_bytes(payload)
+        # Create the final name with O_EXCL rather than checking exists() and
+        # writing later: two concurrent uploads of the same name otherwise both
+        # choose it and one payload is silently lost.
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        stem = Path(name).stem
+        counter = 0
+        while True:
+            candidate = dest_dir / (name if counter == 0 else f"{stem}_{counter}{suffix}")
+            try:
+                with candidate.open("xb") as handle:
+                    handle.write(payload)
+                target_path = candidate
+                break
+            except FileExistsError:
+                counter += 1
+            except BaseException:
+                candidate.unlink(missing_ok=True)
+                raise
         log.info("stored upload %s (%d bytes) in %s", name, len(payload), dest_dir)
         return SavedUpload(
             path=str(target_path),

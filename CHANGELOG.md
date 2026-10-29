@@ -12,6 +12,36 @@ entries about the product — no internal task ids or workflow narration.
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-10-29
+
+### 修复
+
+- **Redocking RMSD**：配体与晶体参考比较时不再做刚体叠加；错位到其他口袋的 pose 不再被报成 0 Å，聚类也不会合并不同结合位点。
+- **Catalog 筛选**：QED/TPSA/LogP/HBD/HBA/可旋转键筛选现在真正参与检索和“全选匹配”，不再冻结未过滤的分子集合。
+- **对接失败与复现**：对接/批量失败会显示错误；seed、exhaustiveness、权重、地图前缀等参数在页面切换和工程保存/恢复后保留。
+- **受体准备**：无 HD1/HE2 的组氨酸明确记录为 HIE 默认假设；批量/虚拟筛选拒绝缺少地图通道的 AD4。
+- **Catalog 交互**：切换筛选器会刷新结果；支持编辑分子别名；空结果有明确提示；工程删除需要确认；未连接后端时不再显示首次工作区向导。
+
+- **运行快照失效**：删除选择成员会把批量/筛选选择标记为 stale，运行前拒绝并提示重建；库成员/准备产物变化会失效旧的 legacy 物化目录。
+- **交互打分边界**：`/score`、`/optimize`、`/randomize` 共用单飞地图构建并限制盒体网格数，超限返回可解释的 4xx。
+- **验证与 API 边界**：参考结构无法匹配或任一人为 pose 几何错误会阻止验证通过；Catalog 常见非法成员/重复入口返回 4xx；上传使用原子独占创建。
+- **Redocking 控制台**：结果页显示 top/best pose 的固定坐标系 RMSD、成功率与判定，并提供本次运行协议摘要和复制。
+- **内置药物图形**：内置库的 2D 源改用 CoordGen、环模板和规范朝向，并写入立体楔形/虚键；详情预览新增 `/preview3d`，对 2D 源用 ETKDG 生成缓存的 3D 构象，不再只显示平面骨架。旧工作区会一次性刷新仍属于内置库的 2D SDF，不重建已删除的库。
+
+### Fixed
+
+- **Redocking RMSD**: ligand-to-reference comparison no longer rigid-body superposes; a pose moved to another pocket is no longer reported as 0 Å, and clustering does not merge different sites.
+- **Catalog filters**: QED/TPSA/LogP/HBD/HBA/rotatable filters now affect both results and “select all matching” instead of freezing an unfiltered set.
+- **Failure and reproducibility**: docking/batch failures show their error; seed, exhaustiveness, weights and map prefix survive navigation and project save/load.
+- **Receptor preparation**: histidines without HD1/HE2 are explicitly reported as a HIE default; batch/screening reject AD4 without a map channel.
+- **Catalog UX**: changing filters refreshes results; aliases are editable; empty results are explained; project deletion confirms; an unreachable backend no longer opens the first-launch wizard.
+
+- **Run snapshot invalidation**: deleting a selection member marks affected batch/screening selections stale and blocks the run with a rebuild prompt; library membership/preparation changes invalidate the old legacy materialisation.
+- **Interactive scoring bounds**: `/score`, `/optimize` and `/randomize` share one map-building slot and reject boxes above the grid-cell limit with an explanatory 4xx.
+- **Validation/API boundaries**: an unmatched reference or any pose with a geometry error now prevents a validation pass; common malformed Catalog members/duplicate entries return 4xx; uploads use exclusive atomic creation.
+- **Redocking console**: the results view shows fixed-frame top/best pose RMSD, success and verdict, plus a copyable run-protocol summary.
+- **Built-in depictions**: built-in 2D sources now use CoordGen ring templates and canonical orientation, with wedge/hash stereo bonds, while the detail viewer uses a cached ETKDG `/preview3d` conformer instead of showing only the flat skeleton. Existing workspaces refresh owned built-in SDFs once without recreating a deleted library.
+
 ## [0.6.2] - 2026-10-27
 
 ### 新增

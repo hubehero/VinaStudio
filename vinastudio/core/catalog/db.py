@@ -16,7 +16,7 @@ from pathlib import Path
 
 from vinastudio.core import paths
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 _WRITE_LOCK = threading.RLock()
 
@@ -186,7 +186,9 @@ _TABLE_DDL = (
         resolved_at REAL,
         member_count INTEGER NOT NULL DEFAULT 0,
         truncated INTEGER NOT NULL DEFAULT 0,
-        schema_version INTEGER NOT NULL DEFAULT 1
+        schema_version INTEGER NOT NULL DEFAULT 1,
+        invalidated_at REAL,
+        invalid_reason TEXT
     )""",
     """CREATE TABLE IF NOT EXISTS selection_members (
         selection_id TEXT NOT NULL REFERENCES selections(id) ON DELETE CASCADE,
@@ -286,6 +288,16 @@ def _add_v2_columns(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE molecules ADD COLUMN {name} {column_type}")
 
 
+def _add_v3_columns(conn: sqlite3.Connection) -> None:
+    """Add explicit invalidation state to pre-v3 selection snapshots."""
+    existing = {
+        str(row["name"]) for row in conn.execute("PRAGMA table_info(selections)").fetchall()
+    }
+    for name, column_type in (("invalidated_at", "REAL"), ("invalid_reason", "TEXT")):
+        if name not in existing:
+            conn.execute(f"ALTER TABLE selections ADD COLUMN {name} {column_type}")
+
+
 def ensure_schema(conn: sqlite3.Connection) -> None:
     """Create or migrate the catalog; refuse a newer schema."""
     conn.execute("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)")
@@ -301,6 +313,7 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
         if "CREATE INDEX" not in ddl:
             conn.execute(ddl)
     _add_v2_columns(conn)
+    _add_v3_columns(conn)
     for ddl in _TABLE_DDL:
         if "CREATE INDEX" in ddl:
             conn.execute(ddl)

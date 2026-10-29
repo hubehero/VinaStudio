@@ -53,6 +53,8 @@ export default {
     about: '关于',
   },
   common: {
+    ok: '确定',
+    save: '保存',
     refresh: '刷新',
     reload: '重新加载',
     loading: '加载中…',
@@ -581,6 +583,27 @@ export default {
       cluster: '簇',
       status: '几何体检',
     },
+    redock: {
+      title: 'Redocking 对照',
+      recovered: '已找回（<2 Å）',
+      notRecovered: '未找回',
+      topPose: '排名第一的 pose',
+      bestPose: '最佳 pose',
+      successRate: '成功率',
+      hint: '在共同受体坐标系内做对称校正、不做刚体叠加的 RMSD 对照（阈值 {threshold} Å）。低 RMSD 只是一个对照，不能证明整个筛选有效。',
+    },
+    protocol: {
+      title: '本次运行协议',
+      scoring: '打分函数',
+      engine: '引擎',
+      exhaustiveness: '穷举度',
+      seed: '随机种子',
+      poses: '请求构象数',
+      center: '盒子中心',
+      size: '盒子尺寸',
+      copied: '协议已复制',
+      copyFailed: '协议复制失败',
+    },
     rmsd: {
       run: 'RMSD 对照',
       reference: '参考配体',
@@ -659,6 +682,7 @@ export default {
     errorExportCsv: '导出 CSV 失败',
     errorExportPose: '导出构象失败',
     batch: {
+      newRun: '新建批量任务',
       title: '批量筛选',
       subtitle: '多配体批量对接',
       addLigands: '添加配体',
@@ -786,6 +810,8 @@ export default {
       metaLigand: '配体',
       metaCreated: '创建时间',
       metaScoring: '打分函数',
+      metaProtocol: '运行协议',
+      metaBox: '盒子中心 / 尺寸',
       metaElapsed: '用时',
       metricsTitle: '关键指标',
       metricBest: '最佳亲和力',
@@ -848,6 +874,7 @@ export default {
     },
   },
   project: {
+    deleteConfirm: '删除项目“{name}”？项目文件将被永久删除；不会删除分子文件。',
     title: '项目管理',
     save: '保存',
     saveAs: '另存为',
@@ -871,6 +898,7 @@ export default {
     deletedFailed: '删除项目失败',
   },
   selection: {
+    stale: '本次运行选择已失效（{live}/{expected} 个成员）；请重新选择分子。',
     title: '从本地分子库选择',
     scopeGeneral: '分子目录',
     all: '全部分子',
@@ -886,6 +914,8 @@ export default {
     truncated: '选择已截断到 {n} 个分子',
   },
   catalog: {
+    noMatches: '没有符合筛选条件的分子',
+    unprepared: '未准备',
     proteinMass: '蛋白分子量',
     proteinMassNote: '按 PDB 中建模的蛋白残基计算，不含共晶配体、水和缺失残基。',
     pdbId: 'PDB ID',

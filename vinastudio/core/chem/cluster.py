@@ -3,8 +3,9 @@
 Answers "how many distinct binding modes does this pose list contain" by
 grouping poses whose symmetry-corrected heavy-atom RMSD falls within
 ``cutoff``. Distances come exclusively from ``rmsd.rmsd_between`` — one
-GetBestRMS path shared with redocking RMSD, never a second copy of the
-algorithm (task book §8).
+no-superposition path shared with redocking RMSD, never a second copy of the
+algorithm. Poses are already in the receptor frame; translating one to another
+site must remain a different mode.
 
 The representative (``centroid_index``) is the member with the smallest mean
 distance to the other members — geometric representativeness, deliberately
@@ -47,8 +48,8 @@ def cluster_poses(pose_mols: list[Chem.Mol], cutoff: float = DEFAULT_CLUSTER_CUT
 
     BUTINA: rank points by neighbour count (``distance <= cutoff``), then
     repeatedly seed a cluster from the highest-ranked unassigned point and
-    pull in all its still-unassigned neighbours. O(n²) distance matrix —
-    20×20 poses are trivially cheap.
+    pull in all its still-unassigned neighbours. O(n²) distance matrix; the
+    upper bound matters for large/exhaustive pose sets.
 
     Input molecules are never mutated: ``rmsd_between`` copies internally.
     """

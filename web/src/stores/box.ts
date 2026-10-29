@@ -27,6 +27,8 @@ export const useBoxStore = defineStore('box', () => {
    * `write_maps` will actually accept.
    */
   const metrics = ref<BoxMetrics | null>(null)
+  /** True only after the user edits, imports, autoboxes or picks a candidate. */
+  const touched = ref(false)
   const measuring = ref(false)
   const error = ref<string | null>(null)
   const autoboxPoints = ref<number | null>(null)
@@ -103,11 +105,13 @@ export const useBoxStore = defineStore('box', () => {
 
   function setCenter(next: [number, number, number]): void {
     center.value = [round(next[0]), round(next[1]), round(next[2])]
+    touched.value = true
   }
 
   function setCenterAxis(axis: Axis, value: number): void {
     // The centre may be negative; only the size has a lower bound.
     replaceAxis(center, axis, value, Number.NEGATIVE_INFINITY)
+    touched.value = true
   }
 
   function setSize(next: [number, number, number]): void {
@@ -116,12 +120,14 @@ export const useBoxStore = defineStore('box', () => {
       Math.max(round(next[1]), 1),
       Math.max(round(next[2]), 1),
     ]
+    touched.value = true
   }
 
   function setSizeAxis(axis: Axis, value: number): void {
     // A zero or negative edge is not a box; clamping here also keeps the
     // viewport from drawing a degenerate shape while the backend would reject it.
     replaceAxis(size, axis, value, 1)
+    touched.value = true
   }
 
   async function autoboxFromLigand(path: string, extend: number): Promise<boolean> {
@@ -154,6 +160,7 @@ export const useBoxStore = defineStore('box', () => {
     try {
       const result = await call()
       applyMetrics(result.box)
+      touched.value = true
       autoboxPoints.value = result.points
       autoboxSource.value = result.source
       return true
@@ -203,6 +210,7 @@ export const useBoxStore = defineStore('box', () => {
 
   function applyPocket(candidate: PocketCandidate): void {
     applyMetrics(candidate.box)
+    touched.value = true
   }
 
   function clearPockets(): void {
@@ -221,6 +229,7 @@ export const useBoxStore = defineStore('box', () => {
     error.value = null
     try {
       applyMetrics(await api.boxFromConfig(text))
+      touched.value = true
       return true
     } catch (cause) {
       error.value = cause instanceof ApiError ? cause.message : String(cause)
@@ -243,6 +252,7 @@ export const useBoxStore = defineStore('box', () => {
     spacing,
     forceEvenVoxels,
     metrics,
+    touched,
     measuring,
     error,
     geometry,

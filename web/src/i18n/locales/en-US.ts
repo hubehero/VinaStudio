@@ -53,6 +53,8 @@ export default {
     about: 'About',
   },
   common: {
+    ok: 'OK',
+    save: 'Save',
     refresh: 'Refresh',
     reload: 'Reload',
     loading: 'Loading…',
@@ -581,6 +583,27 @@ export default {
       cluster: 'Cluster',
       status: 'Geometry',
     },
+    redock: {
+      title: 'Redocking control',
+      recovered: 'Recovered (<2 Å)',
+      notRecovered: 'Not recovered',
+      topPose: 'Top-ranked pose',
+      bestPose: 'Best pose',
+      successRate: 'Success rate',
+      hint: 'In-place symmetry-corrected RMSD against the reference in the shared receptor frame (threshold {threshold} Å). A low RMSD is one control, not proof of a screen.',
+    },
+    protocol: {
+      title: 'Run protocol',
+      scoring: 'Scoring',
+      engine: 'Engine',
+      exhaustiveness: 'Exhaustiveness',
+      seed: 'Seed',
+      poses: 'Requested poses',
+      center: 'Box center',
+      size: 'Box size',
+      copied: 'Protocol copied',
+      copyFailed: 'Could not copy the protocol',
+    },
     rmsd: {
       run: 'Redocking RMSD',
       reference: 'Reference ligand',
@@ -659,6 +682,7 @@ export default {
     errorExportCsv: 'Failed to export CSV',
     errorExportPose: 'Failed to export pose',
     batch: {
+      newRun: 'New batch',
       title: 'Batch Screening',
       subtitle: 'Multi-ligand batch docking',
       addLigands: 'Add Ligands',
@@ -786,6 +810,8 @@ export default {
       metaLigand: 'Ligand',
       metaCreated: 'Created',
       metaScoring: 'Scoring function',
+      metaProtocol: 'Protocol',
+      metaBox: 'Box center / size',
       metaElapsed: 'Elapsed',
       metricsTitle: 'Key metrics',
       metricBest: 'Best affinity',
@@ -848,6 +874,7 @@ export default {
     },
   },
   project: {
+    deleteConfirm: 'Delete project “{name}”? The project file will be permanently removed; molecule files are not deleted.',
     title: 'Project Manager',
     save: 'Save',
     saveAs: 'Save As',
@@ -871,6 +898,7 @@ export default {
     deletedFailed: 'Failed to delete project',
   },
   selection: {
+    stale: 'This run selection is stale ({live}/{expected} members); select the molecules again.',
     title: 'Select from the local library',
     scopeGeneral: 'Catalog',
     all: 'All molecules',
@@ -886,6 +914,8 @@ export default {
     truncated: 'Selection capped at {n} molecules',
   },
   catalog: {
+    noMatches: 'No molecules match this filter',
+    unprepared: 'Not prepared',
     proteinMass: 'Protein MW',
     proteinMassNote: 'Calculated from modelled polymer residues; excludes co-crystal ligands, waters and unresolved residues.',
     pdbId: 'PDB ID',
@@ -1426,6 +1456,9 @@ export default {
     compoundHelp: 'Search PubChem or ChEMBL. Chemical searches use the provider indexes; 3D generation stays in the normal preparation step.',
   },
   results: {
+    loadedCount: 'Showing {n} results',
+    loadMore: 'Load more',
+    loadMoreFailed: 'Could not load more; try again',
     title: 'Results Search',
     subtitle: 'Search docking and screening results across projects',
     batchRun: 'Batch run',

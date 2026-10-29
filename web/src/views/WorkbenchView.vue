@@ -91,8 +91,8 @@ const steps = computed<PipelineStep[]>(() => [
     key: 'box',
     title: t('workbench.steps.box'),
     description: t('workbench.steps.boxDesc'),
-    ready: box.metrics !== null,
-    summary: box.metrics
+    ready: molecules.hasReceptor && box.touched && box.metrics !== null,
+    summary: molecules.hasReceptor && box.touched && box.metrics
       ? t('workbench.summaries.box', {
           x: box.center[0].toFixed(1),
           y: box.center[1].toFixed(1),

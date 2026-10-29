@@ -4,9 +4,10 @@ Answers the redocking question: did the search recover the crystallographic
 binding mode? Industry convention treats RMSD < 2 Å as success — a convention,
 not an absolute standard; the UI must say so.
 
-Symmetry-corrected RMSD uses RDKit's ``rdMolAlign.GetBestRMS``, which enumerates
-automorphic atom mappings so equivalent ring orientations are not reported as
-false mismatches. A bare coordinate difference would.
+Symmetry-corrected RMSD uses RDKit's ``rdMolAlign.CalcRMS``, which enumerates
+automorphic atom mappings without superposing the two molecules. Docked poses
+and the crystal reference are already in the receptor frame, so alignment must
+not be used: a rigid-body shift is a different binding mode, not a perfect match.
 """
 
 from __future__ import annotations
@@ -41,8 +42,8 @@ def rmsd_vs_reference(
         Prepared reference ligand as an RDKit mol, SDF/MOL/PDB/MOL2 path, or
         PDBQT path (converted via the shared ``poses_to_sdf`` path).
     symmetrize:
-        ``True`` (default) uses ``GetBestRMS`` so symmetry-equivalent atom
-        permutations do not inflate the score.
+        ``True`` (default) uses ``CalcRMS`` so symmetry-equivalent atom
+        permutations do not inflate the score, while keeping the receptor frame.
 
     Returns
     -------
@@ -64,9 +65,8 @@ def rmsd_between(
 ) -> float:
     """Heavy-atom RMSD between two molecules; copies internally.
 
-    The public pairwise entry point: clustering (TASK-04, task book §8
-    "后完成者负责合并") must call this rather than re-implementing the
-    GetBestRMS path a second time.
+    The public pairwise entry point: clustering must call this rather than
+    re-implementing the no-superposition symmetry path a second time.
     """
     return _rmsd_one(
         _heavy_only(_as_mol(pose)),
@@ -125,16 +125,16 @@ def _rmsd_one(pose: Chem.Mol, reference: Chem.Mol, *, symmetrize: bool) -> float
         )
     if pose.GetNumAtoms() == 0:
         return 0.0
-    # Work on copies: AlignMol mutates the probe, and later poses reuse ref.
+    # Work on copies: later poses reuse the reference mol.
     prb = Chem.Mol(pose)
     ref = Chem.Mol(reference)
     try:
         if symmetrize:
-            return float(rdMolAlign.GetBestRMS(prb, ref))
-        rdMolAlign.AlignMol(prb, ref)
+            # CalcRMS is symmetry-aware but does not translate/rotate the probe.
+            return float(rdMolAlign.CalcRMS(prb, ref))
         return _plain_rms(prb, ref)
     except (ValueError, RuntimeError) as exc:
-        raise InvalidInputError(f"RMSD alignment failed: {exc}") from exc
+        raise InvalidInputError(f"RMSD calculation failed: {exc}") from exc
 
 
 def _plain_rms(a: Chem.Mol, b: Chem.Mol) -> float:
