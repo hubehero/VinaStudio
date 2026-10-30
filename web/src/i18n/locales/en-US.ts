@@ -510,6 +510,7 @@ export default {
   },
   docking: {
     title: 'Docking',
+    tabs: { results: 'Results', setup: 'Setup', analysis: 'Analysis' },
     subtitle: 'Configure parameters and run AutoDock Vina',
     stageTitle: 'Docking',
     stageSubtitle: 'Monitor progress, log output and results in real time',
@@ -641,6 +642,7 @@ export default {
     exportSdf: 'Export SDF',
     exportPdbqt: 'Export PDBQT',
     exportCsv: 'Export CSV',
+    export: 'Export',
     saveFile: { title: 'Save file' },
     exportBundle: {
       button: 'Export bundle',
@@ -993,6 +995,8 @@ export default {
     smilesName: 'Name (optional)',
     smilesSubmit: 'Generate and add to Catalog',
     columns: 'Columns',
+    filters: 'Filters',
+    more: 'More',
     resetColumns: 'Reset columns',
     all: 'All',
     unassigned: 'Unassigned',

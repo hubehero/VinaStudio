@@ -44,7 +44,54 @@ watch(
  */
 const ligandUrl = computed(() => (docking.currentPoseSdf ? null : molecules.ligandSdfUrl))
 
+type DockTab = 'results' | 'setup' | 'analysis'
+const activeTab = ref<DockTab>(docking.hasResult || docking.isRunning ? 'results' : 'setup')
+
+const pipelineSignature = computed(() => `${molecules.pipelineReceptor?.id ?? ''}|${molecules.pipelineLigand?.id ?? ''}`)
+
+function jobMatchesPipeline(): boolean {
+  const params = docking.jobResult?.params
+  if (!params) return true
+  const receptor = params.receptor_path ?? params.receptorPath
+  const ligand = params.ligand_path ?? params.ligandPath
+  return (
+    (receptor === undefined || receptor === null || receptor === molecules.receptorPdbqtPath)
+    && (ligand === undefined || ligand === null || ligand === molecules.ligandPdbqtPath)
+  )
+}
+
+watch(pipelineSignature, (current, previous) => {
+  if (current === previous || docking.isRunning) return
+  // The old job's poses belong to the previous molecules. Clear them so the
+  // viewport and result table cannot show a result that no longer matches.
+  docking.reset()
+  interactions.value = []
+  activeTab.value = 'setup'
+})
+
+
+watch(
+  () => [docking.isRunning, docking.hasResult] as const,
+  ([running, hasResult]) => {
+    if (running || hasResult) activeTab.value = 'results'
+  },
+  { immediate: true },
+)
+
+const statusLabel = computed(() =>
+  docking.status === 'idle' ? t('docking.ready') : t(`docking.status.${docking.status}`),
+)
+const elapsedLabel = computed(() => {
+  if (docking.elapsedMs === null) return null
+  if (docking.elapsedMs < 1000) return `${docking.elapsedMs} ms`
+  return `${(docking.elapsedMs / 1000).toFixed(1)} s`
+})
+
 onMounted(() => {
+  if (docking.hasResult && !jobMatchesPipeline()) {
+    docking.reset()
+    activeTab.value = 'setup'
+  }
   void docking.loadDefaults().then(() => {
     if (docking.defaults) dockingForm.applyDefaults(docking.defaults)
   })
@@ -67,19 +114,51 @@ onMounted(() => {
     </section>
 
     <aside class="docking-view__side">
-      <!-- Results first: after a run completes this is the card the user came
-           for.  It renders nothing while no result exists, so the form still
-           occupies the top of the sidebar before the first run. -->
-      <DockingResults />
-      <div v-if="docking.status === 'failed'" class="docking-failure">
-        <div class="docking-failure__title">{{ t('docking.status.failed') }}</div>
-        <p>{{ docking.error || t('docking.errorStartFailed') }}</p>
-        <HelpLink topic="dockingFailed" />
+      <div class="dock-inspector">
+        <header class="dock-inspector__head">
+          <div class="dock-inspector__status">
+            <span class="dock-status-dot" :class="`is-${docking.status}`" />
+            <span>{{ statusLabel }}</span>
+            <span v-if="docking.hasResult && docking.bestAffinity !== null" class="dock-status-meta">
+              {{ docking.bestAffinity.toFixed(2) }} kcal/mol
+            </span>
+            <span v-if="elapsedLabel" class="dock-status-meta">{{ elapsedLabel }}</span>
+          </div>
+          <div class="dock-inspector__tabs" role="tablist" :aria-label="t('docking.title')">
+            <button
+              v-for="tab in (['setup', 'analysis', 'results'] as const)"
+              :key="tab"
+              type="button"
+              role="tab"
+              class="dock-tab"
+              :class="{ 'is-active': activeTab === tab }"
+              :aria-selected="activeTab === tab"
+              @click="activeTab = tab"
+            >
+              {{ t(`docking.tabs.${tab}`) }}
+              <span v-if="tab === 'results' && docking.poses.length" class="dock-tab__count">
+                {{ docking.poses.length }}
+              </span>
+            </button>
+          </div>
+        </header>
+        <div class="dock-inspector__body">
+          <div v-if="docking.status === 'failed'" class="docking-failure">
+            <div class="docking-failure__title">{{ t('docking.status.failed') }}</div>
+            <p>{{ docking.error || t('docking.errorStartFailed') }}</p>
+            <HelpLink topic="dockingFailed" />
+          </div>
+          <template v-if="activeTab === 'results'">
+            <DockingResults />
+            <DockingLog />
+          </template>
+          <DockingForm v-else-if="activeTab === 'setup'" />
+          <template v-else>
+            <DockingInteractions v-model="interactions" />
+            <DockingWorkbench />
+          </template>
+        </div>
       </div>
-      <DockingForm />
-      <DockingLog />
-      <DockingInteractions v-model="interactions" />
-      <DockingWorkbench />
     </aside>
   </div>
 </template>
@@ -125,5 +204,101 @@ onMounted(() => {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) auto;
   }
+}
+
+/* Dock inspector: one working column with tabs, not five stacked cards. */
+.docking-view {
+  grid-template-columns: minmax(0, 1fr) clamp(390px, 29vw, 470px);
+  gap: 14px;
+  padding: 14px 16px;
+}
+.docking-view__stage { min-width: 0; min-height: 0; }
+.docking-view__side {
+  overflow: hidden;
+  min-height: 0;
+}
+.dock-inspector {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--vs-border);
+  border-radius: var(--vs-radius);
+  background: var(--vs-bg-surface);
+}
+.dock-inspector__head {
+  flex: 0 0 auto;
+  padding: 12px 14px 0;
+  border-bottom: 1px solid var(--vs-border);
+}
+.dock-inspector__status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  color: var(--vs-text-muted);
+  font-size: 11.5px;
+}
+.dock-status-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--vs-text-faint);
+}
+.dock-status-dot.is-running, .dock-status-dot.is-queued { background: var(--vs-warning); }
+.dock-status-dot.is-completed { background: var(--vs-success); }
+.dock-status-dot.is-failed { background: var(--vs-danger); }
+.dock-status-meta { color: var(--vs-text-faint); }
+.dock-status-meta::before { content: '·'; padding-right: 7px; color: var(--vs-border-strong); }
+.dock-inspector__tabs {
+  display: flex;
+  gap: 2px;
+  margin-top: 10px;
+}
+.dock-tab {
+  position: relative;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--vs-text-faint);
+  padding: 7px 10px 8px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.dock-tab:hover { color: var(--vs-text); }
+.dock-tab.is-active { border-bottom-color: var(--vs-accent); color: var(--vs-accent); }
+.dock-tab__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  margin-left: 4px;
+  border-radius: 999px;
+  background: var(--vs-bg-sunken);
+  color: var(--vs-text-faint);
+  font-size: 10px;
+}
+.dock-tab.is-active .dock-tab__count { background: var(--vs-accent-soft); color: var(--vs-accent); }
+.dock-inspector__body {
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+.dock-inspector__body > .vs-card { border: 0; border-radius: 0; background: transparent; }
+.dock-inspector__body > .vs-card + .vs-card { border-top: 1px solid var(--vs-border); padding-top: 10px; }
+@media (max-width: 1180px) {
+  .docking-view { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(280px, 44vh); }
+  .docking-view__side { min-height: 0; }
+}
+@media (max-width: 620px) {
+  .docking-view { padding: 10px; gap: 10px; }
+  .dock-inspector__body { padding: 8px; }
 }
 </style>

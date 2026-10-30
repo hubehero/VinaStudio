@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ArrowLeft, ArrowRight, Document, Download, InfoFilled, Search } from '@element-plus/icons-vue'
-import { ElButton, ElCheckbox, ElCheckboxGroup, ElDialog, ElIcon, ElMessage, ElOption, ElSelect, ElSlider, ElSwitch, ElTooltip } from 'element-plus'
+import { ArrowLeft, ArrowRight, Download, InfoFilled, Search } from '@element-plus/icons-vue'
+import { ElButton, ElCheckbox, ElCheckboxGroup, ElDialog, ElDropdown, ElDropdownItem, ElDropdownMenu, ElIcon, ElMessage, ElOption, ElSelect, ElSlider, ElSwitch, ElTooltip } from 'element-plus'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -313,6 +313,12 @@ async function runCluster(): Promise<void> {
     ElMessage.error(t('docking.cluster.error'))
   }
 }
+async function handleExportCommand(command: 'csv' | 'bundle' | 'svg'): Promise<void> {
+  if (command === 'csv') await downloadCsv()
+  else if (command === 'bundle') openBundleDialog()
+  else await exportSvg()
+}
+
 </script>
 
 <template>
@@ -359,46 +365,16 @@ async function runCluster(): Promise<void> {
         >
           {{ t('docking.rmsd.run') }}
         </ElButton>
-        <span class="cluster-controls">
-          <ElButton
-            size="small"
-            :loading="docking.clustering"
-            :disabled="docking.poses.length < 2"
-            @click="runCluster"
-          >
-            {{ t('docking.cluster.run') }}
-          </ElButton>
-          <span class="cluster-cutoff">
-            <span class="cluster-cutoff__label">{{ t('docking.cluster.cutoff') }}</span>
-            <ElSlider
-              v-model="docking.clusterCutoff"
-              :min="1"
-              :max="3"
-              :step="0.1"
-              size="small"
-              class="cluster-cutoff__slider"
-            />
-          </span>
-          <ElCheckbox v-if="docking.clusters" v-model="docking.representativesOnly" size="small">
-            {{ t('docking.cluster.onlyRepresentatives') }}
-          </ElCheckbox>
-          <ElButton
-            size="small"
-            :disabled="!docking.clusters || docking.clusters.clusters.length === 0"
-            @click="docking.jumpToNextRepresentative()"
-          >
-            {{ t('docking.cluster.nextRepresentative') }}
-          </ElButton>
-        </span>
-        <ElButton size="small" :icon="Download" @click="downloadCsv">
-          {{ t('docking.exportCsv') }}
-        </ElButton>
-        <ElButton size="small" :icon="Download" @click="openBundleDialog">
-          {{ t('docking.exportBundle.button') }}
-        </ElButton>
-        <ElButton size="small" :icon="Document" @click="exportSvg">
-          {{ t('docking.exportSvg.button') }}
-        </ElButton>
+        <ElDropdown trigger="click" @command="handleExportCommand">
+          <ElButton size="small" :icon="Download" :aria-label="t('docking.export')" :title="t('docking.export')" />
+          <template #dropdown>
+            <ElDropdownMenu>
+              <ElDropdownItem command="csv">{{ t('docking.exportCsv') }}</ElDropdownItem>
+              <ElDropdownItem command="bundle">{{ t('docking.exportBundle.button') }}</ElDropdownItem>
+              <ElDropdownItem command="svg">{{ t('docking.exportSvg.button') }}</ElDropdownItem>
+            </ElDropdownMenu>
+          </template>
+        </ElDropdown>
       </div>
     </div>
     <div class="vs-card__body">
@@ -426,6 +402,40 @@ async function runCluster(): Promise<void> {
           @click="docking.nextPose()"
         />
       </div>
+
+      <details v-if="docking.poses.length >= 2" class="cluster-panel">
+        <summary>{{ t('docking.cluster.run') }}</summary>
+        <div class="cluster-controls">
+          <ElButton
+            size="small"
+            :loading="docking.clustering"
+            @click="runCluster"
+          >
+            {{ t('docking.cluster.run') }}
+          </ElButton>
+          <span class="cluster-cutoff">
+            <span class="cluster-cutoff__label">{{ t('docking.cluster.cutoff') }}</span>
+            <ElSlider
+              v-model="docking.clusterCutoff"
+              :min="1"
+              :max="3"
+              :step="0.1"
+              size="small"
+              class="cluster-cutoff__slider"
+            />
+          </span>
+          <ElCheckbox v-if="docking.clusters" v-model="docking.representativesOnly" size="small">
+            {{ t('docking.cluster.onlyRepresentatives') }}
+          </ElCheckbox>
+          <ElButton
+            size="small"
+            :disabled="!docking.clusters || docking.clusters.clusters.length === 0"
+            @click="docking.jumpToNextRepresentative()"
+          >
+            {{ t('docking.cluster.nextRepresentative') }}
+          </ElButton>
+        </div>
+      </details>
 
       <div class="overlay-toggle">
         <ElSwitch
@@ -948,4 +958,30 @@ async function runCluster(): Promise<void> {
   font-size: 12px;
   color: var(--vs-text-muted);
 }
+
+.cluster-panel {
+  margin: 6px 0 10px;
+  padding: 7px 9px;
+  border: 1px solid var(--vs-border);
+  border-radius: var(--vs-radius-sm);
+  background: var(--vs-bg-surface);
+}
+.cluster-panel summary {
+  cursor: pointer;
+  color: var(--vs-text-muted);
+  font-size: 11.5px;
+  user-select: none;
+}
+.cluster-panel[open] summary { margin-bottom: 8px; color: var(--vs-text); }
+.cluster-panel .cluster-controls { flex-wrap: wrap; }
+.cluster-panel .cluster-cutoff__slider { width: 92px; }
+@media (max-width: 460px) {
+  .results-card :deep(.vs-card__header) { align-items: stretch; }
+  .header-actions { justify-content: flex-start; flex-wrap: wrap; }
+  .rmsd-reference { width: 100%; }
+}
+
+/* Keep the result toolbar on one line in the inspector at common widths. */
+.header-actions { gap: 6px; }
+.rmsd-reference { width: 132px; }
 </style>

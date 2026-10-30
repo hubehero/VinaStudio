@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CopyDocument, Search, Upload } from '@element-plus/icons-vue'
+import { CopyDocument, MoreFilled, Search, Upload } from '@element-plus/icons-vue'
 import { ElAutoResizer, ElMessage, ElMessageBox, ElPopover, ElTableV2 } from 'element-plus'
 import type { Column } from 'element-plus'
 import { computed, h, onMounted, ref } from 'vue'
@@ -120,6 +120,22 @@ const selectedCount = computed(() => store.selectedIds.length)
 const flatScope = computed(
   () => store.scope.kind === 'library' || store.scope.kind === 'collection',
 )
+
+const activeFilterCount = computed(
+  () => (store.sourceFilter ? 1 : 0) + (store.status ? 1 : 0) + (store.tagFilter ? 1 : 0),
+)
+
+function handleCatalogCommand(command: string): void {
+  if (command === 'smiles') smilesOpen.value = true
+  else if (command === 'draw') sketcher.value?.open()
+  else if (command === 'library') libraryDialog.value?.open()
+  else if (command === 'suggestions') showSuggestions.value = !showSuggestions.value
+  else if (command === 'saveView') void saveCurrentView()
+  else if (command.startsWith('sample:')) {
+    const sample = samples.value.find((item) => `sample:${item.path}` === command)
+    if (sample) void importSample(sample)
+  }
+}
 
 const readableTagFacets = computed(() =>
   store.facets.tags.filter(
@@ -694,9 +710,9 @@ async function applySuggestion(id: string): Promise<void> {
 <template>
   <div class="catalog-page">
     <header class="catalog-head">
-      <div>
+      <div class="catalog-head__intro">
         <h1>{{ t('catalog.title') }}</h1>
-        <p>{{ t('catalog.subtitle') }} · {{ scopeLabel() }}</p>
+        <p>{{ t('catalog.subtitle') }} <span class="catalog-scope-sep">/</span> {{ scopeLabel() }}</p>
       </div>
       <div class="catalog-head__actions">
         <el-input
@@ -710,36 +726,29 @@ async function applySuggestion(id: string): Promise<void> {
           @clear="store.search(true)"
         />
         <el-button size="small" @click="store.search(true)">{{ t('catalog.search') }}</el-button>
-        <el-select :model-value="store.sort" size="small" style="width: 108px" @change="store.setSort">
-          <el-option :label="t('catalog.sortUpdated')" value="updated" />
-          <el-option :label="t('catalog.sortName')" value="name" />
-          <el-option :label="t('catalog.sortWeight')" value="weight" />
-        </el-select>
-        <el-select :model-value="store.limit" size="small" style="width: 82px" @change="store.setPageSize">
-          <el-option :label="'50'" :value="50" />
-          <el-option :label="'100'" :value="100" />
-          <el-option :label="'200'" :value="200" />
-        </el-select>
-        <el-button size="small" :icon="Upload" :loading="importing" @click="importMolecules">
+        <el-button type="primary" size="small" :icon="Upload" :loading="importing" @click="importMolecules">
           {{ t('catalog.import') }}
         </el-button>
-        <el-button size="small" @click="smilesOpen = true">{{ t('catalog.fromSmiles') }}</el-button>
-        <el-button size="small" @click="sketcher?.open()">{{ t('molecules.drawButton') }}</el-button>
-        <el-button size="small" @click="libraryDialog?.open()">{{ t('catalog.fromLibrary') }}</el-button>
-        <el-dropdown v-if="samples.length > 0" trigger="click" @command="importSample">
-          <el-button size="small">{{ t('catalog.samples') }}</el-button>
+        <el-dropdown trigger="click" @command="handleCatalogCommand">
+          <el-button size="small" :icon="MoreFilled">{{ t('catalog.more') }}</el-button>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item v-for="sample in samples" :key="sample.path" :command="sample">
-                {{ sample.name }}
+              <el-dropdown-item command="suggestions">
+                {{ t('catalog.suggestions') }} ({{ store.suggestions.length }})
               </el-dropdown-item>
+              <el-dropdown-item command="smiles">{{ t('catalog.fromSmiles') }}</el-dropdown-item>
+              <el-dropdown-item command="draw">{{ t('molecules.drawButton') }}</el-dropdown-item>
+              <el-dropdown-item command="library">{{ t('catalog.fromLibrary') }}</el-dropdown-item>
+              <el-dropdown-item command="saveView">{{ t('catalog.saveView') }}</el-dropdown-item>
+              <el-dropdown-item v-if="samples.length > 0" disabled>{{ t('catalog.samples') }}</el-dropdown-item>
+              <el-dropdown-item
+                v-for="sample in samples"
+                :key="sample.path"
+                :command="`sample:${sample.path}`"
+              >{{ sample.name }}</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
-        <el-button size="small" @click="showSuggestions = !showSuggestions">
-          {{ t('catalog.suggestions') }} ({{ store.suggestions.length }})
-        </el-button>
-        <el-button size="small" @click="saveCurrentView">{{ t('catalog.saveView') }}</el-button>
         <el-popover trigger="click" :width="190">
           <template #reference>
             <el-button size="small">{{ t('catalog.columns') }}</el-button>
@@ -754,11 +763,110 @@ async function applySuggestion(id: string): Promise<void> {
             <el-button text size="small" @click="resetColumns">{{ t('catalog.resetColumns') }}</el-button>
           </div>
         </el-popover>
-        <el-button v-if="store.scope.kind === 'study'" size="small" type="primary" @click="useForDocking">
-          {{ t('catalog.useForDocking') }}
-        </el-button>
       </div>
     </header>
+
+    <div class="catalog-toolbar">
+      <div class="catalog-toolbar__left">
+        <el-popover
+          v-if="hasFacets || activeFilterCount > 0"
+          trigger="click"
+          :width="560"
+          placement="bottom-start"
+          popper-class="catalog-filter-popper"
+        >
+          <template #reference>
+            <el-button size="small" class="catalog-filter-trigger" :class="{ 'is-active': activeFilterCount > 0 }">
+              {{ t('catalog.filters') }}
+              <span v-if="activeFilterCount > 0" class="catalog-filter-count">{{ activeFilterCount }}</span>
+            </el-button>
+          </template>
+          <div class="catalog-facets">
+            <div v-if="store.facets.source.length" class="facet-group">
+              <span class="facet-label">{{ t('catalog.facetSource') }}</span>
+              <button
+                v-for="item in store.facets.source"
+                :key="`s-${item.value}`"
+                type="button"
+                class="facet-chip"
+                :class="{ active: store.sourceFilter === item.value }"
+                @click="store.toggleFacet('source', item.value)"
+              >{{ item.value }} <small>{{ item.count }}</small></button>
+            </div>
+            <div v-if="store.facets.status.length" class="facet-group">
+              <span class="facet-label">{{ t('catalog.facetStatus') }}</span>
+              <button
+                v-for="item in store.facets.status"
+                :key="`st-${item.value}`"
+                type="button"
+                class="facet-chip"
+                :class="{ active: store.status === item.value }"
+                @click="store.toggleFacet('status', item.value)"
+              >{{ item.value }} <small>{{ item.count }}</small></button>
+            </div>
+            <div v-if="readableTagFacets.length" class="facet-group facet-group--tags">
+              <span class="facet-label">{{ t('catalog.facetTags') }}</span>
+              <button
+                v-for="item in visibleTagFacets"
+                :key="`t-${item.value}`"
+                type="button"
+                class="facet-chip"
+                :class="{ active: store.tagFilter === item.value }"
+                @click="store.toggleFacet('tag', item.value)"
+              >#{{ item.value }} <small>{{ item.count }}</small></button>
+              <ElPopover v-if="hiddenTagFacets.length" trigger="click" :width="260">
+                <template #reference>
+                  <button type="button" class="facet-chip facet-chip--more">
+                    +{{ hiddenTagFacets.length }} {{ t('catalog.moreTags') }}
+                  </button>
+                </template>
+                <div class="facet-more">
+                  <el-input
+                    v-model="tagFacetQuery"
+                    size="small"
+                    clearable
+                    :placeholder="t('catalog.filterTags')"
+                  />
+                  <div class="facet-more__list">
+                    <button
+                      v-for="item in filteredHiddenTags"
+                      :key="`m-${item.value}`"
+                      type="button"
+                      class="facet-chip"
+                      :class="{ active: store.tagFilter === item.value }"
+                      @click="store.toggleFacet('tag', item.value)"
+                    >#{{ item.value }} <small>{{ item.count }}</small></button>
+                    <span v-if="filteredHiddenTags.length === 0" class="facet-empty">
+                      {{ t('catalog.noMatchingTags') }}
+                    </span>
+                  </div>
+                </div>
+              </ElPopover>
+            </div>
+            <button
+              v-if="activeFilterCount > 0"
+              type="button"
+              class="facet-chip facet-chip--clear"
+              @click="store.clearFacets()"
+            >{{ t('catalog.clearFacets') }}</button>
+          </div>
+        </el-popover>
+      </div>
+      <div class="catalog-toolbar__right">
+        <span class="catalog-result-count">{{ t('catalog.total', { n: store.total }) }}</span>
+        <el-select :model-value="store.sort" size="small" style="width: 118px" @change="store.setSort">
+          <el-option :label="t('catalog.sortUpdated')" value="updated" />
+          <el-option :label="t('catalog.sortName')" value="name" />
+          <el-option :label="t('catalog.sortWeight')" value="weight" />
+        </el-select>
+        <el-select :model-value="store.limit" size="small" style="width: 82px" @change="store.setPageSize">
+          <el-option :label="'50'" :value="50" />
+          <el-option :label="'100'" :value="100" />
+          <el-option :label="'200'" :value="200" />
+        </el-select>
+      </div>
+    </div>
+
 
     <div class="catalog-body">
       <aside class="catalog-tree">
@@ -848,6 +956,12 @@ async function applySuggestion(id: string): Promise<void> {
             </div>
             <div class="catalog-scope__actions">
               <el-button size="small" @click="renameScope">{{ t('catalog.rename') }}</el-button>
+              <el-button
+                v-if="store.scope.kind === 'study'"
+                size="small"
+                type="primary"
+                @click="useForDocking"
+              >{{ t('catalog.useForDocking') }}</el-button>
             </div>
           </div>
           <div v-if="store.scope.kind === 'study'" class="catalog-members">
@@ -899,79 +1013,6 @@ async function applySuggestion(id: string): Promise<void> {
           <el-input v-model="bulkTagInput" size="small" style="width: 120px" :placeholder="t('catalog.addTag')" @keyup.enter="addBulkTag" />
           <el-button size="small" :disabled="!bulkTagInput.trim()" @click="addBulkTag">{{ t('catalog.tag') }}</el-button>
           <el-button size="small" text @click="store.clearSelection()">{{ t('catalog.clearSelection') }}</el-button>
-        </div>
-
-        <div
-          v-if="hasFacets || store.sourceFilter || store.tagFilter || store.status"
-          class="catalog-facets"
-        >
-          <div v-if="store.facets.source.length" class="facet-group">
-            <span class="facet-label">{{ t('catalog.facetSource') }}</span>
-            <button
-              v-for="item in store.facets.source"
-              :key="`s-${item.value}`"
-              type="button"
-              class="facet-chip"
-              :class="{ active: store.sourceFilter === item.value }"
-              @click="store.toggleFacet('source', item.value)"
-            >{{ item.value }} <small>{{ item.count }}</small></button>
-          </div>
-          <div v-if="store.facets.status.length" class="facet-group">
-            <span class="facet-label">{{ t('catalog.facetStatus') }}</span>
-            <button
-              v-for="item in store.facets.status"
-              :key="`st-${item.value}`"
-              type="button"
-              class="facet-chip"
-              :class="{ active: store.status === item.value }"
-              @click="store.toggleFacet('status', item.value)"
-            >{{ item.value }} <small>{{ item.count }}</small></button>
-          </div>
-          <div v-if="readableTagFacets.length" class="facet-group facet-group--tags">
-            <span class="facet-label">{{ t('catalog.facetTags') }}</span>
-            <button
-              v-for="item in visibleTagFacets"
-              :key="`t-${item.value}`"
-              type="button"
-              class="facet-chip"
-              :class="{ active: store.tagFilter === item.value }"
-              @click="store.toggleFacet('tag', item.value)"
-            >#{{ item.value }} <small>{{ item.count }}</small></button>
-            <ElPopover v-if="hiddenTagFacets.length" trigger="click" :width="260">
-              <template #reference>
-                <button type="button" class="facet-chip facet-chip--more">
-                  +{{ hiddenTagFacets.length }} {{ t('catalog.moreTags') }}
-                </button>
-              </template>
-              <div class="facet-more">
-                <el-input
-                  v-model="tagFacetQuery"
-                  size="small"
-                  clearable
-                  :placeholder="t('catalog.filterTags')"
-                />
-                <div class="facet-more__list">
-                  <button
-                    v-for="item in filteredHiddenTags"
-                    :key="`m-${item.value}`"
-                    type="button"
-                    class="facet-chip"
-                    :class="{ active: store.tagFilter === item.value }"
-                    @click="store.toggleFacet('tag', item.value)"
-                  >#{{ item.value }} <small>{{ item.count }}</small></button>
-                  <span v-if="filteredHiddenTags.length === 0" class="facet-empty">
-                    {{ t('catalog.noMatchingTags') }}
-                  </span>
-                </div>
-              </div>
-            </ElPopover>
-          </div>
-          <button
-            v-if="store.sourceFilter || store.tagFilter || store.status"
-            type="button"
-            class="facet-chip facet-chip--clear"
-            @click="store.clearFacets()"
-          >{{ t('catalog.clearFacets') }}</button>
         </div>
 
         <el-alert v-if="store.error" type="error" :title="store.error" :closable="false" show-icon />
@@ -1366,4 +1407,88 @@ async function applySuggestion(id: string): Promise<void> {
 .break { word-break: break-all; }
 .tag-input { display: flex; gap: 4px; margin-top: 4px; }
 :deep(.catalog-row--active) { background: var(--vs-accent-soft); }
+
+/* Catalog workbench header: one primary action lane, one tool lane, filters
+   on demand.  The table stays the focal point rather than the controls. */
+.catalog-page { gap: 0; padding: 18px 20px 14px; }
+.catalog-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--vs-border);
+}
+.catalog-head__intro { min-width: 0; }
+.catalog-head h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+.catalog-head p { margin: 5px 0 0; color: var(--vs-text-muted); font-size: 12.5px; }
+.catalog-scope-sep { padding: 0 7px; color: var(--vs-border-strong); }
+.catalog-head__actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: nowrap; }
+.catalog-head__actions :deep(.el-button + .el-button) { margin-left: 0; }
+.catalog-search { width: clamp(220px, 28vw, 360px); }
+.catalog-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0 12px;
+}
+.catalog-toolbar__left, .catalog-toolbar__right { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.catalog-result-count { color: var(--vs-text-faint); font-size: 11.5px; white-space: nowrap; }
+.catalog-filter-trigger { color: var(--vs-text-muted); }
+.catalog-filter-trigger.is-active { border-color: var(--vs-accent); color: var(--vs-accent); background: var(--vs-accent-soft); }
+.catalog-filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  margin-left: 5px;
+  border-radius: 999px;
+  background: var(--vs-accent);
+  color: var(--vs-bg-surface);
+  font-size: 10px;
+  line-height: 1;
+}
+:global(.catalog-filter-popper) { max-width: calc(100vw - 32px); }
+:global(.catalog-filter-popper) .catalog-facets {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+:global(.catalog-filter-popper) .facet-group { align-items: flex-start; }
+:global(.catalog-filter-popper) .facet-label { flex: 0 0 74px; padding-top: 3px; }
+.catalog-body { gap: 14px; }
+.catalog-tree, .catalog-detail { border-color: var(--vs-border); }
+.catalog-detail { padding: 14px; }
+.catalog-main { gap: 10px; }
+.catalog-table-wrap { border-radius: var(--vs-radius); }
+@media (max-width: 1180px) {
+  .catalog-page { padding: 16px 14px 12px; }
+  .catalog-head { grid-template-columns: 1fr; gap: 12px; align-items: start; }
+  .catalog-head__actions { justify-content: flex-start; flex-wrap: wrap; }
+  .catalog-search { flex: 1 1 260px; width: auto; }
+  .catalog-body { grid-template-columns: 190px minmax(0, 1fr) 270px; gap: 10px; }
+}
+@media (max-width: 900px) {
+  .catalog-body { grid-template-columns: 180px minmax(0, 1fr); }
+  .catalog-detail { display: none; }
+  .catalog-result-count { display: none; }
+}
+@media (max-width: 620px) {
+  .catalog-page { padding: 12px 10px 10px; }
+  .catalog-head h1 { font-size: 19px; }
+  .catalog-head__actions :deep(.el-button) { padding-inline: 9px; }
+  .catalog-body { grid-template-columns: 1fr; }
+  .catalog-tree { display: none; }
+  .catalog-toolbar { flex-wrap: wrap; }
+  .catalog-toolbar__right { width: 100%; justify-content: space-between; }
+}
 </style>

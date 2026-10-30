@@ -18,9 +18,15 @@ entries about the product — no internal task ids or workflow narration.
 
 - **学术验证报告**：新增中英双语 `docs/ACADEMIC_VALIDATION`，包含独立 1IEP PDB 晶体参考、claim–evidence 矩阵、复现命令和 14 条经 DOI 核对的参考文献；验证器记录版本、提交、后端、输入校验和与完整对接参数。报告明确只验证 1IEP 对照，不声明多靶点准确率、富集或 PoseBusters 通过率。
 
+- **Catalog 工作台布局**：标题/主操作/工具带分层，低频操作收进 More，来源/状态/标签筛选进入 Filters 面板；搜索、排序、分页和响应式断点同步整理。
+- **Dock 工作台布局**：右栏改为“参数 / 分析 / 结果”Inspector 标签页，结果工具条收敛并把聚类收进可展开面板；切换受体或配体时自动清除上一分子的旧结果、pose 和相互作用。
+
 ### Added
 
 - **Academic validation report**: add bilingual `docs/ACADEMIC_VALIDATION`, an independent 1IEP PDB crystal reference, a claim–evidence matrix, reproduction commands and 14 DOI-checked references; the harness records versions, commit, backend, input checksums and full docking parameters. The report is explicitly limited to the 1IEP control and claims no multi-target accuracy, enrichment or PoseBusters pass rate.
+
+- **Catalog workbench layout**: title, primary actions and tool strip are separated; low-frequency actions move into More, source/status/tag facets into Filters, with responsive breakpoints and a calmer table-first layout.
+- **Dock workbench layout**: the inspector is now Parameters / Analysis / Results; result actions are compact and clustering is collapsible; switching receptor or ligand clears the previous molecule's poses, results and interactions automatically.
 
 ### 修复
 

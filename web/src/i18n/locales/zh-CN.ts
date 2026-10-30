@@ -510,6 +510,7 @@ export default {
   },
   docking: {
     title: '分子对接',
+    tabs: { results: '结果', setup: '参数', analysis: '分析' },
     subtitle: '配置参数并运行 AutoDock Vina',
     stageTitle: '对接运行',
     stageSubtitle: '实时查看进度、日志输出和对接结果',
@@ -641,6 +642,7 @@ export default {
     exportSdf: '导出 SDF',
     exportPdbqt: '导出 PDBQT',
     exportCsv: '导出 CSV',
+    export: '导出',
     saveFile: { title: '保存文件' },
     exportBundle: {
       button: '导出结果包',
@@ -993,6 +995,8 @@ export default {
     smilesName: '名称（可选）',
     smilesSubmit: '生成并加入 Catalog',
     columns: '列',
+    filters: '筛选',
+    more: '更多',
     resetColumns: '恢复默认列',
     all: '全部',
     unassigned: '未归类',
