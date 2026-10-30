@@ -210,6 +210,21 @@ def write_maps(request: WriteMapsRequest) -> WriteMapsResponse:
         ) from exc
     prefix.parent.mkdir(parents=True, exist_ok=True)
 
+    # Vina refuses odd voxel counts at write time with a bare RuntimeError.
+    # The box model already knows this before a map is computed; surface the
+    # actionable setting instead of turning a user input into a 500.
+    requested_box = Box(
+        center=request.center,
+        size=request.size,
+        spacing=request.spacing,
+        force_even_voxels=request.forceEvenVoxels,
+    )
+    if not requested_box.can_write_maps:
+        raise InvalidInputError(
+            "cannot write affinity maps with odd voxel counts; enable "
+            "forceEvenVoxels and retry"
+        )
+
     from vina import Vina  # type: ignore[import-untyped]
 
     v = Vina(sf_name="vina", cpu=0, verbosity=0)

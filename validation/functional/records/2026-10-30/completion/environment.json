@@ -1,0 +1,45 @@
+{
+  "schemaVersion": "1.0",
+  "generatedAt": "2026-10-30T12:54:56+00:00",
+  "purpose": "completion phase of functional validation: full screening, site candidates, providers, persistence, maps, desktop startup",
+  "software": {
+    "appVersion": "0.6.4",
+    "gitHeadAtPhaseStart": "2c52ed9",
+    "gitHeadNow": "2c52ed9642d79a7219d03dc81d085e98a536ef98",
+    "releaseTag": "v0.6.4",
+    "gitDirty": true,
+    "sourcePatch": "working-tree.patch",
+    "sourcePatchSha256": "67a99ebab9eecaae2741ed11419c5c45f2c919b38a16fe4c37b541ada85af310",
+    "sourcePatchBytes": 5435,
+    "postValidationCommits": [
+      "3006b6a",
+      "76bcc97"
+    ]
+  },
+  "runtime": {
+    "appVersion": "0.6.4",
+    "python": "3.12.14",
+    "platform": "Linux 7.0.0-38-generic (x86_64)",
+    "cpuCount": "8",
+    "vina": "1.2.7",
+    "meeko": "0.8.0",
+    "rdkit": "2026.9.1",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "gemmi": "0.7.5",
+    "gitCommit": "2c52ed9642d79a7219d03dc81d085e98a536ef98",
+    "gitDirty": "yes",
+    "engineBackend": "vina",
+    "engineReason": "the vina Python module is installed"
+  },
+  "inputs": {
+    "vinastudio/resources/sample/1iep/1iep_receptorH.pdb": "5f6aee6029f9a2a2c2be32d4eb948ae70808690573e1b69a0850cdffd7048ca7",
+    "vinastudio/resources/sample/1iep/1iep_ligand.sdf": "051b8742c32adc05c07fb486a4e7c9327f84e131cee33ac4e6a568d07553eb38",
+    "vinastudio/resources/sample/1iep/1iep_reference.sdf": "1bcc3920c107e60300fb7ac7fbe4d332c0ae2eb9b75baf2f7b7978f124343700"
+  },
+  "commands": {
+    "backend": "uv run pytest -q --junitxml=validation/functional/records/2026-10-30/completion/raw/pytest-junit.xml",
+    "frontend": "pnpm -C web typecheck && pnpm -C web test && pnpm -C web build",
+    "uiSmoke": "uv run python validation/functional/ui_smoke.py --base-url http://127.0.0.1:8760 --out validation/functional/records/2026-10-30/completion"
+  }
+}

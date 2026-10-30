@@ -1,0 +1,190 @@
+{
+  "schemaVersion": "1.0",
+  "generatedAt": "2026-10-30T12:54:56+00:00",
+  "kind": "functional-validation-completion",
+  "scope": "completion phase of functional validation: full screening, site candidates, providers, persistence, maps, desktop startup",
+  "software": {
+    "appVersion": "0.6.4",
+    "gitHeadAtPhaseStart": "2c52ed9",
+    "gitHeadNow": "2c52ed9642d79a7219d03dc81d085e98a536ef98",
+    "releaseTag": "v0.6.4",
+    "gitDirty": true,
+    "sourcePatch": "working-tree.patch",
+    "sourcePatchSha256": "67a99ebab9eecaae2741ed11419c5c45f2c919b38a16fe4c37b541ada85af310",
+    "sourcePatchBytes": 5435
+  },
+  "environment": {
+    "appVersion": "0.6.4",
+    "python": "3.12.14",
+    "platform": "Linux 7.0.0-38-generic (x86_64)",
+    "cpuCount": "8",
+    "vina": "1.2.7",
+    "meeko": "0.8.0",
+    "rdkit": "2026.9.1",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "gemmi": "0.7.5",
+    "gitCommit": "2c52ed9642d79a7219d03dc81d085e98a536ef98",
+    "gitDirty": "yes",
+    "engineBackend": "vina",
+    "engineReason": "the vina Python module is installed"
+  },
+  "suites": {
+    "pytest": {
+      "total": 822,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "durationSeconds": 417.776,
+      "junit": "raw/pytest-junit.xml"
+    },
+    "vitest": {
+      "tests": 27,
+      "files": 9,
+      "status": "passed",
+      "log": "raw/frontend-test.log"
+    },
+    "typecheck": {
+      "status": "passed",
+      "log": "raw/frontend-typecheck.log"
+    },
+    "build": {
+      "status": "passed",
+      "log": "raw/frontend-build.log"
+    },
+    "uiRouteSmoke": {
+      "total": 11,
+      "passed": 11,
+      "failed": 0,
+      "record": "ui-smoke.json"
+    }
+  },
+  "liveWorkflows": [
+    {
+      "id": "C01",
+      "name": "full built-in library screening",
+      "status": "completed",
+      "totalLigands": 125,
+      "completedLigands": 123,
+      "failedLigands": 2,
+      "elapsedMs": 559474,
+      "bestAffinity": -12.985,
+      "evidence": [
+        "raw/full-screening-status.json",
+        "raw/full-screening-ranking-top200.csv",
+        "ui/full-screening.png"
+      ]
+    },
+    {
+      "id": "C02",
+      "name": "five-pocket site screening",
+      "status": "completed",
+      "candidates": 5,
+      "completed": 5,
+      "failed": 0,
+      "elapsedMs": 66338,
+      "bestAffinity": -9.541,
+      "evidence": [
+        "raw/site-bb5cc99255b3-result.json"
+      ]
+    },
+    {
+      "id": "C03",
+      "name": "ChEMBL search/fetch",
+      "status": "completed",
+      "evidence": [
+        "raw/chembl-imatinib-search.json",
+        "raw/chembl-imatinib-fetch.json"
+      ]
+    },
+    {
+      "id": "C04",
+      "name": "PubChem search",
+      "status": "completed",
+      "evidence": [
+        "raw/pubchem-aspirin-search.json"
+      ]
+    },
+    {
+      "id": "C05",
+      "name": "file upload/detect",
+      "status": "completed",
+      "evidence": [
+        "raw/upload-response.json",
+        "raw/upload-detect.json"
+      ]
+    },
+    {
+      "id": "C06",
+      "name": "project save/load/list/delete",
+      "status": "completed",
+      "evidence": [
+        "raw/project-save-load.json"
+      ]
+    },
+    {
+      "id": "C07",
+      "name": "affinity maps odd/even",
+      "status": "completed",
+      "evidence": [
+        "raw/write-maps-odd-response.txt",
+        "raw/write-maps-even.json"
+      ]
+    },
+    {
+      "id": "C08",
+      "name": "results favorite filter",
+      "status": "completed",
+      "evidence": [
+        "ui/flow-results-favorite.png"
+      ]
+    },
+    {
+      "id": "C09",
+      "name": "sketcher import/cleanup",
+      "status": "completed",
+      "evidence": [
+        "ui/flow-sketcher-import.png",
+        "ui/flow-sketcher-cleanup.png"
+      ]
+    },
+    {
+      "id": "C10",
+      "name": "desktop software-render startup",
+      "status": "completed",
+      "evidence": [
+        "raw/desktop-startup-angle.log"
+      ]
+    },
+    {
+      "id": "C11",
+      "name": "provider UI (PubChem)",
+      "status": "completed",
+      "evidence": [
+        "ui/flow-provider-ui.png"
+      ]
+    }
+  ],
+  "defects": [
+    "D04 software-render WebGL",
+    "D05 screening 1500%",
+    "D06 odd-voxel map 500"
+  ],
+  "gaps": [
+    "native desktop dialogs/QWebChannel",
+    "provider UI tab",
+    "GPU hardware rendering",
+    "full-library accuracy claim",
+    "full-library uses exhaustiveness 1"
+  ],
+  "claims": [
+    "listed live workflows completed or failed with retained evidence",
+    "822 automated tests passed",
+    "the three phase-2 defects are fixed and documented"
+  ],
+  "nonClaims": [
+    "no accuracy/enrichment claim",
+    "no claim that the two failed ligands are prepared",
+    "no cross-platform/GPU claim"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "start": {
+    "jobId": "b6bd0bc2b6aa"
+  },
+  "status": {
+    "jobId": "b6bd0bc2b6aa",
+    "library": "lib-86f64f44a9b6410c",
+    "libraryDisplayName": "Functional 1IEP one-member",
+    "createdAt": 1793363178.0228941,
+    "status": "completed",
+    "progress": 100,
+    "totalLigands": 1,
+    "completedLigands": 1,
+    "failedLigands": 0,
+    "bestAffinity": -13.261,
+    "error": null,
+    "currentLigand": "1iep_ligand.sdf",
+    "elapsedMs": 11987
+  }
+}

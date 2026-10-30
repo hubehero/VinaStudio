@@ -1,0 +1,48 @@
+{
+  "saved": {
+    "path": "/home/hubehero/Academic/Auto_dock/projects/functional-validation.vinaproj",
+    "filename": "functional-validation.vinaproj",
+    "status": "saved"
+  },
+  "loaded": {
+    "path": "/home/hubehero/Academic/Auto_dock/projects/functional-validation.vinaproj",
+    "project": {
+      "formatVersion": "1.1",
+      "createdAt": "2026-10-30T20:37:34.468552",
+      "updatedAt": "2026-10-30T20:37:34.468610",
+      "name": "Functional validation",
+      "description": "",
+      "receptor": null,
+      "ligands": [],
+      "box": {
+        "center": [
+          15.19,
+          53.903,
+          16.917
+        ],
+        "size": [
+          16.664,
+          24.739,
+          21.526
+        ]
+      },
+      "docking": {
+        "scoring": "vina",
+        "exhaustiveness": 8,
+        "nPoses": 20,
+        "energyRange": 3.0,
+        "minRmsd": 1.0,
+        "cpu": 0,
+        "seed": 0,
+        "noRefine": false,
+        "maxEvals": 0,
+        "verbosity": 1,
+        "mapPaths": null,
+        "weights": null
+      },
+      "lastJobId": null,
+      "results": []
+    },
+    "warnings": []
+  }
+}

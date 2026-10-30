@@ -1,0 +1,30 @@
+[
+  {
+    "i": 56,
+    "name": "digoxin",
+    "status": "failed",
+    "affinity": null,
+    "nPoses": null,
+    "elapsedMs": null,
+    "qed": 0.16221462387574462,
+    "lipinski": 3,
+    "smiles": "C[C@H]1O[C@@H](O[C@H]2[C@@H](O)C[C@H](O[C@H]3[C@@H](O)C[C@H](O[C@H]4CC[C@@]5(C)[C@H](CC[C@@H]6[C@@H]5C[C@@H](O)[C@]5(C)[C@@H](C7=CC(=O)OC7)CC[C@]65O)C4)O[C@@H]3C)O[C@@H]2C)C[C@H](O)[C@@H]1O",
+    "outDir": null,
+    "error": "could not generate 3D coordinates with ETKDGv3; supply a molecule with a 3D conformer instead",
+    "ts": 1793363929466
+  },
+  {
+    "i": 109,
+    "name": "cisplatin",
+    "status": "failed",
+    "affinity": null,
+    "nPoses": null,
+    "elapsedMs": null,
+    "qed": 0.7146141427583608,
+    "lipinski": 0,
+    "smiles": "N.N.[Cl][Pt][Cl]",
+    "outDir": null,
+    "error": "000109.sdf contains multiple disconnected fragments (e.g. multi-chain proteins). Single molecules like ligands should be prepared here; for protein receptors, use the receptor preparation panel instead.",
+    "ts": 1793364269984
+  }
+]

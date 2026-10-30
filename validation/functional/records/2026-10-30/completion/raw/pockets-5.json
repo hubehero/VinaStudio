@@ -1,0 +1,291 @@
+{
+  "pockets": [
+    {
+      "rank": 1,
+      "center": [
+        13.359,
+        54.291,
+        18.79
+      ],
+      "size": [
+        28.0,
+        28.0,
+        28.0
+      ],
+      "volume": 337088.5,
+      "spheres": 1259,
+      "score": 0.5023,
+      "apolarFraction": 0.85,
+      "box": {
+        "center": [
+          13.359,
+          54.291,
+          18.79
+        ],
+        "size": [
+          28.0,
+          28.0,
+          28.0
+        ],
+        "spacing": 0.375,
+        "forceEvenVoxels": true,
+        "voxels": [
+          76,
+          76,
+          76
+        ],
+        "gridPoints": [
+          77,
+          77,
+          77
+        ],
+        "volume": 21952.0,
+        "canWriteMaps": true,
+        "limits": [
+          [
+            -0.641,
+            40.291,
+            4.79
+          ],
+          [
+            27.359,
+            68.291,
+            32.79
+          ]
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "rank": 2,
+      "center": [
+        34.092,
+        52.44,
+        5.876
+      ],
+      "size": [
+        15.95,
+        18.961,
+        18.946
+      ],
+      "volume": 18625.6,
+      "spheres": 74,
+      "score": 0.4967,
+      "apolarFraction": 0.946,
+      "box": {
+        "center": [
+          34.092,
+          52.44,
+          5.876
+        ],
+        "size": [
+          15.95,
+          18.961,
+          18.946
+        ],
+        "spacing": 0.375,
+        "forceEvenVoxels": true,
+        "voxels": [
+          44,
+          52,
+          52
+        ],
+        "gridPoints": [
+          45,
+          53,
+          53
+        ],
+        "volume": 5729.8,
+        "canWriteMaps": true,
+        "limits": [
+          [
+            26.117,
+            42.959,
+            -3.597
+          ],
+          [
+            42.067,
+            61.92,
+            15.349
+          ]
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "rank": 3,
+      "center": [
+        17.686,
+        44.711,
+        43.058
+      ],
+      "size": [
+        14.454,
+        16.379,
+        15.654
+      ],
+      "volume": 14262.1,
+      "spheres": 50,
+      "score": 0.4372,
+      "apolarFraction": 0.94,
+      "box": {
+        "center": [
+          17.686,
+          44.711,
+          43.058
+        ],
+        "size": [
+          14.454,
+          16.379,
+          15.654
+        ],
+        "spacing": 0.375,
+        "forceEvenVoxels": true,
+        "voxels": [
+          40,
+          44,
+          42
+        ],
+        "gridPoints": [
+          41,
+          45,
+          43
+        ],
+        "volume": 3705.96,
+        "canWriteMaps": true,
+        "limits": [
+          [
+            10.459,
+            36.521,
+            35.231
+          ],
+          [
+            24.913,
+            52.901,
+            50.885
+          ]
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "rank": 4,
+      "center": [
+        1.858,
+        55.667,
+        38.605
+      ],
+      "size": [
+        28.0,
+        28.0,
+        28.0
+      ],
+      "volume": 108026.4,
+      "spheres": 388,
+      "score": 0.2778,
+      "apolarFraction": 0.881,
+      "box": {
+        "center": [
+          1.858,
+          55.667,
+          38.605
+        ],
+        "size": [
+          28.0,
+          28.0,
+          28.0
+        ],
+        "spacing": 0.375,
+        "forceEvenVoxels": true,
+        "voxels": [
+          76,
+          76,
+          76
+        ],
+        "gridPoints": [
+          77,
+          77,
+          77
+        ],
+        "volume": 21952.0,
+        "canWriteMaps": true,
+        "limits": [
+          [
+            -12.142,
+            41.667,
+            24.605
+          ],
+          [
+            15.858,
+            69.667,
+            52.605
+          ]
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "rank": 5,
+      "center": [
+        -5.174,
+        48.26,
+        19.439
+      ],
+      "size": [
+        20.946,
+        17.068,
+        25.009
+      ],
+      "volume": 20924.9,
+      "spheres": 67,
+      "score": 0.2669,
+      "apolarFraction": 0.881,
+      "box": {
+        "center": [
+          -5.174,
+          48.26,
+          19.439
+        ],
+        "size": [
+          20.946,
+          17.068,
+          25.009
+        ],
+        "spacing": 0.375,
+        "forceEvenVoxels": true,
+        "voxels": [
+          56,
+          46,
+          68
+        ],
+        "gridPoints": [
+          57,
+          47,
+          69
+        ],
+        "volume": 8940.876,
+        "canWriteMaps": true,
+        "limits": [
+          [
+            -15.647,
+            39.726,
+            6.934
+          ],
+          [
+            5.299,
+            56.794,
+            31.944
+          ]
+        ],
+        "warnings": []
+      }
+    }
+  ],
+  "atoms": 2229,
+  "params": {
+    "minRadius": 3.0,
+    "maxRadius": 6.0,
+    "linkMinPairs": 8.0,
+    "minSpheres": 35.0
+  }
+}

@@ -1,0 +1,2 @@
+{"detail":"cannot write affinity maps with odd voxel counts; enable forceEvenVoxels and retry","kind":"InvalidInputError"}
+HTTP 422

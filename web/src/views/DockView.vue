@@ -50,6 +50,9 @@ const activeTab = ref<DockTab>(docking.hasResult || docking.isRunning ? 'results
 const pipelineSignature = computed(() => `${molecules.pipelineReceptor?.id ?? ''}|${molecules.pipelineLigand?.id ?? ''}`)
 
 function jobMatchesPipeline(): boolean {
+  // A report/history inspection is explicitly about another job; do not
+  // discard it merely because the current pipeline names different inputs.
+  if (docking.isHistoryView) return true
   const params = docking.jobResult?.params
   if (!params) return true
   const receptor = params.receptor_path ?? params.receptorPath
@@ -68,6 +71,16 @@ watch(pipelineSignature, (current, previous) => {
   interactions.value = []
   activeTab.value = 'setup'
 })
+
+watch(
+  () => docking.hasResult,
+  (hasResult) => {
+    if (!hasResult || jobMatchesPipeline()) return
+    docking.reset()
+    interactions.value = []
+    activeTab.value = 'setup'
+  },
+)
 
 
 watch(

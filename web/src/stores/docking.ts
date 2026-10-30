@@ -35,6 +35,8 @@ export const useDockingStore = defineStore('docking', () => {
   const activeJobId = ref<string | null>(null)
   const jobStatus = ref<DockingJobStatus | null>(null)
   const jobResult = ref<DockingJobResult | null>(null)
+  /** True when jobResult came from Report/History rather than this run. */
+  const isHistoryView = ref(false)
   /** Ligand filename for the result reference recorded on completion. */
   const activeJobLabel = ref('')
 
@@ -236,6 +238,7 @@ export const useDockingStore = defineStore('docking', () => {
         elapsedMs: null,
       }
       jobResult.value = null
+      isHistoryView.value = false
       startPolling(result.jobId, 'job')
       return result.jobId
     } catch {
@@ -258,6 +261,7 @@ export const useDockingStore = defineStore('docking', () => {
         elapsedMs: null,
       }
       jobResult.value = null
+      isHistoryView.value = false
       startPolling(result.jobId, 'job')
       return result.jobId
     } catch {
@@ -299,6 +303,7 @@ export const useDockingStore = defineStore('docking', () => {
     activeJobLabel.value = ''
     jobStatus.value = null
     jobResult.value = null
+    isHistoryView.value = false
     currentPoseIndex.value = 0
     overlayPoses.value = false
     validation.value = null
@@ -524,6 +529,7 @@ export const useDockingStore = defineStore('docking', () => {
   async function openHistoryJob(job: DockingJobSummary): Promise<void> {
     reset()
     activeJobId.value = job.jobId
+    isHistoryView.value = true
     activeJobLabel.value = job.label
     try {
       jobStatus.value = await api.dockingJobStatus(job.jobId)
@@ -600,6 +606,7 @@ export const useDockingStore = defineStore('docking', () => {
     activeJobLabel,
     jobStatus,
     jobResult,
+    isHistoryView,
     status,
     progress,
     stage,

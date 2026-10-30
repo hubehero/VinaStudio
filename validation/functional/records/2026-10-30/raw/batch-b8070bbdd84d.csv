@@ -1,0 +1,2 @@
+ligand_index,label,status,best_affinity_kcal_mol,pose_count,error,qed,lipinski_violations
+0,20261022-235047-1iep-ligand.pdbqt,completed,-13.275,3,,0.3659166129867811,0

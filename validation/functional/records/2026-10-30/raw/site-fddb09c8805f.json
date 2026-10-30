@@ -1,0 +1,40 @@
+{
+  "start": {
+    "jobId": "fddb09c8805f",
+    "status": "running"
+  },
+  "status": {
+    "jobId": "fddb09c8805f",
+    "status": "completed",
+    "progress": 100,
+    "stage": "done",
+    "error": null,
+    "elapsedMs": 13646,
+    "totalCandidates": 1,
+    "completedCandidates": 1,
+    "failedCandidates": 0,
+    "currentLabel": "1IEP pocket 1",
+    "rows": [
+      {
+        "index": 0,
+        "label": "1IEP pocket 1",
+        "status": "completed",
+        "rank": 1,
+        "center": [
+          13.359,
+          54.291,
+          18.79
+        ],
+        "size": [
+          28.0,
+          28.0,
+          28.0
+        ],
+        "bestAffinity": -10.309,
+        "nPoses": 1,
+        "elapsedMs": 13646,
+        "error": null
+      }
+    ]
+  }
+}

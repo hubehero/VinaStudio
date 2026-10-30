@@ -392,6 +392,11 @@ async function onCancelRun(jobId: string): Promise<void> {
   }
 }
 
+/** Historical jobs may carry a bad counter; never render >100% to the user. */
+function progressPercent(value: number | null | undefined): number {
+  return Math.min(100, Math.max(0, Math.round(value ?? 0)))
+}
+
 function statusLabel(status: string): string {
   return t(`docking.status.${status}`)
 }
@@ -674,7 +679,7 @@ function statusLabel(status: string): string {
           </div>
           <ElProgress
             v-if="screening.runStatus !== null"
-            :percentage="screening.runStatus.progress"
+            :percentage="progressPercent(screening.runStatus.progress)"
           />
           <div
             v-if="
@@ -705,7 +710,7 @@ function statusLabel(status: string): string {
               </template>
             </ElTableColumn>
             <ElTableColumn :label="t('screening.colProgress')" width="90" align="right">
-              <template #default="{ row }">{{ row.progress }}%</template>
+              <template #default="{ row }">{{ progressPercent(row.progress) }}%</template>
             </ElTableColumn>
             <ElTableColumn :label="t('screening.colBest')" width="100" align="right">
               <template #default="{ row }">

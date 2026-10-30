@@ -1,0 +1,27 @@
+Computing Vina grid ... done.
+WARNING: At low exhaustiveness, it may be impossible to utilize all CPUs.
+Performing docking (random seed: 1158912138) ... 
+0%   10   20   30   40   50   60   70   80   90   100%
+|----|----|----|----|----|----|----|----|----|----|
+***************************************************
+
+mode |   affinity | dist from best mode
+     | (kcal/mol) | rmsd l.b.| rmsd u.b.
+-----+------------+----------+----------
+   1       -13.26          0          0
+   2       -10.83      1.583      13.64
+   3       -10.58      2.506      12.65
+   4        -9.11        1.7      13.18
+   5       -8.953      2.351      12.66
+   6       -7.245      1.831      13.29
+   7      -0.1082      2.568      12.92
+WARNING: At low exhaustiveness, it may be impossible to utilize all CPUs.
+
+mode |   affinity | dist from best mode
+     | (kcal/mol) | rmsd l.b.| rmsd u.b.
+-----+------------+----------+----------
+   1       -10.31          0          0
+   2       -5.295      2.194      3.339
+   3       -1.497      3.266      6.274
+   4        186.3      10.33      16.02
+   5         5778      12.56      14.79

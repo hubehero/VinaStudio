@@ -1,0 +1,31 @@
+$ uv run ruff check .
+All checks passed!
+
+$ git rev-parse HEAD
+49ff4a8a9fab8b443ed3076f53d4269eb382d5f1
+
+$ git status --short
+ M .commandcode/taste/taste/taste.md
+ M web/src/components/docking/DockingInteractions.vue
+ M web/src/components/panels/catalog/MoleculeCatalogView.vue
+ M web/src/stores/docking.ts
+ M web/src/views/DockView.vue
+ M web/src/views/WorkbenchView.vue
+?? .claude/
+?? scripts/probe_ao_toggle.py
+?? scripts/probe_app_runtime.py
+?? scripts/probe_drag_perf.py
+?? scripts/probe_preset_cost.py
+?? scripts/probe_render_perf.py
+?? scripts/probe_webgl.py
+?? validation/functional/
+?? vinastudio/resources/sample/1iep/1iep_ligand_out.pdbqt
+
+$ git diff --stat
+ .commandcode/taste/taste/taste.md                  | 105 ++++++++++++++++++---
+ web/src/components/docking/DockingInteractions.vue |   6 +-
+ .../panels/catalog/MoleculeCatalogView.vue         |  13 ++-
+ web/src/stores/docking.ts                          |   7 ++
+ web/src/views/DockView.vue                         |  13 +++
+ web/src/views/WorkbenchView.vue                    |  30 ++++--
+ 6 files changed, 153 insertions(+), 21 deletions(-)

@@ -1,0 +1,10 @@
+2026-10-30 20:41:34,656 INFO    [uvicorn.error] Started server process [174113]
+2026-10-30 20:41:34,656 INFO    [uvicorn.error] Waiting for application startup.
+2026-10-30 20:41:34,676 INFO    [vinastudio.server.job_manager] restored 36 job(s) from workspace history
+2026-10-30 20:41:34,690 INFO    [vinastudio.server.app] VinaStudio API ready
+2026-10-30 20:41:34,691 INFO    [uvicorn.error] Application startup complete.
+2026-10-30 20:41:34,692 INFO    [uvicorn.error] Uvicorn running on http://127.0.0.1:35445 (Press CTRL+C to quit)
+2026-10-30 20:41:34,693 INFO    [vinastudio.desktop.server_thread] API server listening on http://127.0.0.1:35445
+2026-10-30 20:41:34,693 INFO    [__main__] Loading interface from http://127.0.0.1:35445
+2026-10-30 20:41:36,595 INFO    [uvicorn.error] 127.0.0.1:47276 - "WebSocket /ws" [accepted]
+2026-10-30 20:41:36,597 INFO    [uvicorn.error] connection open

@@ -1,0 +1,2 @@
+rank,ligand_index,label,best_affinity_kcal_mol,pose_count,qed,lipinski_violations
+1,0,1iep_ligand.sdf,-13.261,3,0.3659166129867811,0

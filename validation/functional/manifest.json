@@ -1,0 +1,332 @@
+{
+  "schemaVersion": "1.0",
+  "scope": "user-facing functional behaviour; not a docking-accuracy claim",
+  "software": {
+    "version": "0.6.4",
+    "releaseTag": "v0.6.4",
+    "record": "records/2026-10-30"
+  },
+  "statusDefinitions": {
+    "pass": "automated and/or UI-observed for the listed entry points",
+    "partial": "some listed entry points or branches exercised; gap recorded",
+    "not-run": "not exercised in this record; reason recorded"
+  },
+  "features": [
+    {
+      "id": "F01",
+      "area": "Workbench pipeline",
+      "entry": "/workbench",
+      "status": "pass",
+      "tests": [
+        "test_golden_pipeline.py"
+      ],
+      "ui": [
+        "U01",
+        "ui/workbench.png"
+      ]
+    },
+    {
+      "id": "F02",
+      "area": "Catalog and relationships",
+      "entry": "/molecules",
+      "status": "pass",
+      "tests": [
+        "test_catalog_api.py",
+        "test_library_api.py",
+        "test_catalog_core.py",
+        "test_catalog_migrate.py"
+      ],
+      "ui": [
+        "U11",
+        "U12",
+        "ui/molecules.png"
+      ]
+    },
+    {
+      "id": "F03",
+      "area": "File ingest",
+      "entry": "upload/drop",
+      "status": "partial",
+      "tests": [
+        "test_detect_api.py",
+        "test_preparation_api.py",
+        "test_renderable_api.py",
+        "test_origin_guard.py"
+      ],
+      "gap": "native file picker and drag-drop not fully driven"
+    },
+    {
+      "id": "F04",
+      "area": "Ligand preparation and SMILES",
+      "entry": "Catalog",
+      "status": "pass",
+      "tests": [
+        "test_ligand_prep.py",
+        "test_preparation_api.py",
+        "test_sketch_api.py"
+      ],
+      "ui": [
+        "SMILES dialog",
+        "3D detail"
+      ]
+    },
+    {
+      "id": "F05",
+      "area": "Receptor preparation",
+      "entry": "Catalog",
+      "status": "partial",
+      "tests": [
+        "test_receptor_prep.py",
+        "test_preparation_api.py",
+        "test_detect_api.py"
+      ],
+      "gap": "flexible-sidechain and mmCIF dialogs not live-driven"
+    },
+    {
+      "id": "F06",
+      "area": "Box, pockets and maps",
+      "entry": "/box",
+      "status": "partial",
+      "tests": [
+        "test_box_api.py",
+        "test_box.py",
+        "test_pocket_api.py",
+        "test_interactive_maps.py"
+      ],
+      "ui": [
+        "ui/box.png",
+        "completion/raw/write-maps-even.json",
+        "completion/raw/write-maps-odd-response.txt",
+        "completion/raw/pockets-5.json"
+      ],
+      "gap": "write-maps and live pocket run not driven"
+    },
+    {
+      "id": "F07",
+      "area": "Single docking and interactive scoring",
+      "entry": "/docking",
+      "status": "pass",
+      "tests": [
+        "test_docking_api.py",
+        "test_docking_weights.py",
+        "test_ensemble_worker.py",
+        "test_golden_pipeline.py"
+      ],
+      "ui": [
+        "U02",
+        "U03",
+        "U04",
+        "ui/docking.png"
+      ],
+      "gap": "ensemble not live-driven"
+    },
+    {
+      "id": "F08",
+      "area": "Pose analysis",
+      "entry": "Dock Analysis/Results",
+      "status": "pass",
+      "tests": [
+        "test_pose_validation.py",
+        "test_rmsd.py",
+        "test_cluster.py",
+        "test_ifp_contract.py",
+        "test_ifp_api.py",
+        "test_interactions_api.py"
+      ],
+      "ui": [
+        "U05",
+        "U06",
+        "U07",
+        "U08",
+        "ui/flow-history-interactions.png"
+      ]
+    },
+    {
+      "id": "F09",
+      "area": "Exports and bundles",
+      "entry": "Dock/Report",
+      "status": "pass",
+      "tests": [
+        "test_export.py",
+        "test_batch_export.py",
+        "test_report_svg_safety.py"
+      ],
+      "ui": [
+        "CSV and ZIP downloaded"
+      ],
+      "gap": "2D SVG download not separately opened"
+    },
+    {
+      "id": "F10",
+      "area": "Batch docking",
+      "entry": "/batch",
+      "status": "pass",
+      "tests": [
+        "test_batch_parallel.py",
+        "test_batch_molecules.py"
+      ],
+      "ui": [
+        "U13",
+        "ui/flow-batch-complete.png"
+      ],
+      "gap": "one-ligand live smoke; full multi-ligand run not repeated"
+    },
+    {
+      "id": "F11",
+      "area": "Virtual screening",
+      "entry": "/screening",
+      "status": "pass",
+      "tests": [
+        "test_screening_api.py",
+        "test_library_api.py"
+      ],
+      "ui": [
+        "completion/ui/full-screening.png",
+        "completion/raw/full-screening-status.json",
+        "completion/raw/full-screening-ranking-top200.csv"
+      ],
+      "gap": "123/125 completed, 2 input failures recorded; no accuracy claim"
+    },
+    {
+      "id": "F12",
+      "area": "Site screening",
+      "entry": "Box/Dock",
+      "status": "pass",
+      "tests": [
+        "test_sites_api.py",
+        "test_site_screening_vina.py",
+        "test_pocket_api.py"
+      ],
+      "ui": [
+        "completion/raw/site-bb5cc99255b3-result.json"
+      ],
+      "gap": "five-pocket, one-ligand live run"
+    },
+    {
+      "id": "F13",
+      "area": "Results search",
+      "entry": "/results",
+      "status": "partial",
+      "tests": [
+        "test_results_api.py",
+        "test_results_db.py"
+      ],
+      "ui": [
+        "U16",
+        "ui/results.png",
+        "ui/flow-results-search.png"
+      ],
+      "gap": "favorite/tag/bulk/compare not individually driven"
+    },
+    {
+      "id": "F14",
+      "area": "Projects, workspace, molecule manifest",
+      "entry": "top bar/Settings",
+      "status": "partial",
+      "tests": [
+        "test_project_api.py",
+        "test_workspace_api.py",
+        "test_workspace.py",
+        "test_molecules_api.py"
+      ],
+      "ui": [
+        "Settings loads"
+      ],
+      "gap": "native Save As and workspace migration not live-driven"
+    },
+    {
+      "id": "F15",
+      "area": "Sketcher",
+      "entry": "Catalog/Draw",
+      "status": "partial",
+      "tests": [
+        "test_sketch_api.py",
+        "test_sketch_chem.py"
+      ],
+      "ui": [
+        "U17",
+        "ui/flow-sketcher.png"
+      ],
+      "gap": "drawing/cleanup canvas interaction not driven"
+    },
+    {
+      "id": "F16",
+      "area": "System and environment",
+      "entry": "/environment",
+      "status": "pass",
+      "tests": [
+        "test_system_api.py",
+        "test_system_selfcheck.py",
+        "test_system_update.py"
+      ],
+      "ui": [
+        "ui/environment.png"
+      ]
+    },
+    {
+      "id": "F17",
+      "area": "Security boundaries",
+      "entry": "API",
+      "status": "pass",
+      "tests": [
+        "test_origin_guard.py",
+        "test_origin.py",
+        "test_app_middleware.py",
+        "test_project_api.py"
+      ],
+      "gap": "not a penetration-test claim"
+    },
+    {
+      "id": "F18",
+      "area": "UI routes, settings, i18n, responsive",
+      "entry": "all routes",
+      "status": "pass",
+      "tests": [
+        "web: vitest",
+        "web: typecheck",
+        "web: build"
+      ],
+      "ui": [
+        "ui-smoke.json",
+        "U14",
+        "U15",
+        "ui/flow-catalog-narrow-detail.png"
+      ],
+      "gap": "desktop bridge and GPU not covered"
+    },
+    {
+      "id": "F19",
+      "area": "Online compound providers",
+      "entry": "Catalog library",
+      "status": "partial",
+      "tests": [
+        "test_library_compounds_api.py",
+        "test_compound_sources.py"
+      ],
+      "gap": "PubChem UI/API and ChEMBL API verified; ChEMBL UI/structure download not driven",
+      "ui": [
+        "U20",
+        "U21",
+        "completion/raw/pubchem-aspirin-search.json",
+        "completion/raw/chembl-imatinib-search.json",
+        "completion/raw/chembl-imatinib-fetch.json",
+        "completion/ui/flow-provider-ui.png"
+      ]
+    },
+    {
+      "id": "F20",
+      "area": "Desktop shell and native dialogs",
+      "entry": "packaged app",
+      "status": "partial",
+      "tests": [
+        "test_desktop_env.py",
+        "packaging tests"
+      ],
+      "gap": "desktop startup smoke; native dialogs/QWebChannel not driven",
+      "ui": [
+        "completion/raw/desktop-startup.log",
+        "completion/raw/desktop-startup-angle.log"
+      ]
+    }
+  ]
+}

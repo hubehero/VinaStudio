@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "1.0",
+  "generatedAt": "2026-10-30T12:20:10+00:00",
+  "purpose": "functional validation of the VinaStudio user-facing software, not a docking-accuracy claim",
+  "software": {
+    "appVersion": "0.6.4",
+    "gitHead": "49ff4a8a9fab8b443ed3076f53d4269eb382d5f1",
+    "gitReleaseTag": "v0.6.4",
+    "gitDirty": true,
+    "sourcePatch": "working-tree.patch",
+    "sourcePatchSha256": "6d506bc81e4c4b8ed050b4af3447e142250c9daf3816027a5420f700084a1e69",
+    "sourcePatchBytes": 7755,
+    "postValidationCommits": [
+      "407fc7e",
+      "1427018",
+      "2c52ed9",
+      "3006b6a",
+      "76bcc97"
+    ]
+  },
+  "runtime": {
+    "appVersion": "0.6.4",
+    "python": "3.12.14",
+    "platform": "Linux 7.0.0-38-generic (x86_64)",
+    "cpuCount": "8",
+    "vina": "1.2.7",
+    "meeko": "0.8.0",
+    "rdkit": "2026.9.1",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "gemmi": "0.7.5",
+    "gitCommit": "49ff4a8a9fab8b443ed3076f53d4269eb382d5f1",
+    "gitDirty": "yes",
+    "engineBackend": "vina",
+    "engineReason": "the vina Python module is installed"
+  },
+  "frontend": {
+    "node": "v24.20.0",
+    "pnpm": "12.3.4",
+    "vitest": "^5.0.5"
+  },
+  "inputs": {
+    "1iep_receptorH.pdb": {
+      "path": "vinastudio/resources/sample/1iep/1iep_receptorH.pdb",
+      "sha256": "5f6aee6029f9a2a2c2be32d4eb948ae70808690573e1b69a0850cdffd7048ca7",
+      "bytes": 357444
+    },
+    "1iep_ligand.sdf": {
+      "path": "vinastudio/resources/sample/1iep/1iep_ligand.sdf",
+      "sha256": "051b8742c32adc05c07fb486a4e7c9327f84e131cee33ac4e6a568d07553eb38",
+      "bytes": 6621
+    },
+    "1iep_reference.sdf": {
+      "path": "vinastudio/resources/sample/1iep/1iep_reference.sdf",
+      "sha256": "1bcc3920c107e60300fb7ac7fbe4d332c0ae2eb9b75baf2f7b7978f124343700",
+      "bytes": 3242
+    },
+    "1iep_crystal_ligand.pdb": {
+      "path": "vinastudio/resources/sample/1iep/1iep_crystal_ligand.pdb",
+      "sha256": "8ad50e10d641f5ad3fcdbeb2ad409d1af9850eedd95484b33f9608630cc066bd",
+      "bytes": 5998
+    },
+    "manifest.json": {
+      "path": "validation/manifest.json",
+      "sha256": "9e80518619135e84928d72a738e425cd0a05cc8778e27995eb410c391e34bd85",
+      "bytes": 750
+    }
+  },
+  "commands": {
+    "backend": "uv run pytest -q --junitxml=validation/functional/records/2026-10-30/raw/pytest-junit.xml",
+    "frontend": "pnpm -C web typecheck && pnpm -C web test && pnpm -C web build",
+    "lint": "uv run ruff check .",
+    "uiSmoke": "uv run python validation/functional/ui_smoke.py --base-url http://127.0.0.1:8760 --out validation/functional/records/2026-10-30"
+  }
+}

@@ -1,0 +1,34 @@
+$ /home/hubehero/.local/bin/pnpm run build
+$ vite build
+vite v8.3.4 building client environment for production...
+transforming...
+✓ 1791 modules transformed.
+rendering chunks...
+computing gzip size...
+../vinastudio/server/static/index.html                     1.17 kB │ gzip:   0.68 kB
+../vinastudio/server/static/assets/index-DqtFRCgO.css    469.07 kB │ gzip:  65.65 kB
+../vinastudio/server/static/assets/index-CBe5ux5Z.js   2,620.87 kB │ gzip: 726.63 kB
+
+[33m[EVAL] [0mUse of direct `eval` function is strongly discouraged as it poses security risks and may cause issues with minification.
+       [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m node_modules/.pnpm/3dmol@2.5.5/node_modules/3dmol/build/3Dmol.es6.js:42893:20 [38;5;246m][0m
+       [38;5;246m│[0m
+ [38;5;246m42893 │[0m [38;5;249m [0m[38;5;249m [0m[38;5;249m [0m[38;5;249m [0m[38;5;249m [0m[38;5;249m [0m[38;5;249m [0m[38;5;249m [0m[38;5;249mc[0m[38;5;249ma[0m[38;5;249ml[0m[38;5;249ml[0m[38;5;249mb[0m[38;5;249ma[0m[38;5;249mc[0m[38;5;249mk[0m[38;5;249m [0m[38;5;249m=[0m[38;5;249m [0meval[38;5;249m([0m[38;5;249m"[0m[38;5;249m([0m[38;5;249m"[0m[38;5;249m [0m[38;5;249m+[0m[38;5;249m [0m[38;5;249mc[0m[38;5;249ma[0m[38;5;249ml[0m[38;5;249ml[0m[38;5;249mb[0m[38;5;249ma[0m[38;5;249mc[0m[38;5;249mk[0m[38;5;249m [0m[38;5;249m+[0m[38;5;249m [0m[38;5;249m"[0m[38;5;249m)[0m[38;5;249m"[0m[38;5;249m)[0m[38;5;249m;[0m
+ [38;5;240m      │[0m                    ──┬─  
+ [38;5;240m      │[0m                      ╰─── Use of direct `eval` here.
+ [38;5;240m      │[0m 
+ [38;5;240m      │[0m [38;5;115mHelp[0m: Consider using indirect eval. For more information, check the documentation: https://rolldown.rs/guide/troubleshooting#avoiding-direct-eval
+[38;5;246m───────╯[0m
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 2400 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[33m[INEFFECTIVE_DYNAMIC_IMPORT] [0mnode_modules/.pnpm/3dmol@2.5.5/node_modules/3dmol/build/3Dmol.es6.js is dynamically imported by src/components/panels/MoleculeLibraryDialog.vue?vue&type=script&setup=true&lang.ts but also statically imported by src/composables/use3Dmol.ts, dynamic import will not move module into another chunk.
+
+✓ built in 1.83s
+swagger: swagger-ui-bundle.js already exists, skipping
+swagger: swagger-ui.css already exists, skipping
+pruning stale asset index-DCYiwqbn.css
+pruning stale asset index-UcQkAk4u.js
+Interface built into /home/hubehero/SELF_PROJECT/AutoDock_Vina/vinastudio/server/static

@@ -1,0 +1,13 @@
+2026-10-30 20:40:10,775 INFO    [uvicorn.error] Started server process [173860]
+2026-10-30 20:40:10,775 INFO    [uvicorn.error] Waiting for application startup.
+2026-10-30 20:40:10,815 INFO    [vinastudio.server.job_manager] restored 36 job(s) from workspace history
+2026-10-30 20:40:10,829 INFO    [vinastudio.server.app] VinaStudio API ready
+2026-10-30 20:40:10,830 INFO    [uvicorn.error] Application startup complete.
+2026-10-30 20:40:10,831 INFO    [uvicorn.error] Uvicorn running on http://127.0.0.1:42007 (Press CTRL+C to quit)
+2026-10-30 20:40:10,832 INFO    [vinastudio.desktop.server_thread] API server listening on http://127.0.0.1:42007
+2026-10-30 20:40:10,832 INFO    [__main__] Loading interface from http://127.0.0.1:42007
+GPUInfo not initialized on GpuInfoUpdate
+js: TypeError: Cannot read properties of null (reading 'getParameter')
+js: [vinastudio] failed to create the 3Dmol viewer error creating viewer: TypeError: Cannot read properties of null (reading 'clearDepth')
+2026-10-30 20:40:12,728 INFO    [uvicorn.error] 127.0.0.1:49694 - "WebSocket /ws" [accepted]
+2026-10-30 20:40:12,731 INFO    [uvicorn.error] connection open

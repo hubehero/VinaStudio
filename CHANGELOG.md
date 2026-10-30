@@ -12,6 +12,34 @@ entries about the product — no internal task ids or workflow narration.
 
 ## [Unreleased]
 
+## [0.6.5] - 2026-10-30
+
+### 新增
+
+- **可复现功能验证记录**：新增 `validation/functional/`，包含功能矩阵、环境与输入哈希、全量测试 JUnit、生产界面路由冒烟、用户流程截图和原始结果；协议、证据等级与未覆盖项在记录中明确列出。
+
+### 修复
+
+- **历史结果隔离**：结果汇报中的历史任务不再被工作台当成当前管线结果；切换受体或配体仍会清除旧结果，历史任务仍可在对接页检视。
+- **历史相互作用**：相互作用分析优先使用任务记录的受体，避免换过当前分子后把旧 pose 与另一受体组合。
+- **窄屏 Catalog**：窄窗口下选中分子的详情、预览和准备入口改为底部整行保留，不再消失。
+- **软件渲染**：显式软件渲染模式使用 ANGLE SwiftShader 创建 WebGL 上下文，嵌入界面的 3D 视口不再因空上下文启动失败。
+- **筛选进度**：历史取消任务的越界进度值在界面夹紧为 0–100%，不修改原始历史记录。
+- **地图错误边界**：奇数量体且未启用 `forceEvenVoxels` 的亲和力图请求返回可解释的 422，而不是泄露 Vina 的 500。
+
+### Added
+
+- **Reproducible functional validation record**: add `validation/functional/` with a feature matrix, environment and input hashes, full test JUnit, production UI route smoke, user-flow screenshots and raw results; the protocol, evidence levels and unverified items are explicit.
+
+### Fixed
+
+- **Historical result isolation**: a result loaded from the report/history view is no longer presented by the workbench as the current pipeline result; changing receptor or ligand still clears stale results, while history remains inspectable in the docking view.
+- **Historical interaction analysis**: contacts now use the receptor recorded by the job, instead of combining an old pose with a different current receptor.
+- **Narrow Catalog layout**: the selected molecule's detail, preview and preparation entry remain available as a full-width bottom row at narrow widths.
+- **Software rendering**: the explicit software-render mode asks ANGLE for SwiftShader, so the embedded 3D viewport no longer fails to create a WebGL context.
+- **Screening progress**: out-of-range progress from a historical cancelled run is clamped to 0–100 in the interface without rewriting the stored record.
+- **Map error boundary**: an affinity-map request with odd voxels and `forceEvenVoxels` disabled returns an actionable 422 instead of leaking a Vina 500.
+
 ## [0.6.4] - 2026-10-29
 
 ### 新增

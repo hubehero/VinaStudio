@@ -1,0 +1,78 @@
+{
+  "source": "chembl",
+  "mode": "text",
+  "total": 5,
+  "offset": 0,
+  "limit": 3,
+  "results": [
+    {
+      "source": "chembl",
+      "id": "CHEMBL941",
+      "name": "IMATINIB",
+      "formula": "C29H31N7O",
+      "molecularWeight": 493.62,
+      "smiles": "Cc1ccc(NC(=O)c2ccc(CN3CCN(C)CC3)cc2)cc1Nc1nccc(-c2cccnc2)n1",
+      "inchiKey": "KTUFNOKKBVMGRW-UHFFFAOYSA-N",
+      "score": 36.0,
+      "has3D": false,
+      "license": "ChEMBL data, CC BY-SA 3.0; cite https://www.ebi.ac.uk/chembl",
+      "sourceUrl": "https://www.ebi.ac.uk/chembl/compound_report_card/CHEMBL941/",
+      "properties": {
+        "hba": 7,
+        "hbd": 2,
+        "rtb": 7,
+        "psa": "86.28",
+        "alogp": "4.59",
+        "qed_weighted": "0.39",
+        "num_ro5_violations": 0
+      }
+    },
+    {
+      "source": "chembl",
+      "id": "CHEMBL1642",
+      "name": "IMATINIB MESYLATE",
+      "formula": "C30H35N7O4S",
+      "molecularWeight": 589.72,
+      "smiles": "CS(=O)(=O)O.Cc1ccc(NC(=O)c2ccc(CN3CCN(C)CC3)cc2)cc1Nc1nccc(-c2cccnc2)n1",
+      "inchiKey": "YLMAHDNUQAMNNX-UHFFFAOYSA-N",
+      "score": 36.0,
+      "has3D": false,
+      "license": "ChEMBL data, CC BY-SA 3.0; cite https://www.ebi.ac.uk/chembl",
+      "sourceUrl": "https://www.ebi.ac.uk/chembl/compound_report_card/CHEMBL1642/",
+      "properties": {
+        "hba": 7,
+        "hbd": 2,
+        "rtb": 7,
+        "psa": "86.28",
+        "alogp": "4.59",
+        "qed_weighted": "0.39",
+        "num_ro5_violations": 0
+      }
+    },
+    {
+      "source": "chembl",
+      "id": "CHEMBL3040018",
+      "name": "CHEMBL3040018",
+      "formula": "C28H29N7O",
+      "molecularWeight": 479.59,
+      "smiles": "Cc1ccc(NC(=O)c2ccc(CN3CCNCC3)cc2)cc1Nc1nccc(-c2cccnc2)n1",
+      "inchiKey": "BQQYXPHRXIZMDM-UHFFFAOYSA-N",
+      "score": 17.0,
+      "has3D": false,
+      "license": "ChEMBL data, CC BY-SA 3.0; cite https://www.ebi.ac.uk/chembl",
+      "sourceUrl": "https://www.ebi.ac.uk/chembl/compound_report_card/CHEMBL3040018/",
+      "properties": {
+        "hba": 7,
+        "hbd": 3,
+        "rtb": 7,
+        "psa": "95.07",
+        "alogp": "4.25",
+        "qed_weighted": "0.36",
+        "num_ro5_violations": 0
+      }
+    }
+  ],
+  "warnings": [
+    "ChEMBL 返回 2D 结构；加入后请用准备流程生成 3D。"
+  ]
+}

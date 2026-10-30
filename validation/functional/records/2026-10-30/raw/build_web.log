@@ -1,0 +1,118 @@
+$ /home/hubehero/.local/bin/pnpm run build
+$ vite build
+vite v8.3.4 building client environment for production...
+transforming...
+✓ 1791 modules transformed.
+rendering chunks...
+computing gzip size...
+../vinastudio/server/static/index.html                     1.17 kB │ gzip:   0.68 kB
+../vinastudio/server/static/assets/index-DCYiwqbn.css    469.07 kB │ gzip:  65.65 kB
+../vinastudio/server/static/assets/index-UcQkAk4u.js   2,620.79 kB │ gzip: 726.60 kB
+
+[33m[EVAL] [0mUse of direct `eval` function is strongly discouraged as it poses security risks and may cause issues with minification.
+       [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m node_modules/.pnpm/3dmol@2.5.5/node_modules/3dmol/build/3Dmol.es6.js:42893:20 [38;5;246m][0m
+       [38;5;246m│[0m
+ [38;5;246m42893 │[0m [38;5;249m [0m[38;5;249m [0m[38;5;249m [0m[38;5;249m [0m[38;5;249m [0m[38;5;249m [0m[38;5;249m [0m[38;5;249m [0m[38;5;249mc[0m[38;5;249ma[0m[38;5;249ml[0m[38;5;249ml[0m[38;5;249mb[0m[38;5;249ma[0m[38;5;249mc[0m[38;5;249mk[0m[38;5;249m [0m[38;5;249m=[0m[38;5;249m [0meval[38;5;249m([0m[38;5;249m"[0m[38;5;249m([0m[38;5;249m"[0m[38;5;249m [0m[38;5;249m+[0m[38;5;249m [0m[38;5;249mc[0m[38;5;249ma[0m[38;5;249ml[0m[38;5;249ml[0m[38;5;249mb[0m[38;5;249ma[0m[38;5;249mc[0m[38;5;249mk[0m[38;5;249m [0m[38;5;249m+[0m[38;5;249m [0m[38;5;249m"[0m[38;5;249m)[0m[38;5;249m"[0m[38;5;249m)[0m[38;5;249m;[0m
+ [38;5;240m      │[0m                    ──┬─  
+ [38;5;240m      │[0m                      ╰─── Use of direct `eval` here.
+ [38;5;240m      │[0m 
+ [38;5;240m      │[0m [38;5;115mHelp[0m: Consider using indirect eval. For more information, check the documentation: https://rolldown.rs/guide/troubleshooting#avoiding-direct-eval
+[38;5;246m───────╯[0m
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 2400 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[33m[INEFFECTIVE_DYNAMIC_IMPORT] [0mnode_modules/.pnpm/3dmol@2.5.5/node_modules/3dmol/build/3Dmol.es6.js is dynamically imported by src/components/panels/MoleculeLibraryDialog.vue?vue&type=script&setup=true&lang.ts but also statically imported by src/composables/use3Dmol.ts, dynamic import will not move module into another chunk.
+
+✓ built in 1.48s
+swagger: swagger-ui-bundle.js already exists, skipping
+swagger: swagger-ui.css already exists, skipping
+pruning stale asset index-2E86ZqBy.js
+pruning stale asset index-2rrDj6K7.js
+pruning stale asset index-6AMMosn-.js
+pruning stale asset index-8RPryG-i.css
+pruning stale asset index-B2i5euiL.js
+pruning stale asset index-B4M5hQZl.js
+pruning stale asset index-B4zCwZJS.js
+pruning stale asset index-B8WHyy7a.css
+pruning stale asset index-B9woHpuC.css
+pruning stale asset index-BD2Iagvr.js
+pruning stale asset index-BDr1uH6J.js
+pruning stale asset index-BECLISWB.css
+pruning stale asset index-BF5JGijW.css
+pruning stale asset index-BFv14QbL.css
+pruning stale asset index-BHiPJeIJ.js
+pruning stale asset index-BIWAKEca.js
+pruning stale asset index-BJCtZYCK.css
+pruning stale asset index-BK9D0R1f.css
+pruning stale asset index-BKtmDpqD.js
+pruning stale asset index-BOEYuqJs.css
+pruning stale asset index-BQ1QrUyb.js
+pruning stale asset index-BR7aJiCO.css
+pruning stale asset index-BUGZsPwQ.css
+pruning stale asset index-BY2XftVX.js
+pruning stale asset index-BYiBPtsU.js
+pruning stale asset index-BcngKUNL.css
+pruning stale asset index-BewQLShY.css
+pruning stale asset index-BftylZ5u.js
+pruning stale asset index-Bs-r_eLn.js
+pruning stale asset index-BuoCHIcp.js
+pruning stale asset index-BvfMjd9P.css
+pruning stale asset index-Bxwn-XKq.css
+pruning stale asset index-C-KjVg3H.js
+pruning stale asset index-C0w8neON.css
+pruning stale asset index-C3CDbJEZ.js
+pruning stale asset index-C3PABKh6.js
+pruning stale asset index-C5H9o0J3.css
+pruning stale asset index-C728gpOJ.css
+pruning stale asset index-CD-d_XwR.css
+pruning stale asset index-CD8YtvG8.css
+pruning stale asset index-CJT5jrQ6.js
+pruning stale asset index-CRa6mlmg.css
+pruning stale asset index-CV3hlsOy.js
+pruning stale asset index-CZMWBDeD.js
+pruning stale asset index-CaJp8242.css
+pruning stale asset index-CgFwxCJw.css
+pruning stale asset index-Cq3qopfY.css
+pruning stale asset index-Cx7-Xea6.js
+pruning stale asset index-CyOe1Vn1.css
+pruning stale asset index-CzFF7Yuj.js
+pruning stale asset index-D4fbL0to.css
+pruning stale asset index-D5LZL5-h.css
+pruning stale asset index-D6wYyPF5.js
+pruning stale asset index-D7BO14Md.css
+pruning stale asset index-D9NBUflH.css
+pruning stale asset index-DIGF_jXf.css
+pruning stale asset index-DIlT1-SC.js
+pruning stale asset index-DKM-KNSx.js
+pruning stale asset index-DM9VDF6x.js
+pruning stale asset index-DNCAJ4Eo.js
+pruning stale asset index-DRE5yG_N.js
+pruning stale asset index-DTf7YSJ5.css
+pruning stale asset index-DTp8TsO_.js
+pruning stale asset index-DTrtFAb8.js
+pruning stale asset index-DYbOKpQt.js
+pruning stale asset index-D_66XtwS.js
+pruning stale asset index-D_Ex5hbW.css
+pruning stale asset index-DcCjszbT.js
+pruning stale asset index-DcHJm_zd.css
+pruning stale asset index-DcekyMMx.css
+pruning stale asset index-DjC9dG3n.css
+pruning stale asset index-DkSY-6W2.css
+pruning stale asset index-DsOoXB3Z.js
+pruning stale asset index-DxWb6p19.css
+pruning stale asset index-DyP1_xG-.css
+pruning stale asset index-IdQBQgTa.css
+pruning stale asset index-KZ3PQRiP.js
+pruning stale asset index-Rfz68prU.js
+pruning stale asset index-RibPtsYZ.js
+pruning stale asset index-SG2Xgv6-.css
+pruning stale asset index-ZiVJqgaI.js
+pruning stale asset index-jvkVvwKV.js
+pruning stale asset index-naScoPq3.css
+pruning stale asset index-oiUxqvZM.css
+pruning stale asset index-zUCq6nTH.js
+pruning stale asset index-zUWIlZID.js
+Interface built into /home/hubehero/SELF_PROJECT/AutoDock_Vina/vinastudio/server/static

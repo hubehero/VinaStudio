@@ -44,7 +44,25 @@ async function runExample(): Promise<void> {
  * other: the input complex while the run is still ahead, the docked pose once
  * a result exists.
  */
-const ligandUrl = computed(() => (docking.currentPoseSdf ? null : molecules.ligandSdfUrl))
+const resultMatchesPipeline = computed(() => {
+  const params = docking.jobResult?.params
+  if (!params) return true
+  const receptor = params.receptor_path ?? params.receptorPath
+  const ligand = params.ligand_path ?? params.ligandPath
+  return (
+    (receptor === undefined || receptor === null || receptor === molecules.receptorPdbqtPath)
+    && (ligand === undefined || ligand === null || ligand === molecules.ligandPdbqtPath)
+  )
+})
+
+/** History inspection must not masquerade as the current pipeline's result. */
+const hasCurrentResult = computed(
+  () => docking.hasResult && !docking.isHistoryView && resultMatchesPipeline.value,
+)
+
+const ligandUrl = computed(() =>
+  hasCurrentResult.value && docking.currentPoseSdf ? null : molecules.ligandSdfUrl,
+)
 
 interface PipelineStep {
   key: string
@@ -106,8 +124,8 @@ const steps = computed<PipelineStep[]>(() => [
     key: 'docking',
     title: t('workbench.steps.docking'),
     description: t('workbench.steps.dockingDesc'),
-    ready: docking.isCompleted,
-    summary: docking.bestAffinity !== null
+    ready: docking.isCompleted && hasCurrentResult.value,
+    summary: hasCurrentResult.value && docking.bestAffinity !== null
       ? t('workbench.summaries.docking', {
           affinity: docking.bestAffinity.toFixed(2),
           poses: docking.poses.length,
@@ -119,8 +137,8 @@ const steps = computed<PipelineStep[]>(() => [
     key: 'results',
     title: t('workbench.steps.results'),
     description: t('workbench.steps.resultsDesc'),
-    ready: docking.hasResult && docking.poses.length > 0,
-    summary: docking.hasResult
+    ready: hasCurrentResult.value && docking.poses.length > 0,
+    summary: hasCurrentResult.value
       ? t('workbench.summaries.results', {
           best: docking.bestAffinity?.toFixed(2) ?? '—',
           count: docking.poses.length,
@@ -144,7 +162,7 @@ const nextKey = computed(() => steps.value.find((step) => !step.ready)?.key ?? n
       <ViewportCanvas
         :receptor-url="molecules.receptorPdbUrl"
         :ligand-url="ligandUrl"
-        :pose-sdf-content="docking.currentPoseSdf"
+        :pose-sdf-content="hasCurrentResult ? docking.currentPoseSdf : null"
         :box="box.geometry"
         :style="box.style"
         :orthographic="box.orthographic"

@@ -1,0 +1,111 @@
+{
+  "jobId": "bb5cc99255b3",
+  "status": "completed",
+  "scoring": "vina",
+  "exhaustiveness": 1,
+  "rows": [
+    {
+      "index": 0,
+      "label": "pocket 1",
+      "status": "completed",
+      "rank": 1,
+      "center": [
+        13.359,
+        54.291,
+        18.79
+      ],
+      "size": [
+        28.0,
+        28.0,
+        28.0
+      ],
+      "bestAffinity": -9.541,
+      "nPoses": 1,
+      "elapsedMs": 13675,
+      "error": null
+    },
+    {
+      "index": 3,
+      "label": "pocket 4",
+      "status": "completed",
+      "rank": 2,
+      "center": [
+        1.858,
+        55.667,
+        38.605
+      ],
+      "size": [
+        28.0,
+        28.0,
+        28.0
+      ],
+      "bestAffinity": -7.423,
+      "nPoses": 3,
+      "elapsedMs": 10056,
+      "error": null
+    },
+    {
+      "index": 4,
+      "label": "pocket 5",
+      "status": "completed",
+      "rank": 3,
+      "center": [
+        -5.174,
+        48.26,
+        19.439
+      ],
+      "size": [
+        20.946,
+        17.068,
+        25.009
+      ],
+      "bestAffinity": -7.413,
+      "nPoses": 2,
+      "elapsedMs": 12469,
+      "error": null
+    },
+    {
+      "index": 2,
+      "label": "pocket 3",
+      "status": "completed",
+      "rank": 4,
+      "center": [
+        17.686,
+        44.711,
+        43.058
+      ],
+      "size": [
+        14.454,
+        16.379,
+        15.654
+      ],
+      "bestAffinity": -6.31,
+      "nPoses": 2,
+      "elapsedMs": 16753,
+      "error": null
+    },
+    {
+      "index": 1,
+      "label": "pocket 2",
+      "status": "completed",
+      "rank": 5,
+      "center": [
+        34.092,
+        52.44,
+        5.876
+      ],
+      "size": [
+        15.95,
+        18.961,
+        18.946
+      ],
+      "bestAffinity": -6.06,
+      "nPoses": 2,
+      "elapsedMs": 13385,
+      "error": null
+    }
+  ],
+  "bestAffinity": -9.541,
+  "bestIndex": 0,
+  "elapsedMs": 66338
+}

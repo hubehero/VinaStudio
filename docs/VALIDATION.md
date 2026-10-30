@@ -163,3 +163,19 @@ harness 本身支持任意数量的 case，但**没有在仓库里内置 10–20
 - 不声称官方 PoseBusters 通过率；
 - 不把 1 个有效 case（或可选负对照）的结果外推为普适精度；
 - 不修改准备/对接算法来“让验证变绿”。
+
+## 9. 功能验证记录（独立于 docking 精度）
+
+对接精度验证回答“1IEP 的重对接是否恢复晶体姿态”；功能验证回答“用户可见
+入口是否按契约工作”。两者不能互相替代。
+
+- 协议、功能矩阵、证据等级与未执行项：
+  [`validation/functional/README.md`](../validation/functional/README.md)
+- 2026-10-30 的实际记录（环境、输入哈希、pytest JUnit、前端检查、11 条 UI
+  路由冒烟、截图和缺陷复现）：
+  [`validation/functional/records/2026-10-30/`](../validation/functional/records/2026-10-30/)
+- 机器可读索引：
+  [`functional-report.json`](../validation/functional/records/2026-10-30/functional-report.json)
+
+该记录明确保留 `partial` / `not-run` 项（完整 125 分子筛选、site screening、
+桌面原生对话框、在线化合物源、GPU 渲染），不会把“页面能打开”写成“功能通过”。

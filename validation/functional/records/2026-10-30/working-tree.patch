@@ -1,0 +1,187 @@
+diff --git a/web/src/components/docking/DockingInteractions.vue b/web/src/components/docking/DockingInteractions.vue
+index aeb9fe9..f289ce0 100644
+--- a/web/src/components/docking/DockingInteractions.vue
++++ b/web/src/components/docking/DockingInteractions.vue
+@@ -75,7 +75,11 @@ async function analyzeInteractions(): Promise<void> {
+   view.value = 'table'
+ 
+   try {
+-    const receptorPath = molecules.receptorPdbqtPath
++    // History inspection may be open while the pipeline names a different
++    // receptor; contacts must be computed against the receptor the job used.
++    const jobReceptor = docking.jobResult?.params?.receptor_path
++    const receptorPath =
++      (typeof jobReceptor === 'string' && jobReceptor) || molecules.receptorPdbqtPath
+     if (!receptorPath) {
+       throw new Error('Receptor PDBQT not found')
+     }
+diff --git a/web/src/components/panels/catalog/MoleculeCatalogView.vue b/web/src/components/panels/catalog/MoleculeCatalogView.vue
+index 83cb5be..a30edef 100644
+--- a/web/src/components/panels/catalog/MoleculeCatalogView.vue
++++ b/web/src/components/panels/catalog/MoleculeCatalogView.vue
+@@ -1478,8 +1478,17 @@ async function applySuggestion(id: string): Promise<void> {
+   .catalog-body { grid-template-columns: 190px minmax(0, 1fr) 270px; gap: 10px; }
+ }
+ @media (max-width: 900px) {
+-  .catalog-body { grid-template-columns: 180px minmax(0, 1fr); }
+-  .catalog-detail { display: none; }
++  .catalog-body {
++    grid-template-columns: 180px minmax(0, 1fr);
++    grid-template-rows: minmax(0, 1fr) auto;
++  }
++  /* Keep the selected molecule's preview and prepare action reachable when
++     the third column no longer fits; hiding it made selection a dead end. */
++  .catalog-detail {
++    display: block;
++    grid-column: 1 / -1;
++    max-height: 260px;
++  }
+   .catalog-result-count { display: none; }
+ }
+ @media (max-width: 620px) {
+diff --git a/web/src/stores/docking.ts b/web/src/stores/docking.ts
+index c8bc725..8957ffe 100644
+--- a/web/src/stores/docking.ts
++++ b/web/src/stores/docking.ts
+@@ -35,6 +35,8 @@ export const useDockingStore = defineStore('docking', () => {
+   const activeJobId = ref<string | null>(null)
+   const jobStatus = ref<DockingJobStatus | null>(null)
+   const jobResult = ref<DockingJobResult | null>(null)
++  /** True when jobResult came from Report/History rather than this run. */
++  const isHistoryView = ref(false)
+   /** Ligand filename for the result reference recorded on completion. */
+   const activeJobLabel = ref('')
+ 
+@@ -236,6 +238,7 @@ export const useDockingStore = defineStore('docking', () => {
+         elapsedMs: null,
+       }
+       jobResult.value = null
++      isHistoryView.value = false
+       startPolling(result.jobId, 'job')
+       return result.jobId
+     } catch {
+@@ -258,6 +261,7 @@ export const useDockingStore = defineStore('docking', () => {
+         elapsedMs: null,
+       }
+       jobResult.value = null
++      isHistoryView.value = false
+       startPolling(result.jobId, 'job')
+       return result.jobId
+     } catch {
+@@ -299,6 +303,7 @@ export const useDockingStore = defineStore('docking', () => {
+     activeJobLabel.value = ''
+     jobStatus.value = null
+     jobResult.value = null
++    isHistoryView.value = false
+     currentPoseIndex.value = 0
+     overlayPoses.value = false
+     validation.value = null
+@@ -524,6 +529,7 @@ export const useDockingStore = defineStore('docking', () => {
+   async function openHistoryJob(job: DockingJobSummary): Promise<void> {
+     reset()
+     activeJobId.value = job.jobId
++    isHistoryView.value = true
+     activeJobLabel.value = job.label
+     try {
+       jobStatus.value = await api.dockingJobStatus(job.jobId)
+@@ -600,6 +606,7 @@ export const useDockingStore = defineStore('docking', () => {
+     activeJobLabel,
+     jobStatus,
+     jobResult,
++    isHistoryView,
+     status,
+     progress,
+     stage,
+diff --git a/web/src/views/DockView.vue b/web/src/views/DockView.vue
+index 7051d47..fcbf6ac 100644
+--- a/web/src/views/DockView.vue
++++ b/web/src/views/DockView.vue
+@@ -50,6 +50,9 @@ const activeTab = ref<DockTab>(docking.hasResult || docking.isRunning ? 'results
+ const pipelineSignature = computed(() => `${molecules.pipelineReceptor?.id ?? ''}|${molecules.pipelineLigand?.id ?? ''}`)
+ 
+ function jobMatchesPipeline(): boolean {
++  // A report/history inspection is explicitly about another job; do not
++  // discard it merely because the current pipeline names different inputs.
++  if (docking.isHistoryView) return true
+   const params = docking.jobResult?.params
+   if (!params) return true
+   const receptor = params.receptor_path ?? params.receptorPath
+@@ -69,6 +72,16 @@ watch(pipelineSignature, (current, previous) => {
+   activeTab.value = 'setup'
+ })
+ 
++watch(
++  () => docking.hasResult,
++  (hasResult) => {
++    if (!hasResult || jobMatchesPipeline()) return
++    docking.reset()
++    interactions.value = []
++    activeTab.value = 'setup'
++  },
++)
++
+ 
+ watch(
+   () => [docking.isRunning, docking.hasResult] as const,
+diff --git a/web/src/views/WorkbenchView.vue b/web/src/views/WorkbenchView.vue
+index d6e4108..f90076a 100644
+--- a/web/src/views/WorkbenchView.vue
++++ b/web/src/views/WorkbenchView.vue
+@@ -44,7 +44,25 @@ async function runExample(): Promise<void> {
+  * other: the input complex while the run is still ahead, the docked pose once
+  * a result exists.
+  */
+-const ligandUrl = computed(() => (docking.currentPoseSdf ? null : molecules.ligandSdfUrl))
++const resultMatchesPipeline = computed(() => {
++  const params = docking.jobResult?.params
++  if (!params) return true
++  const receptor = params.receptor_path ?? params.receptorPath
++  const ligand = params.ligand_path ?? params.ligandPath
++  return (
++    (receptor === undefined || receptor === null || receptor === molecules.receptorPdbqtPath)
++    && (ligand === undefined || ligand === null || ligand === molecules.ligandPdbqtPath)
++  )
++})
++
++/** History inspection must not masquerade as the current pipeline's result. */
++const hasCurrentResult = computed(
++  () => docking.hasResult && !docking.isHistoryView && resultMatchesPipeline.value,
++)
++
++const ligandUrl = computed(() =>
++  hasCurrentResult.value && docking.currentPoseSdf ? null : molecules.ligandSdfUrl,
++)
+ 
+ interface PipelineStep {
+   key: string
+@@ -106,8 +124,8 @@ const steps = computed<PipelineStep[]>(() => [
+     key: 'docking',
+     title: t('workbench.steps.docking'),
+     description: t('workbench.steps.dockingDesc'),
+-    ready: docking.isCompleted,
+-    summary: docking.bestAffinity !== null
++    ready: docking.isCompleted && hasCurrentResult.value,
++    summary: hasCurrentResult.value && docking.bestAffinity !== null
+       ? t('workbench.summaries.docking', {
+           affinity: docking.bestAffinity.toFixed(2),
+           poses: docking.poses.length,
+@@ -119,8 +137,8 @@ const steps = computed<PipelineStep[]>(() => [
+     key: 'results',
+     title: t('workbench.steps.results'),
+     description: t('workbench.steps.resultsDesc'),
+-    ready: docking.hasResult && docking.poses.length > 0,
+-    summary: docking.hasResult
++    ready: hasCurrentResult.value && docking.poses.length > 0,
++    summary: hasCurrentResult.value
+       ? t('workbench.summaries.results', {
+           best: docking.bestAffinity?.toFixed(2) ?? '—',
+           count: docking.poses.length,
+@@ -144,7 +162,7 @@ const nextKey = computed(() => steps.value.find((step) => !step.ready)?.key ?? n
+       <ViewportCanvas
+         :receptor-url="molecules.receptorPdbUrl"
+         :ligand-url="ligandUrl"
+-        :pose-sdf-content="docking.currentPoseSdf"
++        :pose-sdf-content="hasCurrentResult ? docking.currentPoseSdf : null"
+         :box="box.geometry"
+         :style="box.style"
+         :orthographic="box.orthographic"

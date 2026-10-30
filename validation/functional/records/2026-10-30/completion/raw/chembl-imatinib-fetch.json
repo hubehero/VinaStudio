@@ -1,0 +1,10 @@
+{
+  "path": "/home/hubehero/Academic/Auto_dock/ligands/chembl-chembl941_1.sdf",
+  "name": "chembl-chembl941_1.sdf",
+  "bytes": 3250,
+  "source": "chembl",
+  "sourceId": "CHEMBL941",
+  "format": "sdf",
+  "has3D": false,
+  "license": "ChEMBL data, CC BY-SA 3.0; cite https://www.ebi.ac.uk/chembl"
+}

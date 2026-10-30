@@ -1,0 +1,123 @@
+{
+  "schemaVersion": "1.0",
+  "generatedAt": "2026-10-30T13:04:25+00:00",
+  "baseUrl": "http://127.0.0.1:8760",
+  "tool": "agent-browser 0.32.1",
+  "routes": [
+    {
+      "route": "workbench",
+      "title": "工作台 / 5-step pipeline",
+      "url": "http://127.0.0.1:8760/#/workbench",
+      "expectedLandmark": "对接流程",
+      "landmarkFound": true,
+      "hash": "#/workbench",
+      "errorMarkers": [],
+      "screenshot": "ui/workbench.png"
+    },
+    {
+      "route": "molecules",
+      "title": "Catalog",
+      "url": "http://127.0.0.1:8760/#/molecules",
+      "expectedLandmark": "分子目录",
+      "landmarkFound": true,
+      "hash": "#/molecules",
+      "errorMarkers": [],
+      "screenshot": "ui/molecules.png"
+    },
+    {
+      "route": "box",
+      "title": "Box / search space",
+      "url": "http://127.0.0.1:8760/#/box",
+      "expectedLandmark": "结合位点盒子",
+      "landmarkFound": true,
+      "hash": "#/box",
+      "errorMarkers": [],
+      "screenshot": "ui/box.png"
+    },
+    {
+      "route": "docking",
+      "title": "Docking inspector (tabs: Parameters / Analysis / Results)",
+      "url": "http://127.0.0.1:8760/#/docking",
+      "expectedLandmark": "参数",
+      "landmarkFound": true,
+      "hash": "#/docking",
+      "errorMarkers": [],
+      "screenshot": "ui/docking.png"
+    },
+    {
+      "route": "report",
+      "title": "Report",
+      "url": "http://127.0.0.1:8760/#/report",
+      "expectedLandmark": "结果汇报",
+      "landmarkFound": true,
+      "hash": "#/report",
+      "errorMarkers": [],
+      "screenshot": "ui/report.png"
+    },
+    {
+      "route": "batch",
+      "title": "Batch docking",
+      "url": "http://127.0.0.1:8760/#/batch",
+      "expectedLandmark": "批量筛选",
+      "landmarkFound": true,
+      "hash": "#/batch",
+      "errorMarkers": [],
+      "screenshot": "ui/batch.png"
+    },
+    {
+      "route": "screening",
+      "title": "Screening",
+      "url": "http://127.0.0.1:8760/#/screening",
+      "expectedLandmark": "虚拟筛选工作台",
+      "landmarkFound": true,
+      "hash": "#/screening",
+      "errorMarkers": [],
+      "screenshot": "ui/screening.png"
+    },
+    {
+      "route": "results",
+      "title": "Results search",
+      "url": "http://127.0.0.1:8760/#/results",
+      "expectedLandmark": "历史检索",
+      "landmarkFound": true,
+      "hash": "#/results",
+      "errorMarkers": [],
+      "screenshot": "ui/results.png"
+    },
+    {
+      "route": "environment",
+      "title": "Environment",
+      "url": "http://127.0.0.1:8760/#/environment",
+      "expectedLandmark": "环境自检",
+      "landmarkFound": true,
+      "hash": "#/environment",
+      "errorMarkers": [],
+      "screenshot": "ui/environment.png"
+    },
+    {
+      "route": "help",
+      "title": "Help",
+      "url": "http://127.0.0.1:8760/#/help",
+      "expectedLandmark": "使用帮助",
+      "landmarkFound": true,
+      "hash": "#/help",
+      "errorMarkers": [],
+      "screenshot": "ui/help.png"
+    },
+    {
+      "route": "about",
+      "title": "About",
+      "url": "http://127.0.0.1:8760/#/about",
+      "expectedLandmark": "关于",
+      "landmarkFound": true,
+      "hash": "#/about",
+      "errorMarkers": [],
+      "screenshot": "ui/about.png"
+    }
+  ],
+  "summary": {
+    "total": 11,
+    "passed": 11,
+    "failed": 0
+  }
+}

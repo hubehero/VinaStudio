@@ -24,7 +24,10 @@ def prepare_qt_environment() -> None:
     # When it is on it wins over every GPU flag below — the user asked for
     # software rendering explicitly (or a broken driver forced their hand).
     if os.environ.get("VINASTUDIO_SOFTWARE_RENDER") == "1":
-        flags.append("--disable-gpu")
+        # QtWebEngine still needs WebGL (3Dmol) even in software mode.
+        # --disable-gpu alone leaves a null GL context; ask ANGLE for its
+        # SwiftShader backend instead of removing the GPU context entirely.
+        flags.extend(["--enable-unsafe-swiftshader", "--use-gl=angle", "--use-angle=swiftshader"])
     else:
         # Chromium's GPU blocklist wrongly disables WebGL on several Linux
         # driver stacks and then silently falls back to SwiftShader — the app

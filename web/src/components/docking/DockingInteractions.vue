@@ -75,7 +75,11 @@ async function analyzeInteractions(): Promise<void> {
   view.value = 'table'
 
   try {
-    const receptorPath = molecules.receptorPdbqtPath
+    // History inspection may be open while the pipeline names a different
+    // receptor; contacts must be computed against the receptor the job used.
+    const jobReceptor = docking.jobResult?.params?.receptor_path
+    const receptorPath =
+      (typeof jobReceptor === 'string' && jobReceptor) || molecules.receptorPdbqtPath
     if (!receptorPath) {
       throw new Error('Receptor PDBQT not found')
     }

@@ -1478,8 +1478,17 @@ async function applySuggestion(id: string): Promise<void> {
   .catalog-body { grid-template-columns: 190px minmax(0, 1fr) 270px; gap: 10px; }
 }
 @media (max-width: 900px) {
-  .catalog-body { grid-template-columns: 180px minmax(0, 1fr); }
-  .catalog-detail { display: none; }
+  .catalog-body {
+    grid-template-columns: 180px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  /* Keep the selected molecule's preview and prepare action reachable when
+     the third column no longer fits; hiding it made selection a dead end. */
+  .catalog-detail {
+    display: block;
+    grid-column: 1 / -1;
+    max-height: 260px;
+  }
   .catalog-result-count { display: none; }
 }
 @media (max-width: 620px) {
