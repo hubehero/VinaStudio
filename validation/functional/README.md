@@ -115,6 +115,7 @@ constants. Screenshots are in `records/2026-10-30/ui/`.
 | U19 | Site screening | One candidate completed in **13.646 s**, best **−10.309 kcal/mol**; see `raw/site-fddb09c8805f.json`. |
 | U20 | PubChem provider | Text search `aspirin` returned CID **2244**, formula `C9H8O4`, `has3D=true`; see record narrative. |
 | U21 | Provider UI | Compound-search dialog → PubChem → `aspirin` rendered CID 2244 and a download action; see `completion/ui/flow-provider-ui.png`. |
+| U22 | Diagnostics | Environment → Diagnose: 11 checks (10 server + WebGL) all healthy; safe repair created missing app directories; see `completion/diagnostics/environment-diagnostics.png`. |
 
 ### Defect evidence
 

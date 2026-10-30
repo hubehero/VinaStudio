@@ -17,6 +17,7 @@ entries about the product — no internal task ids or workflow narration.
 ### 新增
 
 - **可复现功能验证记录**：新增 `validation/functional/`，包含功能矩阵、环境与输入哈希、全量测试 JUnit、生产界面路由冒烟、用户流程截图和原始结果；协议、证据等级与未覆盖项在记录中明确列出。
+- **诊断与安全修复**：环境自检新增只读诊断，检查工作空间、目录、目录数据库、任务索引、对接引擎、科学计算依赖、磁盘空间和浏览器渲染器；可安全重建的目录问题可一键修复，其余问题保留原因、证据和修改建议。自动修复不会删除或覆盖分子、构象、工程、任务索引或数据库。
 
 ### 修复
 
@@ -30,6 +31,7 @@ entries about the product — no internal task ids or workflow narration.
 ### Added
 
 - **Reproducible functional validation record**: add `validation/functional/` with a feature matrix, environment and input hashes, full test JUnit, production UI route smoke, user-flow screenshots and raw results; the protocol, evidence levels and unverified items are explicit.
+- **Diagnostics and safe repair**: the environment check now runs read-only checks for the workspace, directories, catalog database, job indexes, docking engine, scientific dependencies, disk space and browser renderer. Safe directory findings can be repaired in one action; other findings retain the reason, evidence and recommended action. Repair never deletes or overwrites molecules, poses, projects, job indexes or databases.
 
 ### Fixed
 

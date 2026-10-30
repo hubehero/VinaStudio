@@ -257,10 +257,14 @@
       "tests": [
         "test_system_api.py",
         "test_system_selfcheck.py",
-        "test_system_update.py"
+        "test_system_update.py",
+        "test_diagnostics.py",
+        "test_diagnostics_api.py"
       ],
       "ui": [
-        "ui/environment.png"
+        "U22",
+        "ui/environment.png",
+        "completion/diagnostics/environment-diagnostics.png"
       ]
     },
     {

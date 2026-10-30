@@ -31,12 +31,13 @@
   },
   "suites": {
     "pytest": {
-      "total": 822,
+      "total": 830,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
-      "durationSeconds": 417.776,
-      "junit": "raw/pytest-junit.xml"
+      "durationSeconds": 370.038,
+      "junit": "diagnostics/pytest-junit.xml",
+      "log": "diagnostics/pytest.log"
     },
     "vitest": {
       "tests": 27,
@@ -163,6 +164,15 @@
       "evidence": [
         "ui/flow-provider-ui.png"
       ]
+    },
+    {
+      "id": "C12",
+      "name": "environment diagnostics and safe repair",
+      "status": "completed",
+      "evidence": [
+        "diagnostics/environment-diagnostics.png",
+        "diagnostics/pytest-junit.xml"
+      ]
     }
   ],
   "defects": [
@@ -172,10 +182,11 @@
   ],
   "gaps": [
     "native desktop dialogs/QWebChannel",
-    "provider UI tab",
+    "provider ChEMBL UI",
     "GPU hardware rendering",
     "full-library accuracy claim",
-    "full-library uses exhaustiveness 1"
+    "full-library uses exhaustiveness 1",
+    "diagnostic report is a point-in-time local snapshot"
   ],
   "claims": [
     "listed live workflows completed or failed with retained evidence",

@@ -32,7 +32,9 @@ from vinastudio.config import (
     app_home,
     max_upload_bytes,
 )
+from vinastudio.core.diagnostics import repair_diagnostics, run_diagnostics
 from vinastudio.core.engines import backend_report
+from vinastudio.schemas.diagnostics import DiagnosticReport
 
 log = logging.getLogger(__name__)
 router = APIRouter(tags=["system"])
@@ -214,6 +216,30 @@ def selfcheck() -> dict[str, Any]:
         "checks": checks,
         **_docking_verdict(failed, backend_report()["backend"]),
     }
+
+
+@router.get("/system/diagnostics", response_model=DiagnosticReport)
+def diagnostics() -> DiagnosticReport:
+    """Run safe, read-only installation checks.
+
+    The active workspace is resolved lazily (the workspace router owns that
+    state); this endpoint never creates or rewrites workspace data.
+    """
+    from vinastudio.server.routers.workspace import get_active_workspace
+
+    return DiagnosticReport.model_validate(run_diagnostics(get_active_workspace()))
+
+
+@router.post("/system/diagnostics/repair", response_model=DiagnosticReport)
+def repair() -> DiagnosticReport:
+    """Repair only missing application/workspace directories, then re-check.
+
+    Corrupt configuration, catalogs and job indexes are intentionally not
+    repaired here: replacing them would destroy the evidence the user needs.
+    """
+    from vinastudio.server.routers.workspace import get_active_workspace
+
+    return DiagnosticReport.model_validate(repair_diagnostics(get_active_workspace()))
 
 
 @lru_cache(maxsize=1)

@@ -265,7 +265,8 @@ favourable binding. The interface flags both instead of showing a plain green
 - **Affinity** is a scoring-function estimate, not an experimental binding free
   energy. Do not compare values from different scoring functions.
 - **RMSD (lower/upper bound)** describes how different a pose is from the best
-  one.
+  one. Redocking RMSD compares the pose with the reference in the shared receptor
+  frame without superposing the ligand; a pose moved to another site is not 0 Å.
 - The **3D viewport** draws the selected pose with the receptor. Pose navigation
   swaps the ligand without moving your camera. **Overlay all poses** shows the
   first 20 poses in distinct colours (a visual comparison, not an alignment or
@@ -349,6 +350,21 @@ projects in the workspace's `projects/` folder.
 ---
 
 ## 11. Frequently asked questions
+
+### 11.1 Diagnose and repair
+
+Open **Environment → Diagnose and repair** when a workspace, engine, dependency,
+catalog or disk problem is suspected. The check is read-only and reports every
+finding as **healthy**, **warning** or **error**, with the technical evidence and
+a recommended action.
+
+**Repair safe items** only creates missing application/workspace directories. It
+never deletes molecules, poses, projects, job indexes or databases, and it does
+not install packages or change the engine backend. Corrupt configuration,
+catalog or job indexes are left in place so the evidence can be inspected; the
+panel states the reason and the recovery action instead. Use **Copy report** to
+attach the JSON to a support report. The local WebGL renderer is checked in the
+page as well, but driver changes remain a user action.
 
 **The interface is blank after switching pages.**
 That was a known defect in older builds; update to the current release. If it

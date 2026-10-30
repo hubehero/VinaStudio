@@ -56,6 +56,27 @@ export interface SelfCheck {
   dockingMissing: string[]
 }
 
+export type DiagnosticSeverity = 'ok' | 'warning' | 'error'
+
+export interface DiagnosticCheck {
+  id: string
+  severity: DiagnosticSeverity
+  fixable: boolean
+  detail: string | null
+  params: Record<string, unknown>
+  suggestions: string[]
+}
+
+export interface DiagnosticReport {
+  ok: boolean
+  severity: DiagnosticSeverity
+  generatedAt: string
+  workspace: string | null
+  checks: DiagnosticCheck[]
+  repairAvailable: boolean
+  repaired: string[]
+}
+
 export interface ScoringFunctionSpec {
   name: ScoringFunction
   label: string

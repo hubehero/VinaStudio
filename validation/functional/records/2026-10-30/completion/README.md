@@ -9,7 +9,7 @@ practical. The release tag remains `v0.6.4`; the tests ran on `2c52ed9` plus
 
 | Check | Result |
 |---|---|
-| Backend pytest | **822 passed, 0 failed, 0 errors, 0 skipped**, 417.8 s |
+| Backend pytest | **830 passed, 0 failed, 0 errors, 0 skipped**, 370.0 s (includes the diagnostics suite) |
 | Frontend Vitest | **9 files / 27 tests passed** |
 | `vue-tsc` | passed |
 | `vite build` | passed |
@@ -29,6 +29,8 @@ practical. The release tag remains `v0.6.4`; the tests ran on `2c52ed9` plus
 | C08 | Results search | favorite toggle + “favorites only” filter returned the marked run |
 | C09 | Sketcher | SMILES import, structure display, cleanup enabled; canceled without adding |
 | C10 | Desktop software fallback | desktop app starts API/WebSocket; no 3Dmol error after the ANGLE fix |
+| C11 | Provider UI | Compound dialog → PubChem → aspirin CID 2244 and download action |
+| C12 | Diagnostics and safe repair | 11 checks (10 server + WebGL); safe directory repair; corrupt config/catalog/job index left untouched |
 
 The two full-library failures are retained, not hidden:
 

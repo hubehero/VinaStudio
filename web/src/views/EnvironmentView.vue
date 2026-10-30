@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import { CircleCheckFilled, Refresh, WarningFilled } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import StatusPill from '@/components/StatusPill.vue'
 import { probeStandaloneRenderer, rendererInfo } from '@/composables/use3Dmol'
 import { useSystemStore } from '@/stores/system'
-import type { PackageCheck } from '@/types/api'
+import type { DiagnosticCheck, PackageCheck } from '@/types/api'
 
 const system = useSystemStore()
-const { t } = useI18n()
+const { t, te } = useI18n()
 
 onMounted(() => {
   // The renderer row is the one field a "the 3D view is slow" report needs, and
@@ -118,6 +119,127 @@ const dockingLabel = computed(() => {
   if (check.dockingMissing.length === 0) return t('environment.dockingNoEngine')
   return t('environment.dockingMissing', { packages: check.dockingMissing.join(', ') })
 })
+
+/**
+ * A renderer check belongs to the page that can observe WebGL. The server
+ * cannot see the browser, so it is appended only when a diagnostic report is
+ * present; it is never auto-repaired because a driver change is a user action.
+ */
+const rendererCheck = computed<DiagnosticCheck | null>(() => {
+  if (!system.diagnostics) return null
+  const info = rendererInfo.value
+  if (!info) {
+    return {
+      id: 'renderer',
+      severity: 'error',
+      fixable: false,
+      detail: 'WebGL renderer was not detected',
+      params: {},
+      suggestions: ['checkWebGL'],
+    }
+  }
+  if (info.software) {
+    return {
+      id: 'renderer',
+      severity: 'warning',
+      fixable: false,
+      detail: info.renderer,
+      params: {},
+      suggestions: ['updateGraphicsDriver', 'softwareRenderHint'],
+    }
+  }
+  return {
+    id: 'renderer',
+    severity: 'ok',
+    fixable: false,
+    detail: info.renderer,
+    params: {},
+    suggestions: [],
+  }
+})
+
+const diagnosticRows = computed<DiagnosticCheck[]>(() => {
+  if (!system.diagnostics) return []
+  const rows = [...system.diagnostics.checks]
+  if (rendererCheck.value) rows.push(rendererCheck.value)
+  return rows
+})
+
+function diagnosticTitle(check: DiagnosticCheck): string {
+  const key = `environment.diagnostics.checks.${check.id}.title`
+  return te(key) ? t(key, check.params) : check.id
+}
+
+function diagnosticDetail(check: DiagnosticCheck): string {
+  if (check.detail) return check.detail
+  const key = `environment.diagnostics.checks.${check.id}.detail`
+  return te(key) ? t(key, check.params) : t('environment.diagnostics.noDetail')
+}
+
+function suggestionText(code: string): string {
+  const key = `environment.diagnostics.suggestions.${code}`
+  return te(key) ? t(key) : code
+}
+
+function diagnosticState(check: DiagnosticCheck): 'ok' | 'warn' | 'error' {
+  if (check.severity === 'error') return 'error'
+  if (check.severity === 'warning') return 'warn'
+  return 'ok'
+}
+
+function diagnosticStateLabel(check: DiagnosticCheck): string {
+  return t(`environment.diagnostics.severity.${check.severity}`)
+}
+
+const diagnosticSummary = computed(() => {
+  const report = system.diagnostics
+  if (!report) return t('environment.diagnostics.idle')
+  return t(`environment.diagnostics.summary.${report.severity}`, {
+    checks: diagnosticRows.value.length,
+  })
+})
+
+async function diagnoseAndRepair(): Promise<void> {
+  await system.runDiagnostics()
+  if (system.diagnosticError) {
+    ElMessage.error(system.diagnosticError)
+    return
+  }
+  if (!system.diagnostics?.repairAvailable) return
+  const count = await system.repairDiagnostics()
+  if (system.diagnosticError) {
+    ElMessage.error(system.diagnosticError)
+  } else if (count > 0) {
+    ElMessage.success(t('environment.diagnostics.repaired', { n: count }))
+  }
+}
+
+async function repairSafeItems(): Promise<void> {
+  const count = await system.repairDiagnostics()
+  if (system.diagnosticError) {
+    ElMessage.error(system.diagnosticError)
+    return
+  }
+  if (count === 0) {
+    ElMessage.info(t('environment.diagnostics.nothingToRepair'))
+  } else {
+    ElMessage.success(t('environment.diagnostics.repaired', { n: count }))
+  }
+}
+
+async function copyDiagnosticReport(): Promise<void> {
+  if (!system.diagnostics) return
+  const report = {
+    ...system.diagnostics,
+    renderer: rendererCheck.value,
+  }
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(report, null, 2))
+    ElMessage.success(t('environment.diagnostics.copied'))
+  } catch {
+    ElMessage.error(t('environment.diagnostics.copyFailed'))
+  }
+}
 </script>
 
 <template>
@@ -138,6 +260,88 @@ const dockingLabel = computed(() => {
     </div>
 
     <el-alert v-if="system.error" type="error" :closable="false" show-icon :title="system.error" />
+
+    <div class="vs-card diagnostics-card">
+      <div class="vs-card__header">
+        <div>
+          <div class="vs-card__title">{{ t('environment.diagnostics.title') }}</div>
+          <div class="vs-card__subtitle">{{ t('environment.diagnostics.subtitle') }}</div>
+        </div>
+        <div class="diagnostics__actions">
+          <el-button
+            type="primary"
+            size="small"
+            :loading="system.diagnosing || system.repairing"
+            :icon="Refresh"
+            @click="diagnoseAndRepair"
+          >
+            {{ system.diagnosing ? t('environment.diagnostics.running') : t('environment.diagnostics.diagnoseRepair') }}
+          </el-button>
+          <el-button
+            size="small"
+            :loading="system.diagnosing"
+            @click="system.runDiagnostics()"
+          >
+            {{ t('environment.diagnostics.runOnly') }}
+          </el-button>
+          <el-button
+            size="small"
+            :loading="system.repairing"
+            :disabled="!system.diagnostics?.repairAvailable"
+            @click="repairSafeItems"
+          >
+            {{ system.repairing ? t('environment.diagnostics.repairing') : t('environment.diagnostics.repair') }}
+          </el-button>
+          <el-button v-if="system.diagnostics" text size="small" @click="copyDiagnosticReport">
+            {{ t('environment.diagnostics.copy') }}
+          </el-button>
+        </div>
+      </div>
+      <div class="vs-card__body">
+        <el-alert
+          v-if="system.diagnosticError"
+          type="error"
+          :closable="false"
+          show-icon
+          :title="system.diagnosticError"
+        />
+        <p class="diagnostics__hint">{{ t('environment.diagnostics.repairHint') }}</p>
+
+        <div v-if="!system.diagnostics" class="diagnostics__idle">
+          {{ t('environment.diagnostics.idle') }}
+        </div>
+        <template v-else>
+          <div class="diagnostics__summary">
+            <StatusPill
+              :state="diagnosticState({ severity: system.diagnostics.severity } as DiagnosticCheck)"
+              :label="diagnosticSummary"
+            />
+            <span class="vs-faint">{{ t('environment.diagnostics.generatedAt', { time: system.diagnostics.generatedAt }) }}</span>
+          </div>
+          <div class="diagnostics__list">
+            <article
+              v-for="check in diagnosticRows"
+              :key="check.id"
+              class="diagnostic-row"
+              :class="`is-${check.severity}`"
+            >
+              <StatusPill :state="diagnosticState(check)" :label="diagnosticStateLabel(check)" />
+              <div class="diagnostic-row__body">
+                <div class="diagnostic-row__title">{{ diagnosticTitle(check) }}</div>
+                <div v-if="diagnosticDetail(check)" class="diagnostic-row__detail vs-mono">
+                  {{ diagnosticDetail(check) }}
+                </div>
+                <ul v-if="check.suggestions.length" class="diagnostic-row__suggestions">
+                  <li v-for="suggestion in check.suggestions" :key="suggestion">
+                    {{ suggestionText(suggestion) }}
+                  </li>
+                </ul>
+              </div>
+            </article>
+          </div>
+        </template>
+      </div>
+    </div>
 
     <div class="env-grid">
       <div class="vs-card">
@@ -258,6 +462,34 @@ const dockingLabel = computed(() => {
   font-size: 12px;
   word-break: break-word;
 }
+
+.diagnostics-card { margin-bottom: 16px; }
+.diagnostics__actions { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; justify-content: flex-end; }
+.diagnostics__hint { margin: 0 0 10px; color: var(--vs-text-muted); font-size: 12px; line-height: 1.5; }
+.diagnostics__idle { padding: 12px 0; color: var(--vs-text-muted); font-size: 12.5px; }
+.diagnostics__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: 11.5px;
+}
+.diagnostics__list { display: flex; flex-direction: column; gap: 2px; }
+.diagnostic-row {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 9px 0;
+  border-top: 1px solid var(--vs-border);
+}
+.diagnostic-row__body { min-width: 0; }
+.diagnostic-row__title { color: var(--vs-text); font-size: 12.5px; font-weight: 600; }
+.diagnostic-row__detail { margin-top: 3px; color: var(--vs-text-faint); font-size: 11px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.diagnostic-row__suggestions { margin: 5px 0 0; padding-left: 16px; color: var(--vs-text-muted); font-size: 11.5px; line-height: 1.5; }
+.diagnostic-row.is-error .diagnostic-row__title { color: var(--vs-danger); }
+.diagnostic-row.is-warning .diagnostic-row__title { color: var(--vs-warning); }
 
 @media (max-width: 1080px) {
   .env-grid {

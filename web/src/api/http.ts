@@ -3,6 +3,7 @@ import type {
   AnalyzeInteractionsResponse,
   Artifact,
   Detection,
+  DiagnosticReport,
   AutoboxFromResiduesOptions,
   AutoboxOptions,
   AutoboxResult,
@@ -183,6 +184,9 @@ export const api = {
   systemInfo: () => request<SystemInfo>('/api/system/info'),
   uploadLimit: () => request<{ bytes: number; megabytes: number }>('/api/system/upload-limit'),
   selfCheck: () => request<SelfCheck>('/api/system/selfcheck'),
+  diagnostics: () => request<DiagnosticReport>('/api/system/diagnostics'),
+  repairDiagnostics: () =>
+    request<DiagnosticReport>('/api/system/diagnostics/repair', { method: 'POST' }),
   capabilities: () => request<Capabilities>('/api/system/capabilities'),
   citations: () => request<CitationResponse>('/api/system/citation'),
   updateCheck: () => request<UpdateCheck>('/api/system/update-check'),

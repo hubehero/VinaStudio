@@ -1,5 +1,12 @@
+8b46919a89b154e520a6e1348349bbbbcb6e3e612313414593ff219538996442  ./diagnostics/environment-diagnostics.png
+8e50c8fc2336cea72e3973f0c4493a211391a5cfefb23cd04fa710ef61a3c2d3  ./diagnostics/environment-diagnostics-repaired.png
+ad6e5112e5e62ace530c300ed686c0de3aa0b21cd9d587fd6676feeea075d919  ./diagnostics/frontend-build.log
+f051107c5640a8315e5883b6e90f94057aaedb484d6b5d77f44625fab908f6d8  ./diagnostics/frontend-test.log
+68de62bb2ca9944c5fbfcec9280961af7541961101a6889a7dd2bd5efd38981b  ./diagnostics/pytest-junit.xml
+4e198010c345b2b8cd1643c62d1b518a7d8d99f6e82c97f55d8898b8f90860fa  ./diagnostics/pytest.log
+a285c9d7bbfb228881997ad3e2c3d9aee6a667a3e275163518889e70ebd73e26  ./diagnostics/README.md
 3ffe2ce81e6cae882b5cae7af7e9d8b37521d832c062fb947ef0174886a9496c  ./environment.json
-eaed04c6b9ea9fcd7f103b068dec4476fedfe6db34f0ce0f694fe0e270f49ba5  ./functional-report.json
+1c3ac1b62839f54ed488ca8d883f6c5105b1d9f3662e92716234af94e8b92e82  ./functional-report.json
 a460232636579c8d263a100233ab30fc2258abb268546bde1a3bed5e687e8503  ./raw/build-web-after-progress.log
 cf2fbab384e30d5b5929599f25c8391fde5ef99bf73104bf124daaedf2d32050  ./raw/chembl-imatinib-fetch.json
 2c80c98332be25d1f236071dcbfd83a626b4d137f2f968ca45fa5308c00b1d58  ./raw/chembl-imatinib-search.json
@@ -30,7 +37,7 @@ af725436109bc3f2ac9308854777d1f9c77b9fc0c801148d906505bd81b68c24  ./raw/upload-d
 f5ef0481f7aaf71aa909912a6dfcc361be03eddb770b38e04a644c3bd28012ad  ./raw/upload-response.json
 b2263135f5774785840caf25b355c06e7c1bc8cc65f01ce5f87c81221675e451  ./raw/write-maps-even.json
 81f34745bf26ef5412fe3decdb6241f20f74e32ee340c952a60fde88a0cb4365  ./raw/write-maps-odd-response.txt
-48539f117bbf22b4d45943a797308a57421e160969af868f97ec933d6151a21f  ./README.md
+bdd8ce85269270daecd38a63568d68f05a15e2f348512eaa1044d3e4fcbb2c28  ./README.md
 0ff34013b6ae42e16a5f370f18f7879023fa552d2ca601f697bab74048eda123  ./ui/about.png
 414164d898bb8b4f43d71014490d119a07e9f3bdfde0782aefdac949ad36aa98  ./ui/batch.png
 7bb1cb70b57b87eb342bd33bca63630e59f5b0b83a9ef759f19c3aeba866688b  ./ui/box.png

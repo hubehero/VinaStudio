@@ -5,6 +5,7 @@ import { ApiError, api } from '@/api/http'
 import type {
   Capabilities,
   CitationEntry,
+  DiagnosticReport,
   Health,
   SelfCheck,
   SystemInfo,
@@ -21,6 +22,10 @@ export const useSystemStore = defineStore('system', () => {
   const health = ref<Health | null>(null)
   const info = ref<SystemInfo | null>(null)
   const selfCheck = ref<SelfCheck | null>(null)
+  const diagnostics = ref<DiagnosticReport | null>(null)
+  const diagnosing = ref(false)
+  const repairing = ref(false)
+  const diagnosticError = ref<string | null>(null)
   const capabilities = ref<Capabilities | null>(null)
   const citations = ref<CitationEntry[]>([])
 
@@ -68,6 +73,34 @@ export const useSystemStore = defineStore('system', () => {
     }
   }
 
+  async function runDiagnostics(): Promise<void> {
+    diagnosing.value = true
+    diagnosticError.value = null
+    try {
+      diagnostics.value = await api.diagnostics()
+    } catch (cause) {
+      diagnostics.value = null
+      diagnosticError.value = describeError(cause)
+    } finally {
+      diagnosing.value = false
+    }
+  }
+
+  async function repairDiagnostics(): Promise<number> {
+    repairing.value = true
+    diagnosticError.value = null
+    try {
+      const report = await api.repairDiagnostics()
+      diagnostics.value = report
+      return report.repaired.length
+    } catch (cause) {
+      diagnosticError.value = describeError(cause)
+      return 0
+    } finally {
+      repairing.value = false
+    }
+  }
+
   async function runSelfCheck(): Promise<void> {
     checking.value = true
     error.value = null
@@ -86,6 +119,10 @@ export const useSystemStore = defineStore('system', () => {
     health,
     info,
     selfCheck,
+    diagnostics,
+    diagnosing,
+    repairing,
+    diagnosticError,
     capabilities,
     citations,
     loading,
@@ -98,5 +135,7 @@ export const useSystemStore = defineStore('system', () => {
     refreshHealth,
     refresh,
     runSelfCheck,
+    runDiagnostics,
+    repairDiagnostics,
   }
 })
