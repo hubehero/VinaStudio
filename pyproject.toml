@@ -73,3 +73,25 @@ packages = ["vinastudio"]
 # ship the assets in the sdist too so both paths stay buildable.
 [tool.hatch.build.targets.sdist.force-include]
 "vinastudio/server/static" = "vinastudio/server/static"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# vina_simple is a nested, separately-versioned repo with its own tooling;
+# the root lint must not police it (coordinator ruling, TASK-22).
+exclude = ["web", "vinastudio/server/static", ".venv", "vina_simple"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "BLE"]
+ignore = [
+    "E501",
+    # The interface ships Chinese text, where full-width punctuation is correct.
+    "RUF001",
+    "RUF002",
+    "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# FastAPI's dependency markers are argument defaults by design, not
+# mutable-default bugs.
+"vinastudio/server/**" = ["B008"]
