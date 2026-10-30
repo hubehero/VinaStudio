@@ -12,6 +12,16 @@ entries about the product — no internal task ids or workflow narration.
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-10-29
+
+### 新增
+
+- **学术验证报告**：新增中英双语 `docs/ACADEMIC_VALIDATION`，包含独立 1IEP PDB 晶体参考、claim–evidence 矩阵、复现命令和 14 条经 DOI 核对的参考文献；验证器记录版本、提交、后端、输入校验和与完整对接参数。报告明确只验证 1IEP 对照，不声明多靶点准确率、富集或 PoseBusters 通过率。
+
+### Added
+
+- **Academic validation report**: add bilingual `docs/ACADEMIC_VALIDATION`, an independent 1IEP PDB crystal reference, a claim–evidence matrix, reproduction commands and 14 DOI-checked references; the harness records versions, commit, backend, input checksums and full docking parameters. The report is explicitly limited to the 1IEP control and claims no multi-target accuracy, enrichment or PoseBusters pass rate.
+
 ## [0.6.3] - 2026-10-29
 
 ### 修复

@@ -6,7 +6,8 @@
       "name": "c-Abl kinase + imatinib (gold standard)",
       "receptor": "vinastudio/resources/sample/1iep/1iep_receptorH.pdb",
       "ligand": "vinastudio/resources/sample/1iep/1iep_ligand.sdf",
-      "reference": "vinastudio/resources/sample/1iep/1iep_ligand.sdf",
+      "reference": "vinastudio/resources/sample/1iep/1iep_reference.sdf",
+      "referenceSource": "RCSB PDB 1IEP, HETATM STI A 201; extracted by scripts/build_1iep_reference.py",
       "center": [
         15.19,
         53.903,
@@ -25,19 +26,6 @@
         -14.5,
         -11.0
       ]
-    },
-    {
-      "id": "2hyy",
-      "name": "c-Abl kinase + imatinib, high resolution (optional local sample)",
-      "receptor": "sample/receptors/2hyy_receptor.pdb",
-      "ligand": "sample/ligands/2hyy_ligand.sdf",
-      "reference": "sample/ligands/2hyy_ligand.sdf",
-      "extend": 4.0,
-      "exhaustiveness": 8,
-      "nPoses": 9,
-      "seed": 42,
-      "rmsdThreshold": 2.0,
-      "allowBadResidues": true
     }
   ]
 }

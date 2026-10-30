@@ -22,6 +22,7 @@ and format conversion.
 | User guide — install to export | [User guide](docs/USER_GUIDE.md) | [用户手册](docs/USER_GUIDE.zh-CN.md) |
 | Windows support and limits | [Windows](docs/WINDOWS.md) | [Windows 支持](docs/WINDOWS.zh-CN.md) |
 | Architecture and constraints | [Architecture](docs/ARCHITECTURE.md) | [架构](docs/ARCHITECTURE.zh-CN.md) |
+| Academic validation and references | [Academic validation](docs/ACADEMIC_VALIDATION.md) | [学术验证](docs/ACADEMIC_VALIDATION.zh-CN.md) |
 | Release notes | [CHANGELOG.md](CHANGELOG.md) | bilingual |
 | Contributing | [CONTRIBUTING.md](CONTRIBUTING.md) | [贡献指南](CONTRIBUTING.zh-CN.md) |
 | Code of conduct | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | [行为准则](CODE_OF_CONDUCT.zh-CN.md) |

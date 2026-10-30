@@ -21,6 +21,7 @@ Python 模块时走 API，Windows 上走随包命令行二进制——分子参�
 | 用户手册（从安装到导出） | [用户手册](docs/USER_GUIDE.zh-CN.md) | [User guide](docs/USER_GUIDE.md) |
 | Windows 支持与边界 | [Windows 支持](docs/WINDOWS.zh-CN.md) | [Windows](docs/WINDOWS.md) |
 | 架构与三条约束 | [架构](docs/ARCHITECTURE.zh-CN.md) | [Architecture](docs/ARCHITECTURE.md) |
+| 学术验证与参考文献 | [学术验证](docs/ACADEMIC_VALIDATION.zh-CN.md) | [Academic validation](docs/ACADEMIC_VALIDATION.md) |
 | 更新记录 | [CHANGELOG.md](CHANGELOG.md) | 双语 |
 | 贡献指南 | [贡献指南](CONTRIBUTING.zh-CN.md) | [Contributing](CONTRIBUTING.md) |
 | 行为准则 | [行为准则](CODE_OF_CONDUCT.zh-CN.md) | [Code of conduct](CODE_OF_CONDUCT.md) |

@@ -6,7 +6,7 @@ VinaStudio is four layers with strict boundaries. This document explains the
 design and, more importantly, the three constraints that shape all of it.
 
 For methodology validation, reproducibility and references, see
-`docs/ACADEMIC_VERIFICATION.md` in the source tree.
+[ACADEMIC_VALIDATION.md](ACADEMIC_VALIDATION.md).
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -113,6 +113,16 @@ This is also why the app can claim a "format conversion" feature honestly
 instead of shipping a bond-order guesser.
 
 ---
+
+## Engine support
+
+The shipped engine is AutoDock Vina 1.2.7 through the Python module or the
+official CLI binary. Vinardo is the second scoring function; AutoDock4 requires
+externally generated AutoGrid4 maps. GNINA is **not bundled** in 0.6.3: it has a
+different score/output contract and needs separate scientific validation, so it
+is not exposed as a half-wired engine. Covalent docking and induced fit are also
+explicitly out of scope.
+
 
 ## Request and event flow
 
@@ -270,7 +280,7 @@ Full design and current limits: `docs/MOLECULE_CATALOG.md`.
 Docking is not a coordinate transform: Vina receives the receptor and box in
 the same frame, and `poses_to_sdf()` copies the docked coordinates into SDF
 unchanged. The 1iep redocking baseline checks the result against the
-co-crystal pose (best-pose RMSD 0.260 Å). A box outside the receptor is a
+co-crystal pose (best-pose RMSD 0.353 Å). A box outside the receptor is a
 separate failure mode: it is refused before spawning rather than scored as a
 page of 0.0 kcal/mol poses. The guard applies to single, batch, ensemble,
 screening and the interactive score/optimize/randomize paths.

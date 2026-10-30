@@ -70,6 +70,30 @@ SAMPLES: tuple[Sample, ...] = (
     ),
 )
 
+#: Derived from the PDB crystal ligand; not downloaded by this script.
+#: Kept next to ``SAMPLES`` so the same checksum guard covers both files.
+DERIVED_SAMPLES: tuple[Sample, ...] = (
+    Sample(
+        "1iep.pdb",
+        "RCSB PDB 1IEP full entry",
+        "577386b4b8bc58a570facba0c8a843386842caef5ed7b60106c685d0f68d4218",
+        "RCSB 1IEP full structure; source of the STI crystal extract",
+    ),
+    Sample(
+        "1iep_crystal_ligand.pdb",
+        "RCSB PDB 1IEP, HETATM STI A 201 plus CONECT",
+        "8ad50e10d641f5ad3fcdbeb2ad409d1af9850eedd95484b33f9608630cc066bd",
+        "crystal-ligand coordinates extracted from 1IEP",
+    ),
+    Sample(
+        "1iep_reference.sdf",
+        "RCSB PDB 1IEP STI coordinates on the public ligand graph",
+        "1bcc3920c107e60300fb7ac7fbe4d332c0ae2eb9b75baf2f7b7978f124343700",
+        "independent reference used by the validation manifest",
+    ),
+)
+
+
 log = logging.getLogger("fetch_samples")
 
 

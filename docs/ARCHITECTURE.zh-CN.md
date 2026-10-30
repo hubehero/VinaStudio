@@ -5,7 +5,7 @@
 VinaStudio 由四层组成，层与层之间边界严格。本文说明这套设计，以及更重要的——
 决定其余一切的三条约束。
 
-方法学验证、可复现性与参考文献见源码树的 `docs/ACADEMIC_VERIFICATION.md`。
+方法学验证、可复现性与参考文献见[ACADEMIC_VALIDATION.zh-CN.md](ACADEMIC_VALIDATION.zh-CN.md)。
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -244,7 +244,7 @@ Study、集合、筛选库与 FTS5 索引；结构文件本身仍在磁盘上。
 
 对接不是坐标变换：Vina 收到的受体与盒子处于同一坐标系，`poses_to_sdf()`
 把对接坐标原样写入 SDF。1iep 重对接基线会用共晶姿态核对结果（best-pose
-RMSD 0.260 Å）。盒子完全在受体外是另一类失败：它会在启动前被拒绝，而不是
+RMSD 0.353 Å）。盒子完全在受体外是另一类失败：它会在启动前被拒绝，而不是
 被记成一页 0.0 kcal/mol 的构象。该检查覆盖单次、批量、ensemble、筛选与
 交互式 score/optimize/randomize 路径。
 
@@ -341,3 +341,11 @@ Meeko 现在把甲硫氨酸硫醚与半胱氨酸硫醇标为 `S`，旧版本用 
   完全没有声明依赖，所以必须显式列出，否则 `import meeko` 失败。
 - **`web/` 里固定 TypeScript 5.x** —— TypeScript 7 不再提供 `vue-tsc` 需要的
   `lib/tsc`。TypeScript 只用于类型检查，Vite 自己剥离类型，固定 5.x 没有代价。
+
+## 引擎支持
+
+随包引擎是 AutoDock Vina 1.2.7，走 Python 模块或官方 CLI 二进制；Vinardo 是
+第二个打分函数；AutoDock4 需要外部 AutoGrid4 地图。**0.6.3 不捆绑 GNINA**：
+它有独立的打分/输出契约，需要单独的科学验证，因此不提供半接线的引擎入口。
+共价对接与诱导契合也明确不在范围内。
+

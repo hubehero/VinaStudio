@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+message: "If you use VinaStudio in academic work, cite the software and the methods it implements; see docs/ACADEMIC_VALIDATION.md and docs/references/."
+title: "VinaStudio"
+abstract: "A desktop workbench for reproducible AutoDock Vina molecular docking."
+type: software
+version: "0.6.4"
+license: MIT
+repository-code: "https://github.com/hubehero/VinaStudio"
+url: "https://github.com/hubehero/VinaStudio"
+authors:
+  - name: "hubehero"
+  - name: "VinaStudio Contributors"
+keywords:
+  - molecular docking
+  - AutoDock Vina
+  - computational chemistry
+  - reproducibility
+references:
+  - type: article
+    title: "AutoDock Vina: Improving the speed and accuracy of docking with a new scoring function, efficient optimization, and multithreading"
+    authors:
+      - family-names: "Trott"
+        given-names: "Oleg"
+      - family-names: "Olson"
+        given-names: "Arthur J."
+    journal: "Journal of Computational Chemistry"
+    volume: 31
+    issue: 2
+    start: 455
+    end: 461
+    year: 2010
+    doi: "10.1002/jcc.21334"

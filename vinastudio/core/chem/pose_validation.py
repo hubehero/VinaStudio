@@ -313,14 +313,24 @@ def _check_internal_clash(mol: Chem.Mol) -> list[Finding]:
 
     1-2 and 1-3 pairs are excluded. A clash across a rotatable 1-4 path is a
     warning (torsional strain is plausible); everything else is an error.
+
+    The check is heavy-atom only: PDBQT omits non-polar hydrogens, and Meeko
+    reconstructs them after docking.  Reconstructed H positions are not evidence
+    of a steric clash (observed on non-best 1IEP poses), so they are excluded
+    rather than selectively ignored.
     """
-    n = mol.GetNumAtoms()
+    heavy = np.array(
+        [atom.GetIdx() for atom in mol.GetAtoms() if atom.GetAtomicNum() > 1],
+        dtype=int,
+    )
+    n = len(heavy)
     if n < 2:
         return []
-    coords = _coords(mol)
-    topo = Chem.GetDistanceMatrix(mol)
+    coords = _coords(mol)[heavy]
+    full_topo = Chem.GetDistanceMatrix(mol)
+    topo = full_topo[np.ix_(heavy, heavy)]
     pt = Chem.GetPeriodicTable()
-    vdw = np.array([pt.GetRvdw(atom.GetAtomicNum()) for atom in mol.GetAtoms()])
+    vdw = np.array([pt.GetRvdw(int(mol.GetAtomWithIdx(int(i)).GetAtomicNum())) for i in heavy])
     limit = THRESHOLDS["internal_clash"] * (vdw[:, None] + vdw[None, :])
 
     diff = coords[:, None, :] - coords[None, :, :]
@@ -336,13 +346,14 @@ def _check_internal_clash(mol: Chem.Mol) -> list[Finding]:
     examples: list[dict[str, Any]] = []
     has_error = False
     for i, j in pairs:
-        rotatable_14 = bool(topo[i, j] == 3 and _rotatable_path(mol, int(i), int(j)))
+        atom_i, atom_j = int(heavy[i]), int(heavy[j])
+        rotatable_14 = bool(topo[i, j] == 3 and _rotatable_path(mol, atom_i, atom_j))
         if not rotatable_14:
             has_error = True
         if len(examples) < _MAX_EXAMPLES:
             examples.append(
                 {
-                    "atoms": [int(i), int(j)],
+                    "atoms": [atom_i, atom_j],
                     "distance": round(float(dist[i, j]), 3),
                     "limit": round(float(limit[i, j]), 3),
                     "topologicalDistance": int(topo[i, j]),

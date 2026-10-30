@@ -1,0 +1,19 @@
+{
+  "formatVersion": "1.0",
+  "cases": [
+    {
+      "id": "2hyy",
+      "name": "c-Abl kinase + imatinib, high resolution (optional local sample)",
+      "receptor": "sample/receptors/2hyy_receptor.pdb",
+      "ligand": "sample/ligands/2hyy_ligand.sdf",
+      "reference": "sample/ligands/2hyy_ligand.sdf",
+      "referenceSource": "optional local 2HYY sample; not part of the committed evidence",
+      "extend": 4.0,
+      "exhaustiveness": 8,
+      "nPoses": 9,
+      "seed": 42,
+      "rmsdThreshold": 2.0,
+      "allowBadResidues": true
+    }
+  ]
+}

@@ -106,8 +106,9 @@ def structure_matches(reference: Chem.Mol, other: Chem.Mol) -> bool | None:
 def reference_matches_poses(poses_sdf: str, reference: Chem.Mol | str | Path) -> bool | None:
     """Canonical-SMILES equality of *reference* vs the first pose.
 
-    ``None`` means either side could not be canonicalised — unknown is not
-    a mismatch, and callers must warn (never reject) on ``False``.
+    ``None`` means either side could not be canonicalised.  The validation
+    harness treats both ``False`` and ``None`` as a failed reference-relative
+    check: an unverifiable reference cannot support an RMSD pass claim.
     """
     ref = _heavy_only(_as_mol(reference))
     pose = _heavy_only(_as_mol(_split_sdf(poses_sdf)[0]))

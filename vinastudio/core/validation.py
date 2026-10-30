@@ -14,9 +14,12 @@ committed 1iep case without failing on optional local datasets.
 
 from __future__ import annotations
 
+import hashlib
 import importlib.metadata
 import json
+import os
 import platform
+import subprocess
 import time
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
@@ -28,7 +31,7 @@ from vinastudio.core.chem.ligand_prep import prepare_ligand
 from vinastudio.core.chem.pdbqt import parse_pdbqt
 from vinastudio.core.chem.pose_validation import validate_poses, worst_severity
 from vinastudio.core.chem.receptor_prep import ReceptorPrepOptions, prepare_receptor
-from vinastudio.core.chem.rmsd import rmsd_vs_reference
+from vinastudio.core.chem.rmsd import reference_matches_poses, rmsd_vs_reference
 from vinastudio.core.docking import DockingParams, run_docking
 from vinastudio.core.errors import InvalidInputError
 
@@ -58,6 +61,7 @@ class ValidationCase:
     rmsd_threshold: float = DEFAULT_RMSD_THRESHOLD
     affinity_range: tuple[float, float] | None = None
     allow_bad_residues: bool = False
+    reference_source: str = ""
 
 
 @dataclass(slots=True)
@@ -77,6 +81,7 @@ class ValidationCaseResult:
     warning_poses: int = 0
     receptor_warnings: list[str] = field(default_factory=list)
     ligand_warnings: list[str] = field(default_factory=list)
+    provenance: dict[str, Any] = field(default_factory=dict)
     elapsed_ms: int | None = None
 
     def as_dict(self) -> dict[str, Any]:
@@ -97,6 +102,7 @@ class ValidationCaseResult:
             "warningPoses": self.warning_poses,
             "receptorWarnings": self.receptor_warnings,
             "ligandWarnings": self.ligand_warnings,
+            "provenance": self.provenance,
             "elapsedMs": self.elapsed_ms,
         }
 
@@ -121,7 +127,7 @@ class ValidationReport:
 
     def as_dict(self) -> dict[str, Any]:
         return {
-            "formatVersion": "1.0",
+            "formatVersion": "2.0",
             "generatedAt": self.generated_at,
             "environment": self.environment,
             "summary": {
@@ -134,17 +140,106 @@ class ValidationReport:
         }
 
 
+def _git_metadata() -> dict[str, str | bool | None]:
+    """Repository identity for the report, without treating scratch as source."""
+    try:
+        commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        status = subprocess.run(
+            [
+                "git",
+                "status",
+                "--porcelain",
+                "--untracked-files=no",
+                "--",
+                ".",
+                ":(exclude).commandcode",
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        return {
+            "commit": commit.stdout.strip() if commit.returncode == 0 else None,
+            "dirty": bool(status.stdout.strip()) if status.returncode == 0 else None,
+        }
+    except (OSError, subprocess.SubprocessError):
+        return {"commit": None, "dirty": None}
+
+
+def _file_info(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {"path": str(path), "exists": False}
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return {
+        "path": str(path),
+        "exists": True,
+        "bytes": path.stat().st_size,
+        "sha256": digest.hexdigest(),
+    }
+
+
+def _docking_provenance(case: ValidationCase, params: DockingParams, box: Box) -> dict[str, Any]:
+    return {
+        "engine": params.engine,
+        "scoring": params.scoring,
+        "weights": params.weights,
+        "exhaustiveness": params.exhaustiveness,
+        "nPoses": params.n_poses,
+        "seed": params.seed,
+        "energyRange": params.energy_range,
+        "minRmsd": params.min_rmsd,
+        "maxEvals": params.max_evals,
+        "cpu": params.cpu,
+        "noRefine": params.no_refine,
+        "spacing": params.spacing,
+        "forceEvenVoxels": params.force_even_voxels,
+        "boxSource": "explicit" if case.center is not None else "reference-autobox",
+        "box": box.summary(),
+        "allowBadResidues": case.allow_bad_residues,
+    }
+
+
 def environment_info() -> dict[str, str]:
     """Versions that can change a docking result; unknown is reported as such."""
+    from vinastudio import __version__
+
     versions: dict[str, str] = {
+        "appVersion": str(__version__),
         "python": platform.python_version(),
         "platform": f"{platform.system()} {platform.release()} ({platform.machine()})",
+        "cpuCount": str(os.cpu_count() or 0),
     }
-    for distribution in ("vina", "meeko", "rdkit", "numpy"):
+    for distribution in ("vina", "meeko", "rdkit", "numpy", "scipy", "gemmi"):
         try:
             versions[distribution] = importlib.metadata.version(distribution)
         except importlib.metadata.PackageNotFoundError:
             versions[distribution] = "unknown"
+    git = _git_metadata()
+    versions["gitCommit"] = str(git.get("commit") or "unknown")
+    versions["gitDirty"] = (
+        "unknown" if git.get("dirty") is None else ("yes" if git["dirty"] else "no")
+    )
+    try:
+        from vinastudio.core.engines import backend_report
+
+        backend = backend_report()
+        versions["engineBackend"] = str(backend.get("backend") or "unavailable")
+        versions["engineReason"] = str(backend.get("reason") or "")
+    except Exception:  # noqa: BLE001 - provenance must not hide a report
+        versions["engineBackend"] = "unknown"
+        versions["engineReason"] = "could not resolve backend"
     return versions
 
 
@@ -226,6 +321,7 @@ def _case_from_dict(
         ),
         affinity_range=affinity,
         allow_bad_residues=bool(raw.get("allowBadResidues", False)),
+        reference_source=str(raw.get("referenceSource", "")),
     )
 
 
@@ -278,6 +374,7 @@ def failure_reasons(
     best_pose_error: bool,
     error_poses: int = 0,
     reference_unmatched: bool = False,
+    reference_independent: bool = True,
 ) -> list[str]:
     """The single place that decides whether a completed case passes."""
     reasons: list[str] = []
@@ -290,8 +387,10 @@ def failure_reasons(
         reasons.append(
             f"best RMSD {best_rmsd:.3f} Å exceeds {case.rmsd_threshold:.3f} Å"
         )
+    if not reference_independent:
+        reasons.append("reference is the docking ligand itself; independent redocking is not established")
     if reference_unmatched:
-        reasons.append("reference could not be matched; reference-relative checks were skipped")
+        reasons.append("reference identity could not be verified for reference-relative checks")
     if best_pose_error:
         reasons.append("the best pose has a geometry error")
     if error_poses > 0 and not best_pose_error:
@@ -350,6 +449,26 @@ def run_case(
         result = run_docking(params, str(case_dir / "docking"))
         receptor_atoms = parse_pdbqt(receptor.pdbqt).first_pose.n_atoms
         ligand_atoms = parse_pdbqt(ligand.pdbqt).first_pose.n_atoms
+        reference_match = (
+            reference_matches_poses(result.poses_sdf, case.reference)
+            if result.poses and result.poses_sdf.strip()
+            else None
+        )
+        provenance = {
+            "inputs": {
+                "receptor": _file_info(case.receptor),
+                "ligand": _file_info(case.ligand),
+                "reference": _file_info(case.reference),
+            },
+            "reference": {
+                "source": case.reference_source,
+                "independentFromLigand": case.reference != case.ligand,
+                "matchesDockedPose": reference_match,
+            },
+            "parameters": _docking_provenance(case, params, box),
+            "receptor": {"atoms": receptor_atoms, "warnings": list(receptor.report.warnings)},
+            "ligand": {"atoms": ligand_atoms, "warnings": list(ligand.report.warnings)},
+        }
 
         if not result.poses or not result.poses_sdf.strip():
             return ValidationCaseResult(
@@ -362,6 +481,7 @@ def run_case(
                 elapsed_ms=int((time.monotonic() - started) * 1000),
                 receptor_warnings=list(receptor.report.warnings),
                 ligand_warnings=list(ligand.report.warnings),
+                provenance=provenance,
             )
 
         rmsds = rmsd_vs_reference(result.poses_sdf, case.reference)
@@ -377,6 +497,8 @@ def run_case(
             best_affinity=result.best_affinity,
             best_pose_error=worst_severity(best_findings) == "error",
             error_poses=error_poses,
+            reference_unmatched=reference_match is not True,
+            reference_independent=case.reference != case.ligand,
         )
         return ValidationCaseResult(
             case=case,
@@ -394,6 +516,7 @@ def run_case(
             warning_poses=warning_poses,
             receptor_warnings=list(receptor.report.warnings),
             ligand_warnings=list(ligand.report.warnings),
+            provenance=provenance,
             elapsed_ms=int((time.monotonic() - started) * 1000),
         )
     except Exception as exc:  # noqa: BLE001 - a case failure must not stop the run
@@ -446,6 +569,7 @@ def format_markdown(report: ValidationReport) -> str:
     lines = [
         "# VinaStudio validation report",
         "",
+        "Report schema: 2.0",
         f"Generated: {report.generated_at}",
         "",
         "This is a reproducible redocking check, not an accuracy ranking. "
@@ -476,7 +600,27 @@ def format_markdown(report: ValidationReport) -> str:
             f"| {result.case.id} | {result.status} | {affinity} | {rmsd} | "
             f"{result.pose_count} | {result.error_poses} | {reason} |"
         )
+    provenance_rows = []
+    for result in report.cases:
+        prov = result.provenance or {}
+        ref = prov.get("reference", {}) if isinstance(prov, dict) else {}
+        inputs = prov.get("inputs", {}) if isinstance(prov, dict) else {}
+        ref_sdf = inputs.get("reference", {}) if isinstance(inputs, dict) else {}
+        provenance_rows.append(
+            "| {case} | {independent} | {match} | {sha} |".format(
+                case=result.case.id,
+                independent=ref.get("independentFromLigand", "—"),
+                match=ref.get("matchesDockedPose", "—"),
+                sha=str(ref_sdf.get("sha256", "—"))[:12],
+            )
+        )
     lines += [
+        "",
+        "## Provenance",
+        "",
+        "| Case | Reference independent | Reference matches pose | Reference SHA-256 |",
+        "|---|---|---|---|",
+        *provenance_rows,
         "",
         "A pass means: at least one pose, best RMSD within the configured threshold, "
         "the reference could be matched for reference-relative checks, no geometry "
