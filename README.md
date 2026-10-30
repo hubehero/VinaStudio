@@ -205,4 +205,4 @@ VinaStudio 站在开源生态之上。以下组件为直接依赖，或作为有
 
 ## 许可证
 
-MIT（见 [LICENSE](LICENSE)）
+MIT（见 [LICENSE](LICENSE)）。第三方声明与 LGPL 文本见 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md)。

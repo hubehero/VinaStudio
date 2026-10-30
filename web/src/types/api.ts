@@ -722,6 +722,8 @@ export interface ScoreRequest {
   scoring: ScoringFunction
   spacing: number
   forceEvenVoxels: boolean
+  /** Same vector as the docking request; omit for Vina defaults. */
+  weights?: number[] | null
   unboundEnergy: number | null
 }
 
@@ -743,6 +745,7 @@ export interface OptimizeRequest {
   scoring: ScoringFunction
   spacing: number
   forceEvenVoxels: boolean
+  weights?: number[] | null
   maxSteps: number
 }
 
@@ -761,6 +764,7 @@ export interface RandomizeRequest {
   scoring: ScoringFunction
   spacing: number
   forceEvenVoxels: boolean
+  weights?: number[] | null
   maxSteps: number
   /** Accepted for shape compatibility with docking and ignored by the engine:
    *  Vina's randomisation seeds itself, so a value here cannot replay a run. */

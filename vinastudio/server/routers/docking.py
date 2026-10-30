@@ -22,7 +22,12 @@ from fastapi import APIRouter, File, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
 from vinastudio import __version__
-from vinastudio.config import NATIVE_MAP_SCORING, SCORING_WEIGHT_COUNT, max_upload_bytes
+from vinastudio.config import (
+    NATIVE_MAP_SCORING,
+    SCORING_WEIGHT_COUNT,
+    max_map_cells,
+    max_upload_bytes,
+)
 from vinastudio.core.box import Box, ensure_box_contains_receptor
 from vinastudio.core.chem.ifp import (
     CONTACT_TYPES,
@@ -131,12 +136,7 @@ _BUNDLE_DOWNLOAD_LIMIT = 128
 # One in-flight map set is already ~150 MB at the default 1iep box; concurrent
 # calls could otherwise take down the process that owns every running job.
 _INTERACTIVE_MAPS = threading.BoundedSemaphore(1)
-try:
-    _INTERACTIVE_MAX_CELLS = int(
-        os.environ.get("VINASTUDIO_MAX_INTERACTIVE_MAP_CELLS", "5000000")
-    )
-except ValueError:
-    _INTERACTIVE_MAX_CELLS = 5_000_000
+_INTERACTIVE_MAX_CELLS = max_map_cells()
 
 
 def _validate_box(
@@ -414,6 +414,7 @@ def batch_docking(request: BatchDockingRequest) -> BatchJobCreated:
         "cpu": request.cpu,
         "seed": request.seed,
         "no_refine": request.noRefine,
+        "weights": request.weights,
         "engine": request.engine,
     }
     # `extra="forbid"` rejected the key up here; the worker pool picks it up
@@ -1141,6 +1142,9 @@ def _configure_vina(
     else:
         raise InvalidInputError("either ligandPath or ligandPdbqtString must be provided")
 
+    if request.weights is not None:
+        v.set_weights(request.weights)
+
     v.compute_vina_maps(
         center=list(request.center),
         box_size=list(request.size),
@@ -1148,6 +1152,14 @@ def _configure_vina(
         force_even_voxels=request.forceEvenVoxels,
     )
     return v
+
+
+def _reject_cli_weights(weights: list[float] | None) -> None:
+    if weights is not None:
+        raise InvalidInputError(
+            "custom scoring weights are supported by the Python API backend only; "
+            "the Vina CLI does not expose them"
+        )
 
 
 def _interactive_params(
@@ -1171,6 +1183,7 @@ def _interactive_params(
         scoring=request.scoring,
         spacing=request.spacing,
         force_even_voxels=request.forceEvenVoxels,
+        weights=request.weights,
         verbosity=0,
     )
 
@@ -1205,6 +1218,7 @@ def score_pose(request: ScoreRequest) -> ScoreResponse:
         raise InvalidInputError(f"receptor file not found: {request.receptorPath}")
 
     if resolve_backend() == CLI_BACKEND:
+        _reject_cli_weights(request.weights)
         with tempfile.TemporaryDirectory(prefix="vinastudio-score-") as scratch:
             return ScoreResponse(**score_cli(_interactive_params(request), scratch))
 
@@ -1229,6 +1243,7 @@ def optimize_pose(request: OptimizeRequest) -> OptimizeResponse:
         raise InvalidInputError(f"receptor file not found: {request.receptorPath}")
 
     if resolve_backend() == CLI_BACKEND:
+        _reject_cli_weights(request.weights)
         with tempfile.TemporaryDirectory(prefix="vinastudio-optimize-") as scratch:
             energy, pose = optimize_cli(_interactive_params(request), request.maxSteps, scratch)
         return OptimizeResponse(energy=energy, ligandPdbqt=pose)
@@ -1260,6 +1275,7 @@ def randomize_pose(request: RandomizeRequest) -> RandomizeResponse:
         raise InvalidInputError(f"receptor file not found: {request.receptorPath}")
 
     if resolve_backend() == CLI_BACKEND:
+        _reject_cli_weights(request.weights)
         with tempfile.TemporaryDirectory(prefix="vinastudio-randomize-") as scratch:
             pose = randomize_cli(_interactive_params(request), request.maxSteps, scratch)
         return RandomizeResponse(ligandPdbqt=pose)

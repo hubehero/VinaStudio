@@ -22,6 +22,22 @@ entries about the product — no internal task ids or workflow narration.
 
 - **Academic validation report**: add bilingual `docs/ACADEMIC_VALIDATION`, an independent 1IEP PDB crystal reference, a claim–evidence matrix, reproduction commands and 14 DOI-checked references; the harness records versions, commit, backend, input checksums and full docking parameters. The report is explicitly limited to the 1IEP control and claims no multi-target accuracy, enrichment or PoseBusters pass rate.
 
+### 修复
+
+- **自定义打分权重**：Python API 后端现在在 affinity map 生成前设置权重；权重长度/有限性在 API schema 校验，权重与预计算 maps 的组合会被明确拒绝；交互 `/score`、`/optimize`、`/randomize` 接受同一组权重。
+- **盒体与资源边界**：所有盒体尺寸在 schema 层要求有限正数；spawned 对接作业也受地图网格预算约束，不再只有交互端点拒绝超大盒子。
+- **架构边界**：`core.paths` 不再 import FastAPI/server；活动工作区由 server 注入 provider，engine-only 导入保持可用。
+- **发布镜像开发入口**：发布树补齐 `web_start.sh`，并移除指向不存在 `tests/` 的 pytest 配置。
+- **第三方许可**：新增 `THIRD_PARTY_LICENSES.md` 与 LGPL/Apache/BSD 许可证文本，安装包和 Debian 包引用。
+
+### Fixed
+
+- **Custom scoring weights**: the Python API backend now sets weights before affinity-map generation; length/finite validation is in the API schema, weights plus precomputed maps are rejected, and `/score`, `/optimize`, `/randomize` accept the same weight vector.
+- **Box and resource limits**: all box dimensions must be finite and positive at the schema boundary; spawned docking jobs share the map-cell budget instead of only interactive endpoints rejecting oversized boxes.
+- **Architecture boundary**: `core.paths` no longer imports FastAPI/server; the server injects the active-workspace provider so engine-only imports remain valid.
+- **Release-tree development entry**: `web_start.sh` is present in the release tree and the release pytest config no longer points at a missing `tests/` directory.
+- **Third-party licensing**: added `THIRD_PARTY_LICENSES.md` plus LGPL/Apache/BSD texts, referenced by the Windows installer and Debian copyright.
+
 ## [0.6.3] - 2026-10-29
 
 ### 修复

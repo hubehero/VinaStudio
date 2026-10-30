@@ -249,6 +249,7 @@ def batch_docking_worker(params: dict[str, Any], pipe: Connection) -> None:
                 cpu=cpu,
                 seed=params.get("seed", 0),
                 no_refine=params.get("no_refine", False),
+                weights=params.get("weights"),
                 map_prefix=map_prefix or None,
                 engine=params.get("engine", "vina"),
             )
@@ -385,6 +386,7 @@ def screening_worker(params: dict[str, Any], pipe: Connection) -> None:
                 cpu=cpu,
                 seed=params.get("seed", 0),
                 no_refine=params.get("no_refine", False),
+                weights=params.get("weights"),
                 engine=params.get("engine", "vina"),
             )
 

@@ -36,6 +36,7 @@ AppUpdatesURL={#MyAppURL}/releases
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 LicenseFile=..\..\LICENSE
+InfoBeforeFile=..\..\THIRD_PARTY_LICENSES.md
 OutputDir=..\..\dist
 OutputBaseFilename=vinastudio-{#VERSION}-setup
 Compression=lzma2/ultra64

@@ -6,11 +6,39 @@ API surface can evolve independently of internal refactoring.
 
 from __future__ import annotations
 
+import math
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from vinastudio.config import DEFAULTS, SCORING_WEIGHT_COUNT, ScoringFunction
+
+
+def _validate_weights(
+    scoring: str,
+    weights: list[float] | None,
+    map_paths: list[str] | None,
+) -> None:
+    if weights is None:
+        return
+    if not weights:
+        raise ValueError("weights must not be empty; omit it to use the scoring function defaults")
+    if not all(math.isfinite(value) for value in weights):
+        raise ValueError("weights must contain only finite numbers")
+    expected = SCORING_WEIGHT_COUNT.get(scoring)
+    if expected is not None and len(weights) != expected:
+        raise ValueError(
+            f"{scoring} requires {expected} weights, got {len(weights)}"
+        )
+    if map_paths:
+        raise ValueError("custom scoring weights cannot be combined with precomputed maps")
+
+
+def _validate_box_values(center: tuple[float, float, float], size: tuple[float, float, float]) -> None:
+    if not all(math.isfinite(value) for value in (*center, *size)):
+        raise ValueError("box centre and size must be finite")
+    if any(value <= 0 for value in size):
+        raise ValueError("box size must contain only positive values")
 
 
 class DockingRequest(BaseModel):
@@ -68,6 +96,12 @@ class DockingRequest(BaseModel):
             "Methods text; it is metadata only and never changes docking."
         ),
     )
+
+    @model_validator(mode="after")
+    def _protocol(self) -> DockingRequest:
+        _validate_box_values(self.center, self.size)
+        _validate_weights(self.scoring, self.weights, self.mapPaths)
+        return self
 
 
 class PoseInfo(BaseModel):
@@ -176,7 +210,14 @@ class ScoreRequest(BaseModel):
     scoring: ScoringFunction = "vina"
     spacing: float = 0.375
     forceEvenVoxels: bool = False
+    weights: list[float] | None = None
     unboundEnergy: float | None = None
+
+    @model_validator(mode="after")
+    def _protocol(self) -> ScoreRequest:
+        _validate_box_values(self.center, self.size)
+        _validate_weights(self.scoring, self.weights, None)
+        return self
 
 
 class ScoreResponse(BaseModel):
@@ -203,7 +244,14 @@ class OptimizeRequest(BaseModel):
     scoring: ScoringFunction = "vina"
     spacing: float = 0.375
     forceEvenVoxels: bool = False
+    weights: list[float] | None = None
     maxSteps: int = 0
+
+    @model_validator(mode="after")
+    def _protocol(self) -> OptimizeRequest:
+        _validate_box_values(self.center, self.size)
+        _validate_weights(self.scoring, self.weights, None)
+        return self
 
 
 class OptimizeResponse(BaseModel):
@@ -235,11 +283,19 @@ class RandomizeRequest(BaseModel):
     scoring: ScoringFunction = "vina"
     spacing: float = 0.375
     forceEvenVoxels: bool = False
+    weights: list[float] | None = None
     maxSteps: int = 10000
     #: Kept for shape compatibility with the docking request, and **ignored**:
     #: Vina's randomisation seeds itself, so no value here can replay a run —
     #: measured on both backends (2026-10-15).
     seed: int = Field(default=0, ge=0)
+
+
+    @model_validator(mode="after")
+    def _protocol(self) -> RandomizeRequest:
+        _validate_box_values(self.center, self.size)
+        _validate_weights(self.scoring, self.weights, None)
+        return self
 
 
 class RandomizeResponse(BaseModel):
@@ -573,6 +629,13 @@ class EnsembleDockingRequest(BaseModel):
     engine: Literal["vina", "vina-cli"] = "vina"
 
 
+    @model_validator(mode="after")
+    def _protocol(self) -> EnsembleDockingRequest:
+        _validate_box_values(self.center, self.size)
+        _validate_weights(self.scoring, self.weights, self.mapPaths)
+        return self
+
+
 class EnsembleRow(BaseModel):
     receptorIndex: int
     label: str
@@ -628,6 +691,7 @@ class BatchDockingRequest(BaseModel):
     )
     seed: int = 0
     noRefine: bool = False
+    weights: list[float] | None = None
     engine: Literal["vina", "vina-cli"] = Field(
         default="vina",
         description=(
@@ -641,6 +705,8 @@ class BatchDockingRequest(BaseModel):
     def _ligand_source(self) -> BatchDockingRequest:
         if bool(self.selectionId) == bool(self.ligands):
             raise ValueError("give exactly one of ligands or selectionId")
+        _validate_box_values(self.center, self.size)
+        _validate_weights(self.scoring, self.weights, None)
         return self
 
 

@@ -18,6 +18,7 @@ from fastapi import APIRouter
 
 from vinastudio import config
 from vinastudio.core.errors import InvalidInputError
+from vinastudio.core.paths import set_workspace_provider
 from vinastudio.core.workspace import (
     _SUBDIRS,
     init_workspace,
@@ -84,6 +85,15 @@ _active_workspace: Path | None = _load_active_path()
 def get_active_workspace() -> Path | None:
     """Public accessor used by other routers that need the workspace root."""
     return _active_workspace
+
+
+def _provide_active_workspace() -> Path | None:
+    # Resolve the function name at call time so tests can monkeypatch the
+    # module-level accessor without replacing the core provider.
+    return get_active_workspace()
+
+
+set_workspace_provider(_provide_active_workspace)
 
 
 # ---------------------------------------------------------------------------

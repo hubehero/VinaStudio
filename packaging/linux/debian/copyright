@@ -1,0 +1,22 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: VinaStudio
+Source: https://github.com/hubehero/VinaStudio
+
+Files: *
+Copyright: 2026 hubehero and VinaStudio Contributors
+License: MIT
+
+Files: licenses/Apache-2.0.txt
+License: Apache-2.0
+
+Files: licenses/LGPL-2.1.txt
+License: LGPL-2.1
+
+Files: licenses/LGPL-3.0.txt
+License: LGPL-3.0
+
+Files: licenses/RDKit-BSD.txt
+License: BSD-3-Clause
+
+See THIRD_PARTY_LICENSES.md for component provenance and the full licence
+inventory.  The complete texts are shipped in the licenses/ directory.

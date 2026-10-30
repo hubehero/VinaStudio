@@ -238,4 +238,4 @@ references (the license named is the upstream project's own):
 
 ## License
 
-MIT (see [LICENSE](LICENSE))
+MIT (see [LICENSE](LICENSE)). Third-party notices and LGPL texts: [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).

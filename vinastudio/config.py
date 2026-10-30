@@ -36,6 +36,26 @@ ScoringFunction = Literal["vina", "vinardo", "ad4"]
 #: Number of tunable weights per scoring function (``Vina.set_weights`` contract).
 SCORING_WEIGHT_COUNT: Final[dict[str, int]] = {"vina": 7, "vinardo": 6, "ad4": 6}
 
+#: Maximum number of grid cells a single map set may allocate.  The old
+#: interactive-only name is honoured as an alias for existing deployments.
+MAX_MAP_CELLS_ENV: Final = "VINASTUDIO_MAX_MAP_CELLS"
+LEGACY_MAX_MAP_CELLS_ENV: Final = "VINASTUDIO_MAX_INTERACTIVE_MAP_CELLS"
+DEFAULT_MAX_MAP_CELLS: Final = 5_000_000
+
+
+def max_map_cells() -> int:
+    """Cell budget shared by interactive scoring and spawned docking jobs."""
+    for name in (MAX_MAP_CELLS_ENV, LEGACY_MAX_MAP_CELLS_ENV):
+        raw = os.environ.get(name)
+        if raw is None:
+            continue
+        try:
+            return max(1, int(raw))
+        except ValueError:
+            continue
+    return DEFAULT_MAX_MAP_CELLS
+
+
 #: Scoring functions that can compute their affinity maps natively.
 NATIVE_MAP_SCORING: Final[frozenset[str]] = frozenset({"vina", "vinardo"})
 

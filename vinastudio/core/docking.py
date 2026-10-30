@@ -8,6 +8,7 @@ in the caller's process (which is a spawned child — see ``worker.py``).
 from __future__ import annotations
 
 import logging
+import math
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -86,17 +87,22 @@ def run_docking(params: DockingParams, output_dir: str) -> DockingResult:
     # Pre-computed maps define their own grid; a plain box must intersect the
     # receptor or Vina returns a page of zero-energy "successes".
     if not params.map_prefix and not params.map_paths:
+        from vinastudio.config import max_map_cells
         from vinastudio.core.box import Box, ensure_box_contains_receptor
 
-        ensure_box_contains_receptor(
-            params.receptor_path,
-            Box(
-                center=params.center,
-                size=params.size,
-                spacing=params.spacing,
-                force_even_voxels=params.force_even_voxels,
-            ),
+        box = Box(
+            center=params.center,
+            size=params.size,
+            spacing=params.spacing,
+            force_even_voxels=params.force_even_voxels,
         )
+        cells = math.prod(box.voxels)
+        if cells > max_map_cells():
+            raise ValueError(
+                f"box needs {cells:,} grid cells, above the {max_map_cells():,}-cell "
+                "map budget; use a smaller box or raise the map-cell limit explicitly"
+            )
+        ensure_box_contains_receptor(params.receptor_path, box)
 
     from vinastudio.core.engines import CLI_BACKEND, resolve_backend
 
@@ -124,6 +130,16 @@ def run_docking(params: DockingParams, output_dir: str) -> DockingResult:
     else:
         raise ValueError("either ligand_path or ligand_pdbqt_string must be provided")
 
+    if params.weights is not None:
+        # Affinity maps are built with the scoring weights.  Setting them after
+        # ``compute_vina_maps`` silently leaves the default maps in place, so
+        # the UI's custom weights would not affect the result.  Precomputed
+        # maps cannot be versioned against a weight vector here; reject the
+        # combination instead of pretending it works.
+        if params.map_prefix or params.map_paths:
+            raise ValueError("custom scoring weights cannot be combined with precomputed maps")
+        v.set_weights(params.weights)
+
     if params.map_prefix:
         # Pre-computed maps from ``precompute_vina_maps`` — a single prefix.
         v.load_maps(params.map_prefix)
@@ -139,9 +155,6 @@ def run_docking(params: DockingParams, output_dir: str) -> DockingResult:
             spacing=params.spacing,
             force_even_voxels=params.force_even_voxels,
         )
-
-    if params.weights is not None:
-        v.set_weights(params.weights)
 
     log.info(
         "starting docking: scoring=%s exhaustiveness=%d n_poses=%d",

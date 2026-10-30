@@ -11,8 +11,17 @@ from __future__ import annotations
 
 import re
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+
+_workspace_provider: Callable[[], Path | None] | None = None
+
+
+def set_workspace_provider(provider: Callable[[], Path | None] | None) -> None:
+    """Let the server inject the active workspace without making core import it."""
+    global _workspace_provider
+    _workspace_provider = provider
 
 _SLUG_STRIP = re.compile(r"[^a-z0-9]+")
 
@@ -20,9 +29,8 @@ _SLUG_STRIP = re.compile(r"[^a-z0-9]+")
 def workspace_root() -> Path:
     """Root of all run directories — uses the active workspace jobs/ subdir."""
     from vinastudio.config import app_home
-    from vinastudio.server.routers.workspace import get_active_workspace
 
-    ws = get_active_workspace()
+    ws = _workspace_provider() if _workspace_provider is not None else None
     # The fallback must go through app_home(), which honours VINASTUDIO_HOME.
     # Hard-coding ~/.vinastudio here sent test runs (that redirect the variable
     # for isolation) into the user's real home directory.
