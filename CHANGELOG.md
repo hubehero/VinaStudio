@@ -12,6 +12,8 @@ entries about the product — no internal task ids or workflow narration.
 
 ## [Unreleased]
 
+## [0.6.8] - 2026-11-03
+
 ### 修复
 
 - **源码安装顺序**：公开 README/CONTRIBUTING 改为先构建界面再 `uv sync`，并让 Quality 使用同一顺序；干净副本安装已验证。
