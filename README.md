@@ -43,11 +43,11 @@ VinaStudio 把两者包装成一个好用的桌面应用，同时保持科学上
 
 ## 预览
 
-![工作台](docs/images/workbench.png)
+![工作台](https://github.com/hubehero/VinaStudio/raw/main/docs/images/workbench.png)
 
-![对接结果](docs/images/docking.png)
+![对接结果](https://github.com/hubehero/VinaStudio/raw/main/docs/images/docking.png)
 
-![分子目录](docs/images/molecules.png)
+![分子目录](https://github.com/hubehero/VinaStudio/raw/main/docs/images/molecules.png)
 
 主要能力：
 
