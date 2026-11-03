@@ -37,11 +37,11 @@ The API reference is served locally while the application runs, at **/docs**.
 
 ## Preview
 
-![Workbench](docs/images/workbench.png)
+![Workbench](https://github.com/hubehero/VinaStudio/raw/main/docs/images/workbench.png)
 
-![Docking results](docs/images/docking.png)
+![Docking results](https://github.com/hubehero/VinaStudio/raw/main/docs/images/docking.png)
 
-![Molecule catalog](docs/images/molecules.png)
+![Molecule catalog](https://github.com/hubehero/VinaStudio/raw/main/docs/images/molecules.png)
 
 ## What it is
 
