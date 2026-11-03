@@ -4,86 +4,47 @@
 
 [![Release](https://img.shields.io/github/v/release/hubehero/VinaStudio?label=release)](https://github.com/hubehero/VinaStudio/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20Windows-lightgrey.svg)](#install-and-run)
+[![Platforms](https://img.shields.io/badge/platforms-Linux%20%7C%20Windows-lightgrey.svg)](#install)
 [![AutoDock Vina](https://img.shields.io/badge/AutoDock%20Vina-1.2.7-2f8f83)](https://github.com/ccsb-scripps/AutoDock-Vina)
 
-**A local desktop workbench for the complete AutoDock Vina workflow.** Prepare
-receptors and ligands, define the binding site, run Vina/Vinardo/AutoDock4,
-inspect poses and interactions, and keep the parameters and results of every
-run together in one window.
+VinaStudio is a desktop front end for AutoDock Vina. Vina still runs the
+docking. VinaStudio handles receptor and ligand preparation, binding-site setup,
+starting jobs, reviewing results, and keeping the parameters, inputs and logs
+from each run with the job. It is for people who repeat the same workflow often
+and would rather not rebuild the command line every time.
 
-![VinaStudio docking results](https://github.com/hubehero/VinaStudio/raw/main/docs/images/docking.png)
+![VinaStudio interface overview](docs/images/preview.jpg)
 
-## Why VinaStudio
+Top left is a docking result; top right is the workbench; bottom left is the
+molecule catalog; bottom right is the results report.
 
-AutoDock Vina is reliable, but its command line and Python API are awkward for
-repeating the same preparation, inspection and review cycle. VinaStudio keeps
-those steps in one interface you can return to:
+## Features
 
-- **No hand-written command sequences** — receptor, ligand, box and job
-  parameters are set in the application.
-- **Traceable results** — jobs keep their parameters, input hashes, duration
-  and logs, and can be reviewed after a restart.
-- **Honest science** — docking scores are model predictions, not experimental
-  free energies; the validation records state the supported scope.
-- **Local core** — preparation, docking and analysis run on the machine;
-  online compound search is optional and sends only the query to its provider.
+- Receptor PDB/mmCIF to PDBQT; ligand MOL/SDF/MOL2/SMILES to 3D PDBQT through Meeko.
+- A box derived from a ligand or residue selection, or entered by hand and
+  adjusted in the 3D view.
+- Docking with Vina, Vinardo or AutoDock4, with run stages, streamed logs and
+  cancellation.
+- Pose review, per-pose energy breakdown, redocking RMSD, geometry checks and
+  2D/3D interaction maps.
+- A catalog for receptors, ligands, Studies, collections and screening
+  libraries, with 125 common drug entries included.
+- CSV, pose, HTML report and project export; searchable history with
+  favourites, tags and comparison.
 
-## What it does
+## Install
 
-- **Preparation** — PDB/mmCIF → PDBQT; MOL/SDF/MOL2/SMILES → 3D PDBQT via Meeko.
-- **Binding site** — derive the box from a ligand or residue selection, or enter
-  its centre and size manually and edit it in 3D.
-- **Docking** — Vina, Vinardo and AutoDock4, with live stage progress, streamed
-  logs and real cancellation.
-- **Analysis** — pose ranking, per-pose energy decomposition, redocking RMSD,
-  geometry checks, and 2D/3D interaction maps.
-- **Organisation** — a Catalog for receptors, ligands, Studies, collections and
-  screening libraries, with 125 built-in teaching drugs.
-- **Review and export** — CSV, poses, self-contained HTML reports and project
-  files; searchable history with favourites, tags and comparison.
+### Windows
 
-## Screenshots
+Download `vinastudio-<version>-setup.exe` and `SHA256SUMS` from
+[Releases](https://github.com/hubehero/VinaStudio/releases), check the SHA-256,
+then run it. The installer is per-machine, needs administrator rights and is
+unsigned, so SmartScreen will ask for confirmation. Python, the scientific
+dependencies and the Vina 1.2.7 command-line engine are bundled.
 
-<table>
-  <tr>
-    <td width="50%" align="center">
-      <img src="https://github.com/hubehero/VinaStudio/raw/main/docs/images/workbench.png" alt="Workbench" width="100%"><br>
-      <sub>Workbench: one pipeline</sub>
-    </td>
-    <td width="50%" align="center">
-      <img src="https://github.com/hubehero/VinaStudio/raw/main/docs/images/molecules.png" alt="Catalog" width="100%"><br>
-      <sub>Catalog: one place for inputs</sub>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" align="center">
-      <img src="https://github.com/hubehero/VinaStudio/raw/main/docs/images/report.png" alt="Results report" width="100%"><br>
-      <sub>Results: charts and run protocol</sub>
-    </td>
-    <td width="50%" align="center">
-      <img src="https://github.com/hubehero/VinaStudio/raw/main/docs/images/binding-site.png" alt="Binding site" width="100%"><br>
-      <sub>Binding site: confirm the box in 3D</sub>
-    </td>
-  </tr>
-</table>
-
-## Install and run
-
-| Platform | What is available |
-|---|---|
-| Linux x86_64 | `.deb` or portable tarball |
-| Windows 10 1809+ / 11 x64 | Installer; built by CI, unsigned |
-| macOS | Source only; not packaged or release-verified |
-
-Download the Windows installer and `SHA256SUMS` from
-[Releases](https://github.com/hubehero/VinaStudio/releases). The installer is
-per-machine (administrator required) and unsigned, so SmartScreen will ask for
-confirmation. It bundles Python, the scientific stack and the AutoDock Vina
-1.2.7 command-line engine; no separate Python, uv, Node.js or pnpm is needed.
-
-The supported surface and its limits (AutoDock4 maps, antialiasing default,
-x64 only, no auto-update) are documented in [Windows support](docs/WINDOWS.md).
+The limits are documented in [Windows support](docs/WINDOWS.md): AutoDock4 needs
+external maps, antialiasing is off by default, only x64 is supported, and there
+is no auto-update.
 
 ### Linux
 
@@ -103,58 +64,55 @@ uv sync --extra dev
 uv run python -m vinastudio
 ```
 
-`scripts/build_web.py` wraps the interface build. Installation and
-troubleshooting details are in the [user guide](docs/USER_GUIDE.md).
-
-## Five-minute 1IEP trial
+## Try the 1IEP example
 
 1. Open the application and click **Set up the 1iep example** on the Workbench.
-2. Confirm the receptor, ligand and automatic box, then open **Docking**.
+2. Check the receptor, ligand and automatic box, then open **Docking**.
 3. Keep the default Vina, exhaustiveness 8 and 20 poses; click **Start docking**.
-4. Review the pose table, energy decomposition and interactions; open
-   **Results report** to inspect the parameters and charts.
+4. Use the results page for poses and interactions, and **Results report** for
+   the parameters and charts from this run.
 
-1IEP is a software control, not a general docking-accuracy claim. More examples
-are in the [user guide](docs/USER_GUIDE.md).
+This is a software control, not a general accuracy claim. More detail is in the
+[user guide](docs/USER_GUIDE.md).
 
-## Validation and limits
+## Validation
 
-Validation records ship with the code, not just a screenshot:
+The repository keeps the actual run records:
 
-- **1IEP redocking control** — top-pose RMSD **0.353 Å**, best affinity
-  **−13.286 kcal/mol**, 5 poses, 0 geometry errors.
-- **12 pre-registered open targets × 5 seeds** — **60/60 passed**, mean top-1
-  RMSD **0.5343 Å**, bootstrap 95% CI **[0.4710, 0.6020] Å**.
-- **Official PoseBusters 0.6.5** (`redock`, same preparation as docking) —
-  top pose **60/60**, all poses **7/60**.
+- 1IEP redocking: top-pose RMSD 0.353 Å, best affinity −13.286 kcal/mol,
+  5 poses, 0 geometry errors.
+- 12 pre-registered open targets × 5 seeds: 60/60 passed, mean top-1 RMSD
+  0.5343 Å, bootstrap 95% CI [0.4710, 0.6020] Å.
+- Official PoseBusters 0.6.5 (`redock`, same prepared structures as docking):
+  60/60 top poses passed, 7/60 of all poses passed.
 
-These results apply only to that pre-registered open set and protocol. They are
-not PDBbind/CASF, a universal accuracy claim, an enrichment claim or an
-experimental-affinity claim. Protocols, failures and raw reports are linked from
+These numbers apply only to that open set and protocol. They are not PDBbind/CASF
+results, a general accuracy claim, an enrichment claim or an experimental binding
+free energy. Protocols, failures and raw reports are in
 [Academic validation](docs/ACADEMIC_VALIDATION.md) and the
 [benchmark record](validation/benchmark/records/2026-11-02-open-posebusters-v1/).
 
-## Architecture
+## Implementation
 
-Four layers with strict boundaries:
+The code has four layers:
 
 | Layer | Location | Responsibility |
 |---|---|---|
 | Desktop shell | `vinastudio/desktop/` | Qt window, native menus, QWebChannel bridge |
-| API | `vinastudio/server/` | FastAPI on loopback, serves the SPA, streams job events over WebSocket |
-| Domain core | `vinastudio/core/` | Docking, preparation and analysis; no Qt or FastAPI dependency |
-| Interface | `web/` | Vue 3 + 3Dmol.js SPA |
+| API | `vinastudio/server/` | FastAPI on loopback, serves the UI, streams job events |
+| Core | `vinastudio/core/` | Preparation, docking and analysis; no Qt or FastAPI dependency |
+| Interface | `web/` | Vue 3 + 3Dmol.js |
 
-Three constraints shape the rest: the interface is served over **local HTTP**
-(never `file://`); docking runs in **spawned child processes** (Vina has no
-cancellation API); and **PDBQT is never rendered directly** (Meeko converts
-poses to SDF). See [Architecture](docs/ARCHITECTURE.md).
+The UI is served over local HTTP, not `file://`. Docking runs in spawned child
+processes because Vina has no cancellation API. PDBQT is never rendered directly;
+Meeko converts poses to SDF. The reasoning and details are in
+[Architecture](docs/ARCHITECTURE.md).
 
 ## Documentation
 
 - [User guide](docs/USER_GUIDE.md) · [简体中文](docs/USER_GUIDE.zh-CN.md)
 - [Documentation index](docs/README.md) · [Windows support](docs/WINDOWS.md)
-- [Academic validation and limits](docs/ACADEMIC_VALIDATION.md)
+- [Academic validation and scope](docs/ACADEMIC_VALIDATION.md)
 - [Validation method and reproduction](docs/VALIDATION.md)
 - [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) ·
   [Security](SECURITY.md)
@@ -162,32 +120,23 @@ poses to SDF). See [Architecture](docs/ARCHITECTURE.md).
 ## Development
 
 These commands need the development tree; the public release tree does not
-include the test suite or `scripts/dev.py`.
+include the tests or `scripts/dev.py`.
 
 ```bash
 uv run python scripts/dev.py   # API + Vite + Qt with hot reload
-./web_start.sh                 # web interface only, for browser testing
-uv run pytest -q               # backend tests
+./web_start.sh                 # web interface only
+uv run pytest -q
 uv run ruff check .
 pnpm -C web typecheck
 ```
 
-## Community
+## License
 
-- Questions and bugs: [GitHub Issues](https://github.com/hubehero/VinaStudio/issues)
-- Contributions: [CONTRIBUTING.md](CONTRIBUTING.md)
-- Conduct: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
-- Security: report privately as described in [SECURITY.md](SECURITY.md); do not
-  open a public issue with exploit details.
-
-## License and acknowledgements
-
-The code is **MIT**-licensed; see [LICENSE](LICENSE) and
+The code is MIT-licensed; see [LICENSE](LICENSE) and
 [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
 
-Core dependencies and references: [AutoDock Vina](https://github.com/ccsb-scripps/AutoDock-Vina)
-(Apache-2.0), [Meeko](https://github.com/forlilab/Meeko) (LGPL-2.1),
-[RDKit](https://www.rdkit.org/) (BSD-3-Clause),
-[3Dmol.js](https://3dmol.csb.pitt.edu/) (BSD-3-Clause),
-[Vue 3](https://vuejs.org/) (MIT), [Element Plus](https://element-plus.org/)
-(MIT), and [PySide6](https://doc.qt.io/qtforpython/) (LGPL-3.0).
+Main dependencies and references: [AutoDock Vina](https://github.com/ccsb-scripps/AutoDock-Vina),
+[Meeko](https://github.com/forlilab/Meeko), [RDKit](https://www.rdkit.org/),
+[3Dmol.js](https://3dmol.csb.pitt.edu/), [Vue 3](https://vuejs.org/),
+[Element Plus](https://element-plus.org/) and
+[PySide6](https://doc.qt.io/qtforpython/).
