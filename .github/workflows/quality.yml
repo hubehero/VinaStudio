@@ -33,6 +33,11 @@ jobs:
         # in this repository. Bump it deliberately with the next dependency pass.
         run: uvx ruff@0.17.1 check .
 
+      - name: Prepare static directory
+        # The release tree does not track the empty static directory, but
+        # hatchling's force-include requires it before the editable install.
+        run: mkdir -p vinastudio/server/static
+
       - name: Install backend dependencies
         run: uv sync --extra dev
 
