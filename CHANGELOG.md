@@ -12,6 +12,16 @@ entries about the product — no internal task ids or workflow narration.
 
 ## [Unreleased]
 
+### 修复
+
+- **源码安装顺序**：公开 README/CONTRIBUTING 改为先构建界面再 `uv sync`，并让 Quality 使用同一顺序；干净副本安装已验证。
+- **发布可信度**：CITATION 版本与项目版本对齐，RELEASING 补齐四个发布 job，Release 增加 `SHA256SUMS`，并补充公开/开发树边界与历史报告标签。
+
+### Fixed
+
+- **Source install order**: public README/CONTRIBUTING build the interface before `uv sync`; Quality follows the same order and a clean-copy install is verified.
+- **Release trust**: CITATION matches the project version, RELEASING lists all four release jobs, releases publish `SHA256SUMS`, and the public/development boundary plus historical report targets are explicit.
+
 ## [0.6.7] - 2026-11-03
 
 ### 修复
@@ -21,8 +31,8 @@ entries about the product — no internal task ids or workflow narration.
 ### 文档与仓库整理
 
 - **文档入口**：新增 `docs/README` 分类索引，区分公开、工程、验证和历史文档；过时文档移入 `docs/archive/`，旧路径保留重定向。
-- **根目录收敛**：README、LICENSE、CONTRIBUTING、SECURITY、CITATION、CHANGELOG、第三方许可等入口/法律文件仍保留主目录；开发结构、人工走查等移入 `docs/development/`、`docs/validation/`。
-- **测试结构**：测试按 `unit/core`、`unit/server`、`unit/schemas`、`unit/desktop`、`unit/tools`、`integration/api`、`integration/pipeline` 分类，并保留 `tests/README` 报告规则。
+- **根目录收敛**：README、LICENSE、CONTRIBUTING、SECURITY、CITATION、CHANGELOG、第三方许可等入口/法律文件仍保留主目录；开发仓的开发结构、人工走查移入 `docs/development/`、`docs/validation/`。公开 release tree 只发布公开文档与验证摘要。
+- **测试结构**：开发树测试按 `unit/core`、`unit/server`、`unit/schemas`、`unit/desktop`、`unit/tools`、`integration/api`、`integration/pipeline` 分类，并保留 `tests/README` 报告规则；公开 release tree 不附带 `tests/`。
 
 ### Fixed
 
@@ -31,8 +41,8 @@ entries about the product — no internal task ids or workflow narration.
 ### Documentation and repository organization
 
 - **Documentation entry point**: add a classified `docs/README`; superseded documents move to `docs/archive/` with redirects at old paths.
-- **Root cleanup**: README, LICENSE, CONTRIBUTING, SECURITY, CITATION, CHANGELOG and third-party notices remain at the root; development structure and manual walkthrough move under `docs/development/` and `docs/validation/`.
-- **Test layout**: classify tests into `unit/core`, `unit/server`, `unit/schemas`, `unit/desktop`, `unit/tools`, `integration/api` and `integration/pipeline`, with `tests/README` documenting report placement.
+- **Root cleanup**: README, LICENSE, CONTRIBUTING, SECURITY, CITATION, CHANGELOG and third-party notices remain at the root; the development tree moves its development structure and manual walkthrough under `docs/development/` and `docs/validation/`. The public release tree publishes only public docs and validation summaries.
+- **Test layout**: the development tree classifies tests into `unit/core`, `unit/server`, `unit/schemas`, `unit/desktop`, `unit/tools`, `integration/api` and `integration/pipeline`, with `tests/README` documenting report placement; the public release tree does not ship `tests/`.
 
 ## [0.6.6] - 2026-11-02
 

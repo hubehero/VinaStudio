@@ -196,6 +196,12 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
+      - name: Write release checksums
+        run: |
+          cd dist
+          sha256sum vinastudio_*_amd64.deb vinastudio-*-linux-amd64.tar.gz vinastudio-*-setup.exe > SHA256SUMS
+          cat SHA256SUMS
+
       - name: Release notes from CHANGELOG.md
         run: |
           # Curated notes, not auto-generated: GitHub's generator needs pull
@@ -213,3 +219,4 @@ jobs:
             dist/vinastudio_*_amd64.deb
             dist/vinastudio-*-linux-amd64.tar.gz
             dist/vinastudio-*-setup.exe
+            dist/SHA256SUMS

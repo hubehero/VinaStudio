@@ -1,7 +1,8 @@
 # VinaStudio Documentation
 
-Public documentation for the release tree. Development notes, design archives
-and validation records live in the development repository.
+Public documentation for the release tree. Design archives and internal
+development notes live in the development repository; public validation evidence
+is indexed under [`validation/`](../validation/README.md).
 
 | Need | Document |
 |---|---|
@@ -12,4 +13,6 @@ and validation records live in the development repository.
 | Built-in ligands and receptors | [Ligands](BUILTIN_LIBRARY.md) · [Receptors](BUILTIN_RECEPTORS.md) |
 | Molecule catalog | [Catalog](MOLECULE_CATALOG.md) · [简体中文](MOLECULE_CATALOG.zh-CN.md) |
 | Validation baseline | [Validation](VALIDATION.md) |
+| Functional validation evidence | [Functional matrix](../validation/functional/README.md) |
+| Open benchmark policy and records | [Benchmark index](../validation/benchmark/README.md) |
 | Release notes | [CHANGELOG](../CHANGELOG.md) |

@@ -13,9 +13,14 @@ the packaging and the public documentation. The development tree, which also
 contains the test suite, fixtures and the hot-reload workflow, is maintained
 alongside it. That is why you will not find `tests/` here.
 
-If your change needs a test, include it in the pull request; the maintainer runs
-the full suite in the development tree before merging. For anything larger than a
-one-line fix, open an issue first so we can agree on the approach.
+If your change needs a regression test, include a minimal reproduction or test
+snippet in the pull request. The public release tree intentionally does not ship
+the full backend suite; the maintainer ports the regression into the development
+tree and runs the full suite before merging. For anything larger than a one-line
+fix, open an issue first so we can agree on the approach.
+
+The public tree itself can run the interface checks and the backend smoke shown
+below. `uv run pytest -q` is a development-tree command, not available here.
 
 ## Reporting a bug
 
@@ -63,9 +68,9 @@ The public tree can build the application:
 git clone https://github.com/<your-username>/VinaStudio.git
 cd VinaStudio
 
-uv sync --extra dev
 pnpm -C web install
 pnpm -C web build
+uv sync --extra dev
 ```
 
 Run the checks that exist here:

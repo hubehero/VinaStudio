@@ -46,6 +46,10 @@
 评审先看正确性，再看改动是否符合项目的科学口径。小而清楚的补丁比大范围重写更
 容易合并。
 
+公开树不含完整后端测试套件；如果改动需要回归测试，请在 PR 里附最小复现或测试
+片段，维护者会把它移植到开发树并跑全量套件后再合并。公开树本身可运行下方界面
+检查与后端 smoke；`uv run pytest -q` 是开发树命令，不在这里执行。
+
 ## 开发环境
 
 公开树可以构建应用：
@@ -54,9 +58,9 @@
 git clone https://github.com/<你的用户名>/VinaStudio.git
 cd VinaStudio
 
-uv sync --extra dev
 pnpm -C web install
 pnpm -C web build
+uv sync --extra dev
 ```
 
 运行这里有的检查：

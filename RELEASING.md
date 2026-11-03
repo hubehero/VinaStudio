@@ -145,12 +145,13 @@ documented in `docs/WINDOWS.md`; keep that page in step with the build.
 
 ## What CI does
 
-On `v*` tags, `.github/workflows/release.yml` runs three jobs:
+On `v*` tags, `.github/workflows/release.yml` runs four jobs:
 
 | Job | Purpose |
 |---|---|
 | `preflight` | the same checks as step 3 (in `--allow-published` mode, since the tag already exists) |
 | `build-linux` | frontend build, PyInstaller bundle, `.deb` and tarball |
+| `build-windows` | Windows frontend/build/installer, called through `windows-build.yml` |
 | `create-release` | creates the GitHub Release with the body taken from `CHANGELOG.md` |
 
 A failing `preflight` stops the chain: a release that breaks the rules above
@@ -163,6 +164,7 @@ cannot be published.
 | `vinastudio_X.Y.Z_amd64.deb` | Ubuntu / Debian (amd64) |
 | `vinastudio-X.Y.Z-linux-amd64.tar.gz` | portable — unpack and run `vinastudio/vinastudio` |
 | `vinastudio-X.Y.Z-setup.exe` | Windows 10 1809+ / 11, x64 (from 0.4.0) |
+| `SHA256SUMS` | Checksums for all three artifacts; verify before running |
 
 The Linux build needs an OpenGL desktop session. The Windows build needs Direct3D 11
 and installs per-machine (administrator); it is unsigned, so SmartScreen prompts on

@@ -41,6 +41,14 @@ VinaStudio 把两者包装成一个好用的桌面应用，同时保持科学上
 反复做受体准备、定义盒子、对接与结果复盘的研究生和实验组：命令行的每一步都在
 同一个窗口里完成，每次运行实际使用的参数也会随结果留存。
 
+## 预览
+
+![工作台](docs/images/workbench.png)
+
+![对接结果](docs/images/docking.png)
+
+![分子目录](docs/images/molecules.png)
+
 主要能力：
 
 - **受体与配体准备** —— 受体 PDB/CIF → PDBQT；配体 MOL/SDF/MOL2 → PDBQT，
@@ -74,7 +82,7 @@ Node.js 22+ 与 [pnpm](https://pnpm.io/)（界面构建与前端测试）。Wind
 ### Windows
 
 从[发布页](https://github.com/hubehero/VinaStudio/releases)下载
-`vinastudio-<版本>-setup.exe`，核对 SHA-256 后运行。安装包按机器安装
+`vinastudio-<版本>-setup.exe`；发布页同时提供 `SHA256SUMS`，核对 SHA-256 后运行。安装包按机器安装
 （需要管理员权限）且未签名，SmartScreen 会要求确认。它内置 AutoDock Vina
 1.2.7 命令行引擎，应用会自动使用它——上游 `vina` Python 模块没有 Windows 版。
 
@@ -84,9 +92,9 @@ Node.js 22+ 与 [pnpm](https://pnpm.io/)（界面构建与前端测试）。Wind
 ### 从源码运行
 
 ```bash
-uv sync --extra dev          # 创建 .venv 并安装科学计算依赖
 pnpm -C web install          # 安装界面依赖
-pnpm -C web build            # 构建界面到 vinastudio/server/static
+pnpm -C web build            # 构建界面到 vinastudio/server/static（必须先于 uv sync）
+uv sync --extra dev          # 创建 .venv 并安装科学计算依赖
 uv run python -m vinastudio  # 启动桌面应用
 ```
 

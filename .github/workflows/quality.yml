@@ -33,22 +33,6 @@ jobs:
         # in this repository. Bump it deliberately with the next dependency pass.
         run: uvx ruff@0.17.1 check .
 
-      - name: Prepare static directory
-        # The release tree does not track the empty static directory, but
-        # hatchling's force-include requires it before the editable install.
-        run: mkdir -p vinastudio/server/static
-
-      - name: Install backend dependencies
-        run: uv sync --extra dev
-
-      - name: Backend API smoke
-        # The release tree intentionally omits tests/; this checks the public
-        # backend contract without Qt, network, or a full docking run.
-        run: uv run python validation/ci/smoke.py
-
-      - name: Check benchmark data policy
-        run: uv run python scripts/check_benchmark_policy.py
-
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
@@ -61,6 +45,25 @@ jobs:
 
       - name: Install interface dependencies
         run: pnpm -C web install --frozen-lockfile
+
+      - name: Build interface before backend install
+        # This is the same order as README/CONTRIBUTING: the build creates
+        # vinastudio/server/static, which hatchling's force-include requires.
+        run: pnpm -C web build
+
+      - name: Install backend dependencies
+        run: uv sync --extra dev
+
+      - name: Backend API smoke
+        # The release tree intentionally omits tests/; this checks the public
+        # backend contract without Qt, network, or a full docking run.
+        run: uv run python validation/ci/smoke.py
+
+      - name: Check benchmark data policy
+        run: uv run python scripts/check_benchmark_policy.py
+
+      - name: Check public documentation policy
+        run: uv run python scripts/check_docs_policy.py
 
       - name: Type-check the interface
         run: pnpm -C web typecheck

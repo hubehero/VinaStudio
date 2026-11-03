@@ -35,6 +35,14 @@ The API reference is served locally while the application runs, at **/docs**.
 
 ---
 
+## Preview
+
+![Workbench](docs/images/workbench.png)
+
+![Docking results](docs/images/docking.png)
+
+![Molecule catalog](docs/images/molecules.png)
+
 ## What it is
 
 AUTO Dock Vina is excellent but command-line only, and its Python API is a set
@@ -81,7 +89,7 @@ installer bundles all of that, including the Vina engine.
 
 ### Windows
 
-Download `vinastudio-<version>-setup.exe` from the
+Download `vinastudio-<version>-setup.exe` and `SHA256SUMS` from the
 [releases page](https://github.com/hubehero/VinaStudio/releases), verify its
 SHA-256, and run it. The installer is per-machine (administrator required) and
 unsigned, so SmartScreen will ask for confirmation. It includes the AutoDock
@@ -95,9 +103,9 @@ antialiasing default, unsigned installer, x64 only — are documented in
 ### From source
 
 ```bash
-uv sync --extra dev          # create .venv and install the scientific stack
 pnpm -C web install          # interface dependencies
-pnpm -C web build            # build the interface into vinastudio/server/static
+pnpm -C web build            # build the interface into vinastudio/server/static (before uv sync)
+uv sync --extra dev          # create .venv and install the scientific stack
 uv run python -m vinastudio  # launch the desktop application
 ```
 

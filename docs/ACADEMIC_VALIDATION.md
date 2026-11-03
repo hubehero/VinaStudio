@@ -3,7 +3,8 @@
 **English** · [简体中文](ACADEMIC_VALIDATION.zh-CN.md) · [Home](../README.en.md)
 
 **Report version:** 1.1
-**Software version:** 0.6.5 (release tree)
+**Report target:** 0.6.5 (historical control; see addenda below)
+**Current release:** 0.6.7
 **Report date:** 2026-11-02
 **Status:** reproducible software-validation report, not a peer-reviewed
 benchmark paper.

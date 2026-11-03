@@ -427,6 +427,22 @@ def main() -> int:
     for passed, label in checks:
         (ok if passed else bad)(label, "" if passed else "a sync step overwrote it")
 
+    citation = REPO_ROOT / "CITATION.cff"
+    if not citation.is_file():
+        bad("CITATION.cff", "missing from the release tree")
+    else:
+        match = re.search(r'^version:\s*"([^"]+)"', citation.read_text(encoding="utf-8"), re.M)
+        project_match = re.search(r'^version\s*=\s*"([^"]+)"', pyproject, re.M)
+        if not match:
+            bad("CITATION.cff version", "could not find version field")
+        elif not project_match or match.group(1) != project_match.group(1):
+            bad(
+                "CITATION.cff version",
+                f"{match.group(1)} != {project_match.group(1) if project_match else 'missing'}",
+            )
+        else:
+            ok("CITATION.cff matches the project version", match.group(1))
+
     # 7. Identity: a personal address must never enter public history. What lands
     #    there is the released commits, so check those first; the local config is
     #    what the *next* commit would use, and only a developer machine has one.
@@ -516,6 +532,19 @@ def main() -> int:
         )
     else:
         ok("every vinastudio import resolves inside this tree")
+
+    # 12. Public documentation policy. Keep the README/CONTRIBUTING order,
+    #     CITATION version, release-job table and public links in step.
+    print("\n[12] Public documentation policy")
+    docs_policy = REPO_ROOT / "scripts" / "check_docs_policy.py"
+    if not docs_policy.is_file():
+        bad("documentation policy script", "scripts/check_docs_policy.py is missing")
+    else:
+        result = run(sys.executable, str(docs_policy), "--root", str(REPO_ROOT))
+        if result.returncode != 0:
+            bad("public documentation policy", result.stdout.strip() or "check failed")
+        else:
+            ok("README, CITATION, RELEASING and public links are consistent")
 
     # 11. Benchmark data policy. A scientific dataset is not released unless
     #     its licence/redistribution metadata and tracked paths are consistent.
