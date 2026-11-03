@@ -20,7 +20,7 @@ uv run python scripts/validate_benchmark.py --manifest validation/manifest.optio
 
 输出：
 
-- `validation-output/validation-report.json`（报告 schema 2.0，含 provenance）
+- `validation-output/validation-report.json`（报告 schema 2.1，含数据集/逐 case 许可与 provenance）
 - `validation-output/validation-report.md`
 - `validation-output/cases/<id>/`：配体/受体 PDBQT、dock 输出、SDF 等工件
 
@@ -71,7 +71,7 @@ uv run python scripts/validate_benchmark.py --manifest validation/manifest.optio
 
 ## 4. 本机基线（2026-10-29）
 
-环境：VinaStudio 0.6.4；Python 3.12.14；Vina 1.2.7；Meeko 0.8.0；
+环境：VinaStudio 0.6.5；Python 3.12.14；Vina 1.2.7；Meeko 0.8.0；
 RDKit 2026.9.1；NumPy 2.5.4；Linux x86_64；vina Python API。命令：
 
 ```bash
@@ -83,7 +83,7 @@ uv run python scripts/validate_benchmark.py --case 1iep
 | 1iep | passed | −13.286 | 0.353 Å | 5 | 0 | 独立 PDB 晶体参考；2702 受体原子 / 40 配体原子 |
 | 2hyy | failed（可选本地、自引用） | −12.611 | 1.117 Å | 1 | 0 | reference 与 ligand 同一文件，不作为独立 redocking 证据；62 个残基被排除；组氨酸默认 HIE |
 
-这些值是**本机、本版本、seed 42** 的结果，不是跨平台常数；不要把它写成
+这些值是**本机、0.6.5、seed 42** 的结果，不是跨平台常数；不要把它写成
 “VinaStudio 在 CASF 上的通过率”。1IEP 的参考由完整 1IEP PDB 的
 `STI A 201` 坐标生成，图/键级/电荷仍来自教程 SDF；参考路径分离，但不是化学独立
 的第二次实验。2hyy 是自引用，harness 现在会判为 failed，不能作为通过证据。
@@ -179,3 +179,38 @@ harness 本身支持任意数量的 case，但**没有在仓库里内置 10–20
 
 该记录明确保留 `partial` / `not-run` 项（完整 125 分子筛选、site screening、
 桌面原生对话框、在线化合物源、GPU 渲染），不会把“页面能打开”写成“功能通过”。
+
+## 10. Open benchmark pilot（0.6.6 开发树）
+
+开放层已建立 `validation/benchmark/`：许可注册表、1.1 manifest、数据策略检查、
+PoseBusters 选靶/下载/参考提取工具。2026-11-02 的 4-target pilot 有两版：
+
+**v1（默认删除所有非水 HETATM）：1 passed / 3 failed**
+
+- `5sb2`：passed，−12.446 kcal/mol，RMSD 0.508 Å；
+- `5sd5`：failed，PDB alternate-location 读取失败；
+- `5sis`：failed，RMSD 8.577 Å；
+- `6m2b`：failed，RMSD 9.568 Å。
+
+**v2（保留配体邻近的 NAP/ZN/MG/FMN/ORO；5SD5 固定 altloc A）：3 passed / 1 failed**
+
+- `5sb2`：passed，−12.446 kcal/mol，RMSD 0.508 Å；
+- `5sd5`：passed，−8.355 kcal/mol，RMSD 0.584 Å；
+- `5sis`：failed，RMSD 5.714 Å（保留失败）；
+- `6m2b`：passed，−10.179 kcal/mol，RMSD 1.630 Å。
+
+两版都只验证数据/报告链路和准备策略，不是 12-target 结果，也不支持通用准确率
+声明。原始 PDB/SDF 位于 gitignored `.benchmark-data/`，不进入仓库；报告 schema
+为 2.1。证据见
+[`records/2026-11-02-open-pilot/`](../validation/benchmark/records/2026-11-02-open-pilot/)
+和 [`records/2026-11-02-open-pilot-v2/`](../validation/benchmark/records/2026-11-02-open-pilot-v2/)。
+
+### 确认性 12-target × 5 seeds
+
+pilot 之后冻结了 12 个新的开放目标（排除四个 pilot），使用统一 altloc/cofactor
+规则和 seeds 42–46，结果为 **60 passed / 0 failed / 0 skipped**，mean top-1
+RMSD **0.5343 Å**，bootstrap 95% CI **[0.4710, 0.6020] Å**。这是该预注册开放
+集合上的 redocking 结果，不是 PDBbind/CASF、通用准确率、富集或亲和力声明。
+官方 PoseBusters 0.6.5 `redock` 已对与 docking 相同的制备条件运行（去水、保留位点辅因子、移除 native ligand）：**top pose 60/60，全部 pose 7/60**。项目六项检查没有冒充官方结果。
+证据见
+[`records/2026-11-02-open-posebusters-v1/`](../validation/benchmark/records/2026-11-02-open-posebusters-v1/)。

@@ -55,7 +55,7 @@ class SiteScreeningRequest(BaseModel):
     minRmsd: float = Field(default=1.0, ge=0)
     maxEvals: int = Field(default=0, ge=0)
     cpu: int = Field(default=0, ge=0)
-    seed: int = Field(default=0, ge=0)
+    seed: int = Field(default=42, ge=0)
     noRefine: bool = False
     verbosity: int = Field(default=1, ge=0, le=2)
     spacing: float = Field(default=0.375, gt=0)

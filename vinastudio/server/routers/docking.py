@@ -28,6 +28,7 @@ from vinastudio.config import (
     max_map_cells,
     max_upload_bytes,
 )
+from vinastudio.core import results_db
 from vinastudio.core.box import Box, ensure_box_contains_receptor
 from vinastudio.core.chem.ifp import (
     CONTACT_TYPES,
@@ -57,6 +58,7 @@ from vinastudio.core.paths import (
     workspace_root,
 )
 from vinastudio.core.report import render_report, svg_is_safe
+from vinastudio.core.storage import delete_terminal_job, summarize_jobs
 from vinastudio.schemas.docking import (
     BatchDockingRequest,
     BatchJobCreated,
@@ -102,6 +104,7 @@ from vinastudio.schemas.docking import (
     VinaInfoResponse,
 )
 from vinastudio.schemas.preparation import Artifact
+from vinastudio.schemas.storage import DeletedJob, JobStorageSummary
 from vinastudio.server.job_manager import JobState
 from vinastudio.server.job_manager import batch_results_csv_text as _batch_csv_text
 from vinastudio.server.job_manager import manager as job_manager
@@ -445,6 +448,39 @@ def _summary_best_affinity(state: JobState) -> float | None:
         if row.get("bestAffinity") is not None
     ]
     return min(scored) if scored else None
+
+
+@router.get("/storage", response_model=JobStorageSummary)
+def job_storage() -> JobStorageSummary:
+    """Read-only accounting of indexed job directories in the workspace."""
+    return JobStorageSummary.model_validate(summarize_jobs(workspace_root()))
+
+
+@router.delete("/jobs/{job_id}", response_model=DeletedJob)
+def delete_job(job_id: str) -> DeletedJob:
+    """Delete one indexed terminal job after explicit user confirmation.
+
+    Running jobs and unindexed preparation directories are refused.  The
+    results index is updated only after the filesystem removal succeeds.
+    """
+    state = job_manager.get_job(job_id)
+    if state is not None and state.status == "running":
+        raise HTTPException(status_code=409, detail=f"job {job_id} is still running")
+    try:
+        result = delete_terminal_job(workspace_root(), job_id)
+    except FileNotFoundError as exc:
+        raise JobNotFoundError(f"job {job_id} not found") from exc
+    except ValueError as exc:
+        raise InvalidInputError(str(exc)) from exc
+    try:
+        job_manager.forget_job(job_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    try:
+        results_db.delete_run(job_id)
+    except Exception:
+        log.warning("could not remove results-index row for %s", job_id, exc_info=True)
+    return DeletedJob(**result)
 
 
 @router.get("/jobs", response_model=list[DockingJobSummary])
@@ -1128,7 +1164,7 @@ def _configure_vina(
     v = Vina(
         sf_name=request.scoring,
         cpu=0,
-        seed=getattr(request, "seed", 0),
+        seed=getattr(request, "seed", 42),
         verbosity=0,
     )
     v.set_receptor(

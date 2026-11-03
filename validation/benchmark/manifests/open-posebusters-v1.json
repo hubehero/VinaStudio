@@ -1,0 +1,553 @@
+{
+  "formatVersion": "1.1",
+  "dataset": {
+    "id": "open-posebusters-v1",
+    "name": "Open PoseBusters confirmatory 12",
+    "licenseSummary": [
+      "CC0-1.0",
+      "MIT"
+    ],
+    "redistributable": true
+  },
+  "resources": [
+    {
+      "path": "open/8dhg/8DHG.pdb",
+      "url": "https://files.rcsb.org/download/8DHG.pdb",
+      "sha256": "e491e0b3ab968e47cdaab01ef3e3b562f2809e59bccbf861c7cfb615f40daa58"
+    },
+    {
+      "path": "open/8dhg/T78.sdf",
+      "url": "https://files.rcsb.org/ligands/download/T78_ideal.sdf",
+      "sha256": "1316e8be6075a1ef1f19fa51d5ab9b5043a3de53990fbf55040476dbd3c8cb4e"
+    },
+    {
+      "path": "open/7zu2/7ZU2.pdb",
+      "url": "https://files.rcsb.org/download/7ZU2.pdb",
+      "sha256": "4cfa98c841c7351070d889f32f7b3784ef1d9e95cc14db8d885028c45c926243"
+    },
+    {
+      "path": "open/7zu2/DHT.sdf",
+      "url": "https://files.rcsb.org/ligands/download/DHT_ideal.sdf",
+      "sha256": "53207603a0f9d626e76474f609fecc9b36e4237462db41e81f4acc1ca22f5d2a"
+    },
+    {
+      "path": "open/8aem/8AEM.pdb",
+      "url": "https://files.rcsb.org/download/8AEM.pdb",
+      "sha256": "fe66e0c81e8955ea085a3b170ecfef225bf76d73f23eb0d587d6c92f73e5db9d"
+    },
+    {
+      "path": "open/8aem/LVF.sdf",
+      "url": "https://files.rcsb.org/ligands/download/LVF_ideal.sdf",
+      "sha256": "1999c7db12e2a9c9fbf3184735081120990f8226e9f4b5fdf6a30596c3ae6421"
+    },
+    {
+      "path": "open/7npl/7NPL.pdb",
+      "url": "https://files.rcsb.org/download/7NPL.pdb",
+      "sha256": "9d7072a40cc450621079b1a6acb84d1210ac8d75b680cb8bcfba67f32434b1d9"
+    },
+    {
+      "path": "open/7npl/UKZ.sdf",
+      "url": "https://files.rcsb.org/ligands/download/UKZ_ideal.sdf",
+      "sha256": "33f31aa72d9e9bdee1e6b1e07493b2a97d021c73224742fd0df3f4a625c7820c"
+    },
+    {
+      "path": "open/7wqq/7WQQ.pdb",
+      "url": "https://files.rcsb.org/download/7WQQ.pdb",
+      "sha256": "3c3de244fbad1db42ecb71a7ac237be26b1f6e9650979950b8528fb422959251"
+    },
+    {
+      "path": "open/7wqq/5Z6.sdf",
+      "url": "https://files.rcsb.org/ligands/download/5Z6_ideal.sdf",
+      "sha256": "2307c6a9fb674c3f983013f7789cfc9aa80432ec8eae97ed3c0d82cc32244e29"
+    },
+    {
+      "path": "open/8dsc/8DSC.pdb",
+      "url": "https://files.rcsb.org/download/8DSC.pdb",
+      "sha256": "d591c28c9a6e09b73e221088afb3339be817db0aae54171c412fd3ed854ea5d4"
+    },
+    {
+      "path": "open/8dsc/NCA.sdf",
+      "url": "https://files.rcsb.org/ligands/download/NCA_ideal.sdf",
+      "sha256": "218b8f2722453473125a05351d52e49d7dfb9a0707b9a1a9f2682be0524e32ca"
+    },
+    {
+      "path": "open/7r59/7R59.pdb",
+      "url": "https://files.rcsb.org/download/7R59.pdb",
+      "sha256": "f1331b24b8846d62a2c980e60f83b040673b5fb6818e387a20bad8b9dd0bae49"
+    },
+    {
+      "path": "open/7r59/I5F.sdf",
+      "url": "https://files.rcsb.org/ligands/download/I5F_ideal.sdf",
+      "sha256": "fbba7b965990088e331c7c239b9b879721c81551accb8a2db0159f397b25c8fc"
+    },
+    {
+      "path": "open/8bom/8BOM.pdb",
+      "url": "https://files.rcsb.org/download/8BOM.pdb",
+      "sha256": "3dc593d605bad6c93b1367d16c71e9082fd96db269a57faef229c288a5b5affe"
+    },
+    {
+      "path": "open/8bom/QU6.sdf",
+      "url": "https://files.rcsb.org/ligands/download/QU6_ideal.sdf",
+      "sha256": "11484713036689f83716a3647fd202f64bac3a953c7cb40fc58e9d187c340116"
+    },
+    {
+      "path": "open/7loe/7LOE.pdb",
+      "url": "https://files.rcsb.org/download/7LOE.pdb",
+      "sha256": "242919fc367e5d92eeec97fb16aa139da90365dcb307edaf646fda45dd8b5dc0"
+    },
+    {
+      "path": "open/7loe/Y84.sdf",
+      "url": "https://files.rcsb.org/ligands/download/Y84_ideal.sdf",
+      "sha256": "82ec4fbfe7b001447809dd25014323d888875fd29baf01ba66a7eb41d4962cf2"
+    },
+    {
+      "path": "open/7qgp/7QGP.pdb",
+      "url": "https://files.rcsb.org/download/7QGP.pdb",
+      "sha256": "4526f22c48152f62838b9cba598443a316dee238d1612b17cf09e04e17b301a0"
+    },
+    {
+      "path": "open/7qgp/DJ8.sdf",
+      "url": "https://files.rcsb.org/ligands/download/DJ8_ideal.sdf",
+      "sha256": "0d2ef65167fa733edc0b985f40dbbdc7a213754141fa05c82173a1442287011b"
+    },
+    {
+      "path": "open/7xjn/7XJN.pdb",
+      "url": "https://files.rcsb.org/download/7XJN.pdb",
+      "sha256": "50c8724f94dc745d202f04a97dd84ae510fd17bf4a754369056a5fe78cd9a891"
+    },
+    {
+      "path": "open/7xjn/NSD.sdf",
+      "url": "https://files.rcsb.org/ligands/download/NSD_ideal.sdf",
+      "sha256": "f9ff98067c54b60694bf1ac3aa64390f1d0fdba953eceeb3579f19a570e83089"
+    },
+    {
+      "path": "open/7akl/7AKL.pdb",
+      "url": "https://files.rcsb.org/download/7AKL.pdb",
+      "sha256": "4d4422a4831fd40b852e7f167be7df3b223bff893144856e7f5728256083c4df"
+    },
+    {
+      "path": "open/7akl/RK5.sdf",
+      "url": "https://files.rcsb.org/ligands/download/RK5_ideal.sdf",
+      "sha256": "3e7a7a073dd104d7c4027cde08df60de89dfc6f23efebc27e52b889eaecc9749"
+    }
+  ],
+  "cases": [
+    {
+      "id": "8dhg",
+      "name": "8DHG T78 confirmatory redocking",
+      "receptor": ".benchmark-data/open/8dhg/8DHG.pdb",
+      "ligand": ".benchmark-data/open/8dhg/T78.sdf",
+      "reference": ".benchmark-data/open/8dhg/8DHG_reference.sdf",
+      "referenceSource": "RCSB PDB 8DHG HETATM T78 chain A 403; coordinates over CCD T78 graph",
+      "center": [
+        26.946,
+        -23.224,
+        22.937
+      ],
+      "size": [
+        22.0,
+        22.0,
+        22.0
+      ],
+      "exhaustiveness": 8,
+      "nPoses": 9,
+      "seed": 42,
+      "rmsdThreshold": 2.0,
+      "defaultAltloc": "A",
+      "allowBadResidues": true,
+      "keepHetero": [
+        "A:401"
+      ],
+      "ligandChain": "A",
+      "ligandResidue": "T78",
+      "targetFamily": "DIHYDROOROTATE DEHYDROGENASE (QUINONE), MITOCHONDRIAL",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/8DHG.pdb",
+      "accessedAt": "2026-11-02",
+      "sourceSha256": "e491e0b3ab968e47cdaab01ef3e3b562f2809e59bccbf861c7cfb615f40daa58"
+    },
+    {
+      "id": "7zu2",
+      "name": "7ZU2 DHT confirmatory redocking",
+      "receptor": ".benchmark-data/open/7zu2/7ZU2.pdb",
+      "ligand": ".benchmark-data/open/7zu2/DHT.sdf",
+      "reference": ".benchmark-data/open/7zu2/7ZU2_reference.sdf",
+      "referenceSource": "RCSB PDB 7ZU2 HETATM DHT chain A 1001; coordinates over CCD DHT graph",
+      "center": [
+        -27.276,
+        2.137,
+        -4.783
+      ],
+      "size": [
+        22.0,
+        22.0,
+        22.0
+      ],
+      "exhaustiveness": 8,
+      "nPoses": 9,
+      "seed": 42,
+      "rmsdThreshold": 2.0,
+      "defaultAltloc": "A",
+      "allowBadResidues": true,
+      "keepHetero": [],
+      "ligandChain": "A",
+      "ligandResidue": "DHT",
+      "targetFamily": "ANDROGEN RECEPTOR",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/7ZU2.pdb",
+      "accessedAt": "2026-11-02",
+      "sourceSha256": "4cfa98c841c7351070d889f32f7b3784ef1d9e95cc14db8d885028c45c926243"
+    },
+    {
+      "id": "8aem",
+      "name": "8AEM LVF confirmatory redocking",
+      "receptor": ".benchmark-data/open/8aem/8AEM.pdb",
+      "ligand": ".benchmark-data/open/8aem/LVF.sdf",
+      "reference": ".benchmark-data/open/8aem/8AEM_reference.sdf",
+      "referenceSource": "RCSB PDB 8AEM HETATM LVF chain A 407; coordinates over CCD LVF graph",
+      "center": [
+        -107.937,
+        -176.661,
+        311.558
+      ],
+      "size": [
+        22.0,
+        22.0,
+        22.0
+      ],
+      "exhaustiveness": 8,
+      "nPoses": 9,
+      "seed": 42,
+      "rmsdThreshold": 2.0,
+      "defaultAltloc": "A",
+      "allowBadResidues": true,
+      "keepHetero": [],
+      "ligandChain": "A",
+      "ligandResidue": "LVF",
+      "targetFamily": "CASEIN KINASE II SUBUNIT ALPHA",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/8AEM.pdb",
+      "accessedAt": "2026-11-02",
+      "sourceSha256": "fe66e0c81e8955ea085a3b170ecfef225bf76d73f23eb0d587d6c92f73e5db9d"
+    },
+    {
+      "id": "7npl",
+      "name": "7NPL UKZ confirmatory redocking",
+      "receptor": ".benchmark-data/open/7npl/7NPL.pdb",
+      "ligand": ".benchmark-data/open/7npl/UKZ.sdf",
+      "reference": ".benchmark-data/open/7npl/7NPL_reference.sdf",
+      "referenceSource": "RCSB PDB 7NPL HETATM UKZ chain A 401; coordinates over CCD UKZ graph",
+      "center": [
+        -18.778,
+        1.82,
+        8.168
+      ],
+      "size": [
+        22.0,
+        22.0,
+        22.0
+      ],
+      "exhaustiveness": 8,
+      "nPoses": 9,
+      "seed": 42,
+      "rmsdThreshold": 2.0,
+      "defaultAltloc": "A",
+      "allowBadResidues": true,
+      "keepHetero": [],
+      "ligandChain": "A",
+      "ligandResidue": "UKZ",
+      "targetFamily": "ALPHA-1-ANTITRYPSIN",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/7NPL.pdb",
+      "accessedAt": "2026-11-02",
+      "sourceSha256": "9d7072a40cc450621079b1a6acb84d1210ac8d75b680cb8bcfba67f32434b1d9"
+    },
+    {
+      "id": "7wqq",
+      "name": "7WQQ 5Z6 confirmatory redocking",
+      "receptor": ".benchmark-data/open/7wqq/7WQQ.pdb",
+      "ligand": ".benchmark-data/open/7wqq/5Z6.sdf",
+      "reference": ".benchmark-data/open/7wqq/7WQQ_reference.sdf",
+      "referenceSource": "RCSB PDB 7WQQ HETATM 5Z6 chain A 501; coordinates over CCD 5Z6 graph",
+      "center": [
+        29.086,
+        -6.035,
+        9.438
+      ],
+      "size": [
+        22.0,
+        22.0,
+        22.0
+      ],
+      "exhaustiveness": 8,
+      "nPoses": 9,
+      "seed": 42,
+      "rmsdThreshold": 2.0,
+      "defaultAltloc": "A",
+      "allowBadResidues": true,
+      "keepHetero": [],
+      "ligandChain": "A",
+      "ligandResidue": "5Z6",
+      "targetFamily": "RETINOIC ACID RECEPTOR ALPHA",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/7WQQ.pdb",
+      "accessedAt": "2026-11-02",
+      "sourceSha256": "3c3de244fbad1db42ecb71a7ac237be26b1f6e9650979950b8528fb422959251"
+    },
+    {
+      "id": "8dsc",
+      "name": "8DSC NCA confirmatory redocking",
+      "receptor": ".benchmark-data/open/8dsc/8DSC.pdb",
+      "ligand": ".benchmark-data/open/8dsc/NCA.sdf",
+      "reference": ".benchmark-data/open/8dsc/8DSC_reference.sdf",
+      "referenceSource": "RCSB PDB 8DSC HETATM NCA chain A 1001; coordinates over CCD NCA graph",
+      "center": [
+        14.938,
+        9.381,
+        6.125
+      ],
+      "size": [
+        22.0,
+        22.0,
+        22.0
+      ],
+      "exhaustiveness": 8,
+      "nPoses": 9,
+      "seed": 42,
+      "rmsdThreshold": 2.0,
+      "defaultAltloc": "A",
+      "allowBadResidues": true,
+      "keepHetero": [
+        "A:1003",
+        "A:1005",
+        "A:1006",
+        "B:1103"
+      ],
+      "ligandChain": "A",
+      "ligandResidue": "NCA",
+      "targetFamily": "NICOTINAMIDE PHOSPHORIBOSYLTRANSFERASE",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/8DSC.pdb",
+      "accessedAt": "2026-11-02",
+      "sourceSha256": "d591c28c9a6e09b73e221088afb3339be817db0aae54171c412fd3ed854ea5d4"
+    },
+    {
+      "id": "7r59",
+      "name": "7R59 I5F confirmatory redocking",
+      "receptor": ".benchmark-data/open/7r59/7R59.pdb",
+      "ligand": ".benchmark-data/open/7r59/I5F.sdf",
+      "reference": ".benchmark-data/open/7r59/7R59_reference.sdf",
+      "referenceSource": "RCSB PDB 7R59 HETATM I5F chain A 602; coordinates over CCD I5F graph",
+      "center": [
+        1.633,
+        4.247,
+        10.667
+      ],
+      "size": [
+        22.0,
+        22.0,
+        22.0
+      ],
+      "exhaustiveness": 8,
+      "nPoses": 9,
+      "seed": 42,
+      "rmsdThreshold": 2.0,
+      "defaultAltloc": "A",
+      "allowBadResidues": true,
+      "keepHetero": [],
+      "ligandChain": "A",
+      "ligandResidue": "I5F",
+      "targetFamily": "POLY [ADP-RIBOSE] POLYMERASE 2",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/7R59.pdb",
+      "accessedAt": "2026-11-02",
+      "sourceSha256": "f1331b24b8846d62a2c980e60f83b040673b5fb6818e387a20bad8b9dd0bae49"
+    },
+    {
+      "id": "8bom",
+      "name": "8BOM QU6 confirmatory redocking",
+      "receptor": ".benchmark-data/open/8bom/8BOM.pdb",
+      "ligand": ".benchmark-data/open/8bom/QU6.sdf",
+      "reference": ".benchmark-data/open/8bom/8BOM_reference.sdf",
+      "referenceSource": "RCSB PDB 8BOM HETATM QU6 chain A 1001; coordinates over CCD QU6 graph",
+      "center": [
+        -83.032,
+        -19.057,
+        87.192
+      ],
+      "size": [
+        22.0,
+        22.0,
+        22.0
+      ],
+      "exhaustiveness": 8,
+      "nPoses": 9,
+      "seed": 42,
+      "rmsdThreshold": 2.0,
+      "defaultAltloc": "A",
+      "allowBadResidues": true,
+      "keepHetero": [],
+      "ligandChain": "A",
+      "ligandResidue": "QU6",
+      "targetFamily": "EPHRIN TYPE-A RECEPTOR 2",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/8BOM.pdb",
+      "accessedAt": "2026-11-02",
+      "sourceSha256": "3dc593d605bad6c93b1367d16c71e9082fd96db269a57faef229c288a5b5affe"
+    },
+    {
+      "id": "7loe",
+      "name": "7LOE Y84 confirmatory redocking",
+      "receptor": ".benchmark-data/open/7loe/7LOE.pdb",
+      "ligand": ".benchmark-data/open/7loe/Y84.sdf",
+      "reference": ".benchmark-data/open/7loe/7LOE_reference.sdf",
+      "referenceSource": "RCSB PDB 7LOE HETATM Y84 chain A 201; coordinates over CCD Y84 graph",
+      "center": [
+        40.588,
+        -19.668,
+        12.392
+      ],
+      "size": [
+        22.0,
+        22.0,
+        22.0
+      ],
+      "exhaustiveness": 8,
+      "nPoses": 9,
+      "seed": 42,
+      "rmsdThreshold": 2.0,
+      "defaultAltloc": "A",
+      "allowBadResidues": true,
+      "keepHetero": [],
+      "ligandChain": "A",
+      "ligandResidue": "Y84",
+      "targetFamily": "LYSOZYME",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/7LOE.pdb",
+      "accessedAt": "2026-11-02",
+      "sourceSha256": "242919fc367e5d92eeec97fb16aa139da90365dcb307edaf646fda45dd8b5dc0"
+    },
+    {
+      "id": "7qgp",
+      "name": "7QGP DJ8 confirmatory redocking",
+      "receptor": ".benchmark-data/open/7qgp/7QGP.pdb",
+      "ligand": ".benchmark-data/open/7qgp/DJ8.sdf",
+      "reference": ".benchmark-data/open/7qgp/7QGP_reference.sdf",
+      "referenceSource": "RCSB PDB 7QGP HETATM DJ8 chain A 401; coordinates over CCD DJ8 graph",
+      "center": [
+        -26.649,
+        4.088,
+        11.83
+      ],
+      "size": [
+        22.0,
+        22.0,
+        22.0
+      ],
+      "exhaustiveness": 8,
+      "nPoses": 9,
+      "seed": 42,
+      "rmsdThreshold": 2.0,
+      "defaultAltloc": "A",
+      "allowBadResidues": true,
+      "keepHetero": [
+        "A:403"
+      ],
+      "ligandChain": "A",
+      "ligandResidue": "DJ8",
+      "targetFamily": "SERINE/THREONINE-PROTEIN KINASE 10",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/7QGP.pdb",
+      "accessedAt": "2026-11-02",
+      "sourceSha256": "4526f22c48152f62838b9cba598443a316dee238d1612b17cf09e04e17b301a0"
+    },
+    {
+      "id": "7xjn",
+      "name": "7XJN NSD confirmatory redocking",
+      "receptor": ".benchmark-data/open/7xjn/7XJN.pdb",
+      "ligand": ".benchmark-data/open/7xjn/NSD.sdf",
+      "reference": ".benchmark-data/open/7xjn/7XJN_reference.sdf",
+      "referenceSource": "RCSB PDB 7XJN HETATM NSD chain A 401; coordinates over CCD NSD graph",
+      "center": [
+        -30.701,
+        11.846,
+        -8.949
+      ],
+      "size": [
+        22.0,
+        22.0,
+        22.0
+      ],
+      "exhaustiveness": 8,
+      "nPoses": 9,
+      "seed": 42,
+      "rmsdThreshold": 2.0,
+      "defaultAltloc": "A",
+      "allowBadResidues": true,
+      "keepHetero": [],
+      "ligandChain": "A",
+      "ligandResidue": "NSD",
+      "targetFamily": "PUTRESCINE-BINDING PERIPLASMIC PROTEIN",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/7XJN.pdb",
+      "accessedAt": "2026-11-02",
+      "sourceSha256": "50c8724f94dc745d202f04a97dd84ae510fd17bf4a754369056a5fe78cd9a891"
+    },
+    {
+      "id": "7akl",
+      "name": "7AKL RK5 confirmatory redocking",
+      "receptor": ".benchmark-data/open/7akl/7AKL.pdb",
+      "ligand": ".benchmark-data/open/7akl/RK5.sdf",
+      "reference": ".benchmark-data/open/7akl/7AKL_reference.sdf",
+      "referenceSource": "RCSB PDB 7AKL HETATM RK5 chain A 501; coordinates over CCD RK5 graph",
+      "center": [
+        42.977,
+        5.463,
+        13.376
+      ],
+      "size": [
+        22.0,
+        22.0,
+        22.0
+      ],
+      "exhaustiveness": 8,
+      "nPoses": 9,
+      "seed": 42,
+      "rmsdThreshold": 2.0,
+      "defaultAltloc": "A",
+      "allowBadResidues": true,
+      "keepHetero": [],
+      "ligandChain": "A",
+      "ligandResidue": "RK5",
+      "targetFamily": "DUAL SPECIFICITY TYROSINE-PHOSPHORYLATION-REGULATED KINASE",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/7AKL.pdb",
+      "accessedAt": "2026-11-02",
+      "sourceSha256": "4d4422a4831fd40b852e7f167be7df3b223bff893144856e7f5728256083c4df"
+    }
+  ]
+}

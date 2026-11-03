@@ -1,4 +1,4 @@
-# Functional Matrix — 0.6.4 validation tree
+# Functional Matrix — 0.6.5 release baseline
 
 Status definitions are in [`README.md`](README.md) §2. `partial` and `not-run`
 are deliberate, not failures hidden behind a green check.
@@ -24,6 +24,9 @@ are deliberate, not failures hidden behind a green check.
 | F17 | Security: origin guard, upload header, path containment | API boundary | `test_origin_guard.py`, `test_origin.py`, `test_app_middleware.py`, `test_project_api.py` | not applicable | **pass** | no penetration-test claim |
 | F18 | UI routes, settings, i18n, responsive dock/catalog, WebSocket status | all 11 routes | Vitest 27; typecheck/build | `ui-smoke.json`; `ui/flow-catalog-narrow-detail.png`; language switch | **pass** | desktop native bridge / GPU not covered |
 | F20 | Desktop shell: Qt startup, software-render fallback, native dialogs, QWebChannel | packaged app | `test_desktop_env.py`, packaging tests | desktop startup logs; no native dialog run | **partial** | startup smoke only; native dialogs/QWebChannel not driven |
+| F21 | Job storage accounting and explicit terminal cleanup | Job history | `test_storage.py`, `test_storage_api.py` | `records/2026-11-02-v0.6.6/ui/job-storage.png` | **pass** | does not delete running jobs, prep dirs or unindexed data |
+| F22 | Catalog backup/rebuild and workspace migration verification | Catalog rebuild / Settings migration | `test_catalog_api.py`, `test_workspace.py` | API/unit evidence | **pass** | catalog backup is timestamped; migration copy is inventory-verified before switch |
+| F23 | Production browser E2E | 11 routes + diagnostics | Playwright | `records/2026-11-02-v0.6.6/raw/e2e.log` | **pass** | route/diagnostics smoke, not a full docking run |
 | F19 | Online compound providers (PubChem/ChEMBL) | Catalog library | `test_library_compounds_api.py`, `test_compound_sources.py` | U21; `completion/raw/chembl-*`, `completion/ui/flow-provider-ui.png` | **partial** | PubChem UI/API and ChEMBL API verified; ChEMBL UI/structure download not driven |
 
 ## Coverage accounting

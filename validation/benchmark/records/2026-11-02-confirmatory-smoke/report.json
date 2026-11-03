@@ -1,0 +1,571 @@
+{
+  "formatVersion": "2.1",
+  "generatedAt": "2026-11-02T14:43:29+00:00",
+  "environment": {
+    "appVersion": "0.6.6",
+    "python": "3.12.14",
+    "platform": "Linux 7.0.0-42-generic (x86_64)",
+    "cpuCount": "8",
+    "vina": "1.2.7",
+    "meeko": "0.8.0",
+    "rdkit": "2026.9.1",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "gemmi": "0.7.5",
+    "gitCommit": "94ccd739d45aa261558691ffa13af022d320b2dc",
+    "gitDirty": "yes",
+    "engineBackend": "vina",
+    "engineReason": "the vina Python module is installed"
+  },
+  "dataset": {
+    "id": "open-posebusters-v1",
+    "name": "Open PoseBusters confirmatory 12",
+    "licenseSummary": [
+      "CC0-1.0",
+      "MIT"
+    ],
+    "redistributable": true
+  },
+  "summary": {
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0
+  },
+  "cases": [
+    {
+      "id": "8dhg",
+      "name": "8DHG T78 confirmatory redocking",
+      "status": "passed",
+      "reason": "",
+      "bestAffinity": -12.045,
+      "bestRmsd": 0.5029110969431587,
+      "poseCount": 2,
+      "receptorAtoms": 3415,
+      "ligandAtoms": 37,
+      "box": {
+        "center": [
+          26.946,
+          -23.224,
+          22.937
+        ],
+        "size": [
+          22.0,
+          22.0,
+          22.0
+        ],
+        "spacing": 0.375,
+        "forceEvenVoxels": false,
+        "voxels": [
+          59,
+          59,
+          59
+        ],
+        "gridPoints": [
+          60,
+          60,
+          60
+        ],
+        "volume": 10648.0,
+        "canWriteMaps": false
+      },
+      "checks": [],
+      "worstCheck": null,
+      "errorPoses": 0,
+      "warningPoses": 0,
+      "receptorWarnings": [
+        "histidine tautomer unresolved (no HD1/HE2); defaulted to HIE: A:41, A:56, A:86, A:101, A:152, A:159, A:248, A:394"
+      ],
+      "ligandWarnings": [],
+      "provenance": {
+        "inputs": {
+          "receptor": {
+            "path": ".benchmark-data/open/8dhg/8DHG.pdb",
+            "exists": true,
+            "bytes": 552987,
+            "sha256": "e491e0b3ab968e47cdaab01ef3e3b562f2809e59bccbf861c7cfb615f40daa58"
+          },
+          "ligand": {
+            "path": ".benchmark-data/open/8dhg/T78.sdf",
+            "exists": true,
+            "bytes": 3788,
+            "sha256": "1316e8be6075a1ef1f19fa51d5ab9b5043a3de53990fbf55040476dbd3c8cb4e"
+          },
+          "reference": {
+            "path": ".benchmark-data/open/8dhg/8DHG_reference.sdf",
+            "exists": true,
+            "bytes": 3025,
+            "sha256": "60839fa5abf8951ddaaab52fe9a3bef29db99e2358dbe1eb96a262b0a4ce146f"
+          }
+        },
+        "reference": {
+          "source": "RCSB PDB 8DHG HETATM T78 chain A 403; coordinates over CCD T78 graph",
+          "independentFromLigand": true,
+          "matchesDockedPose": true
+        },
+        "parameters": {
+          "engine": "vina",
+          "scoring": "vina",
+          "weights": null,
+          "exhaustiveness": 8,
+          "nPoses": 9,
+          "seed": 42,
+          "energyRange": 3.0,
+          "minRmsd": 1.0,
+          "maxEvals": 0,
+          "cpu": 0,
+          "noRefine": false,
+          "spacing": 0.375,
+          "forceEvenVoxels": false,
+          "boxSource": "explicit",
+          "box": {
+            "center": [
+              26.946,
+              -23.224,
+              22.937
+            ],
+            "size": [
+              22.0,
+              22.0,
+              22.0
+            ],
+            "spacing": 0.375,
+            "forceEvenVoxels": false,
+            "voxels": [
+              59,
+              59,
+              59
+            ],
+            "gridPoints": [
+              60,
+              60,
+              60
+            ],
+            "volume": 10648.0,
+            "canWriteMaps": false
+          },
+          "allowBadResidues": true,
+          "defaultAltloc": "A",
+          "keepHetero": [
+            "A:401"
+          ]
+        },
+        "receptor": {
+          "atoms": 3415,
+          "warnings": [
+            "histidine tautomer unresolved (no HD1/HE2); defaulted to HIE: A:41, A:56, A:86, A:101, A:152, A:159, A:248, A:394"
+          ]
+        },
+        "ligand": {
+          "atoms": 37,
+          "warnings": []
+        }
+      },
+      "elapsedMs": 22280,
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "localOnly": false,
+      "targetFamily": "DIHYDROOROTATE DEHYDROGENASE (QUINONE), MITOCHONDRIAL"
+    },
+    {
+      "id": "7zu2",
+      "name": "7ZU2 DHT confirmatory redocking",
+      "status": "passed",
+      "reason": "",
+      "bestAffinity": -10.543,
+      "bestRmsd": 0.603164946246839,
+      "poseCount": 5,
+      "receptorAtoms": 2404,
+      "ligandAtoms": 22,
+      "box": {
+        "center": [
+          -27.276,
+          2.137,
+          -4.783
+        ],
+        "size": [
+          22.0,
+          22.0,
+          22.0
+        ],
+        "spacing": 0.375,
+        "forceEvenVoxels": false,
+        "voxels": [
+          59,
+          59,
+          59
+        ],
+        "gridPoints": [
+          60,
+          60,
+          60
+        ],
+        "volume": 10648.0,
+        "canWriteMaps": false
+      },
+      "checks": [],
+      "worstCheck": null,
+      "errorPoses": 0,
+      "warningPoses": 0,
+      "receptorWarnings": [
+        "histidine tautomer unresolved (no HD1/HE2); defaulted to HIE: A:690, A:715, A:730, A:777, A:790, A:875, A:886, A:918"
+      ],
+      "ligandWarnings": [],
+      "provenance": {
+        "inputs": {
+          "receptor": {
+            "path": ".benchmark-data/open/7zu2/7ZU2.pdb",
+            "exists": true,
+            "bytes": 199098,
+            "sha256": "4cfa98c841c7351070d889f32f7b3784ef1d9e95cc14db8d885028c45c926243"
+          },
+          "ligand": {
+            "path": ".benchmark-data/open/7zu2/DHT.sdf",
+            "exists": true,
+            "bytes": 3603,
+            "sha256": "53207603a0f9d626e76474f609fecc9b36e4237462db41e81f4acc1ca22f5d2a"
+          },
+          "reference": {
+            "path": ".benchmark-data/open/7zu2/7ZU2_reference.sdf",
+            "exists": true,
+            "bytes": 1876,
+            "sha256": "7ba878a825e544fe0fd6be43e32fab4d6ce7864efd950db75e46beaf867ff47a"
+          }
+        },
+        "reference": {
+          "source": "RCSB PDB 7ZU2 HETATM DHT chain A 1001; coordinates over CCD DHT graph",
+          "independentFromLigand": true,
+          "matchesDockedPose": true
+        },
+        "parameters": {
+          "engine": "vina",
+          "scoring": "vina",
+          "weights": null,
+          "exhaustiveness": 8,
+          "nPoses": 9,
+          "seed": 42,
+          "energyRange": 3.0,
+          "minRmsd": 1.0,
+          "maxEvals": 0,
+          "cpu": 0,
+          "noRefine": false,
+          "spacing": 0.375,
+          "forceEvenVoxels": false,
+          "boxSource": "explicit",
+          "box": {
+            "center": [
+              -27.276,
+              2.137,
+              -4.783
+            ],
+            "size": [
+              22.0,
+              22.0,
+              22.0
+            ],
+            "spacing": 0.375,
+            "forceEvenVoxels": false,
+            "voxels": [
+              59,
+              59,
+              59
+            ],
+            "gridPoints": [
+              60,
+              60,
+              60
+            ],
+            "volume": 10648.0,
+            "canWriteMaps": false
+          },
+          "allowBadResidues": true,
+          "defaultAltloc": "A",
+          "keepHetero": []
+        },
+        "receptor": {
+          "atoms": 2404,
+          "warnings": [
+            "histidine tautomer unresolved (no HD1/HE2); defaulted to HIE: A:690, A:715, A:730, A:777, A:790, A:875, A:886, A:918"
+          ]
+        },
+        "ligand": {
+          "atoms": 22,
+          "warnings": []
+        }
+      },
+      "elapsedMs": 4621,
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "localOnly": false,
+      "targetFamily": "ANDROGEN RECEPTOR"
+    },
+    {
+      "id": "8aem",
+      "name": "8AEM LVF confirmatory redocking",
+      "status": "passed",
+      "reason": "",
+      "bestAffinity": -7.737,
+      "bestRmsd": 0.4701354142077691,
+      "poseCount": 6,
+      "receptorAtoms": 3360,
+      "ligandAtoms": 14,
+      "box": {
+        "center": [
+          -107.937,
+          -176.661,
+          311.558
+        ],
+        "size": [
+          22.0,
+          22.0,
+          22.0
+        ],
+        "spacing": 0.375,
+        "forceEvenVoxels": false,
+        "voxels": [
+          59,
+          59,
+          59
+        ],
+        "gridPoints": [
+          60,
+          60,
+          60
+        ],
+        "volume": 10648.0,
+        "canWriteMaps": false
+      },
+      "checks": [],
+      "worstCheck": null,
+      "errorPoses": 0,
+      "warningPoses": 0,
+      "receptorWarnings": [
+        "histidine tautomer unresolved (no HD1/HE2); defaulted to HIE: A:18, A:29, A:115, A:148, A:154, A:160, A:166, A:168, A:183, A:234, A:236, A:276, A:286, A:291, A:309, A:321"
+      ],
+      "ligandWarnings": [],
+      "provenance": {
+        "inputs": {
+          "receptor": {
+            "path": ".benchmark-data/open/8aem/8AEM.pdb",
+            "exists": true,
+            "bytes": 285039,
+            "sha256": "fe66e0c81e8955ea085a3b170ecfef225bf76d73f23eb0d587d6c92f73e5db9d"
+          },
+          "ligand": {
+            "path": ".benchmark-data/open/8aem/LVF.sdf",
+            "exists": true,
+            "bytes": 1457,
+            "sha256": "1999c7db12e2a9c9fbf3184735081120990f8226e9f4b5fdf6a30596c3ae6421"
+          },
+          "reference": {
+            "path": ".benchmark-data/open/8aem/8AEM_reference.sdf",
+            "exists": true,
+            "bytes": 1186,
+            "sha256": "7144ebddfb28c3889234d3ea1836b9ec980127d05a53016741ec7d9c6a491c46"
+          }
+        },
+        "reference": {
+          "source": "RCSB PDB 8AEM HETATM LVF chain A 407; coordinates over CCD LVF graph",
+          "independentFromLigand": true,
+          "matchesDockedPose": true
+        },
+        "parameters": {
+          "engine": "vina",
+          "scoring": "vina",
+          "weights": null,
+          "exhaustiveness": 8,
+          "nPoses": 9,
+          "seed": 42,
+          "energyRange": 3.0,
+          "minRmsd": 1.0,
+          "maxEvals": 0,
+          "cpu": 0,
+          "noRefine": false,
+          "spacing": 0.375,
+          "forceEvenVoxels": false,
+          "boxSource": "explicit",
+          "box": {
+            "center": [
+              -107.937,
+              -176.661,
+              311.558
+            ],
+            "size": [
+              22.0,
+              22.0,
+              22.0
+            ],
+            "spacing": 0.375,
+            "forceEvenVoxels": false,
+            "voxels": [
+              59,
+              59,
+              59
+            ],
+            "gridPoints": [
+              60,
+              60,
+              60
+            ],
+            "volume": 10648.0,
+            "canWriteMaps": false
+          },
+          "allowBadResidues": true,
+          "defaultAltloc": "A",
+          "keepHetero": []
+        },
+        "receptor": {
+          "atoms": 3360,
+          "warnings": [
+            "histidine tautomer unresolved (no HD1/HE2); defaulted to HIE: A:18, A:29, A:115, A:148, A:154, A:160, A:166, A:168, A:183, A:234, A:236, A:276, A:286, A:291, A:309, A:321"
+          ]
+        },
+        "ligand": {
+          "atoms": 14,
+          "warnings": []
+        }
+      },
+      "elapsedMs": 3838,
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "localOnly": false,
+      "targetFamily": "CASEIN KINASE II SUBUNIT ALPHA"
+    },
+    {
+      "id": "7npl",
+      "name": "7NPL UKZ confirmatory redocking",
+      "status": "passed",
+      "reason": "",
+      "bestAffinity": -13.798,
+      "bestRmsd": 0.3070867895177132,
+      "poseCount": 4,
+      "receptorAtoms": 3453,
+      "ligandAtoms": 30,
+      "box": {
+        "center": [
+          -18.778,
+          1.82,
+          8.168
+        ],
+        "size": [
+          22.0,
+          22.0,
+          22.0
+        ],
+        "spacing": 0.375,
+        "forceEvenVoxels": false,
+        "voxels": [
+          59,
+          59,
+          59
+        ],
+        "gridPoints": [
+          60,
+          60,
+          60
+        ],
+        "volume": 10648.0,
+        "canWriteMaps": false
+      },
+      "checks": [],
+      "worstCheck": null,
+      "errorPoses": 0,
+      "warningPoses": 0,
+      "receptorWarnings": [
+        "histidine tautomer unresolved (no HD1/HE2); defaulted to HIE: A:43, A:73, A:93, A:139, A:209, A:231, A:262, A:269, A:287, A:334"
+      ],
+      "ligandWarnings": [],
+      "provenance": {
+        "inputs": {
+          "receptor": {
+            "path": ".benchmark-data/open/7npl/7NPL.pdb",
+            "exists": true,
+            "bytes": 510057,
+            "sha256": "9d7072a40cc450621079b1a6acb84d1210ac8d75b680cb8bcfba67f32434b1d9"
+          },
+          "ligand": {
+            "path": ".benchmark-data/open/7npl/UKZ.sdf",
+            "exists": true,
+            "bytes": 3516,
+            "sha256": "33f31aa72d9e9bdee1e6b1e07493b2a97d021c73224742fd0df3f4a625c7820c"
+          },
+          "reference": {
+            "path": ".benchmark-data/open/7npl/7NPL_reference.sdf",
+            "exists": true,
+            "bytes": 2361,
+            "sha256": "518ce06908b01ea18680091a87162b1e1d3bba602c8adc32be20fe9edd3ebb3a"
+          }
+        },
+        "reference": {
+          "source": "RCSB PDB 7NPL HETATM UKZ chain A 401; coordinates over CCD UKZ graph",
+          "independentFromLigand": true,
+          "matchesDockedPose": true
+        },
+        "parameters": {
+          "engine": "vina",
+          "scoring": "vina",
+          "weights": null,
+          "exhaustiveness": 8,
+          "nPoses": 9,
+          "seed": 42,
+          "energyRange": 3.0,
+          "minRmsd": 1.0,
+          "maxEvals": 0,
+          "cpu": 0,
+          "noRefine": false,
+          "spacing": 0.375,
+          "forceEvenVoxels": false,
+          "boxSource": "explicit",
+          "box": {
+            "center": [
+              -18.778,
+              1.82,
+              8.168
+            ],
+            "size": [
+              22.0,
+              22.0,
+              22.0
+            ],
+            "spacing": 0.375,
+            "forceEvenVoxels": false,
+            "voxels": [
+              59,
+              59,
+              59
+            ],
+            "gridPoints": [
+              60,
+              60,
+              60
+            ],
+            "volume": 10648.0,
+            "canWriteMaps": false
+          },
+          "allowBadResidues": true,
+          "defaultAltloc": "A",
+          "keepHetero": []
+        },
+        "receptor": {
+          "atoms": 3453,
+          "warnings": [
+            "histidine tautomer unresolved (no HD1/HE2); defaulted to HIE: A:43, A:73, A:93, A:139, A:209, A:231, A:262, A:269, A:287, A:334"
+          ]
+        },
+        "ligand": {
+          "atoms": 30,
+          "warnings": []
+        }
+      },
+      "elapsedMs": 16996,
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "localOnly": false,
+      "targetFamily": "ALPHA-1-ANTITRYPSIN"
+    }
+  ]
+}

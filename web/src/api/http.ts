@@ -20,6 +20,7 @@ import type {
   DockingDefaults,
   DockingJobCreated,
   VinaCiteResponse,
+  DeletedJob,
   DockingJobResult,
   DockingJobStatus,
   DockingJobSummary,
@@ -38,6 +39,7 @@ import type {
   SiteScreeningResult,
   SiteScreeningStatus,
   IfpGroupResponse,
+  JobStorageSummary,
   IfpJobRequest,
   IfpJobResponse,
   LibraryDetail,
@@ -344,6 +346,11 @@ export const api = {
   batchResult: (jobId: string) =>
     request<BatchJobResult>(`/api/docking/batch/${jobId}/result`),
   dockingJobs: () => request<DockingJobSummary[]>('/api/docking/jobs'),
+  dockingStorage: () => request<JobStorageSummary>('/api/docking/storage'),
+  deleteDockingJob: (jobId: string) =>
+    request<DeletedJob>(`/api/docking/jobs/${encodeURIComponent(jobId)}`, {
+      method: 'DELETE',
+    }),
   dockingJobStatus: (jobId: string) =>
     request<DockingJobStatus>(`/api/docking/jobs/${jobId}`),
   dockingJobResult: (jobId: string) =>

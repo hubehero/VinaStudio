@@ -12,13 +12,14 @@ interface running inside a **PySide6** embedded browser, backed by the official
 command-line binary on Windows — and **Meeko** for molecular parameterisation
 and format conversion.
 
-**Documentation:** [User guide](docs/USER_GUIDE.md) · [Windows](docs/WINDOWS.md) · [Architecture](docs/ARCHITECTURE.md) · [Changelog](CHANGELOG.md)
+**Documentation:** [Documentation index](docs/README.md) · [User guide](docs/USER_GUIDE.md) · [Windows](docs/WINDOWS.md) · [Architecture](docs/ARCHITECTURE.md) · [Changelog](CHANGELOG.md)
 **简体中文:** [README.md](README.md) · [用户手册](docs/USER_GUIDE.zh-CN.md) · [Windows 支持](docs/WINDOWS.zh-CN.md)
 
 ## Documentation
 
 | Document | English | 简体中文 |
 |---|---|---|
+| Documentation index and categories | [Documentation index](docs/README.md) | [文档索引](docs/README.md) |
 | User guide — install to export | [User guide](docs/USER_GUIDE.md) | [用户手册](docs/USER_GUIDE.zh-CN.md) |
 | Windows support and limits | [Windows](docs/WINDOWS.md) | [Windows 支持](docs/WINDOWS.zh-CN.md) |
 | Architecture and constraints | [Architecture](docs/ARCHITECTURE.md) | [架构](docs/ARCHITECTURE.zh-CN.md) |

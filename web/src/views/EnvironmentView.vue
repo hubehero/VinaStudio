@@ -396,7 +396,7 @@ async function copyDiagnosticReport(): Promise<void> {
           :border="false"
           row-key="distribution"
         >
-          <el-table-column prop="distribution" label="Package" min-width="110" />
+          <el-table-column prop="distribution" :label="t('environment.package')" min-width="110" />
           <el-table-column :label="t('environment.declared')" min-width="130">
             <template #default="{ row }">
               <span class="vs-mono">{{ declaredVersion(row.distribution) }}</span>
@@ -415,7 +415,7 @@ async function copyDiagnosticReport(): Promise<void> {
               <span class="vs-mono">{{ t('common.milliseconds', { value: row.importMs }) }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="Detail" min-width="200">
+          <el-table-column :label="t('environment.detail')" min-width="200">
             <template #default="{ row }">
               <span class="vs-faint detail">{{ row.error ?? '—' }}</span>
             </template>

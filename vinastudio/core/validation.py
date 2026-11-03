@@ -19,6 +19,7 @@ import importlib.metadata
 import json
 import os
 import platform
+import re
 import subprocess
 import time
 from dataclasses import dataclass, field, replace
@@ -39,7 +40,45 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MANIFEST = REPO_ROOT / "validation" / "manifest.json"
 DEFAULT_RMSD_THRESHOLD = 2.0
 
+LEGACY_MANIFEST_VERSION = "1.0"
+BENCHMARK_MANIFEST_VERSION = "1.1"
+REPORT_SCHEMA_VERSION = "2.1"
+OPEN_LICENSES = frozenset({"CC0-1.0", "MIT", "CC-BY-3.0", "CC-BY-SA-3.0"})
+RESTRICTED_LICENSES = frozenset(
+    {"PDBbind-User-Agreement", "DUD-E-Terms", "ZINC-Terms", "Unconfirmed"}
+)
+KNOWN_LICENSES = OPEN_LICENSES | RESTRICTED_LICENSES
+_SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
 ValidationStatus = Literal["passed", "failed", "skipped"]
+
+
+@dataclass(frozen=True, slots=True)
+class ValidationDataset:
+    """Dataset-level licence and redistribution metadata."""
+
+    id: str
+    name: str = ""
+    license_summary: tuple[str, ...] = ()
+    redistributable: bool | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "licenseSummary": list(self.license_summary),
+            "redistributable": self.redistributable,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ValidationManifest:
+    """Parsed manifest with its dataset record; ``cases`` stays list-compatible."""
+
+    cases: list[ValidationCase]
+    dataset: ValidationDataset | None = None
+
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,7 +100,20 @@ class ValidationCase:
     rmsd_threshold: float = DEFAULT_RMSD_THRESHOLD
     affinity_range: tuple[float, float] | None = None
     allow_bad_residues: bool = False
+    default_altloc: str = ""
+    keep_hetero: tuple[str, ...] = ()
     reference_source: str = ""
+    dataset: str = "legacy"
+    source: str = ""
+    license: str = ""
+    redistributable: bool | None = None
+    local_only: bool = False
+    source_url: str = ""
+    accessed_at: str = ""
+    source_sha256: str = ""
+    target_family: str = ""
+    ligand_chain: str = ""
+    ligand_residue: str = ""
 
 
 @dataclass(slots=True)
@@ -104,6 +156,12 @@ class ValidationCaseResult:
             "ligandWarnings": self.ligand_warnings,
             "provenance": self.provenance,
             "elapsedMs": self.elapsed_ms,
+            "seed": self.case.seed,
+            "source": self.case.source,
+            "license": self.case.license,
+            "redistributable": self.case.redistributable,
+            "localOnly": self.case.local_only,
+            "targetFamily": self.case.target_family,
         }
 
 
@@ -112,6 +170,7 @@ class ValidationReport:
     cases: list[ValidationCaseResult]
     generated_at: str
     environment: dict[str, str]
+    dataset: ValidationDataset | None = None
 
     @property
     def passed(self) -> int:
@@ -126,10 +185,17 @@ class ValidationReport:
         return sum(1 for result in self.cases if result.status == "skipped")
 
     def as_dict(self) -> dict[str, Any]:
+        dataset = self.dataset or ValidationDataset(
+            id="legacy",
+            name="Legacy 1IEP control",
+            license_summary=(),
+            redistributable=None,
+        )
         return {
-            "formatVersion": "2.0",
+            "formatVersion": REPORT_SCHEMA_VERSION,
             "generatedAt": self.generated_at,
             "environment": self.environment,
+            "dataset": dataset.as_dict(),
             "summary": {
                 "total": len(self.cases),
                 "passed": self.passed,
@@ -175,15 +241,27 @@ def _git_metadata() -> dict[str, str | bool | None]:
         return {"commit": None, "dirty": None}
 
 
-def _file_info(path: Path) -> dict[str, Any]:
+def _display_path(path: Path, *, redact: bool) -> str:
+    if redact:
+        return "<local-restricted>"
+    try:
+        return str(path.resolve().relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path)
+
+
+def _file_info(path: Path, *, redact: bool = False) -> dict[str, Any]:
     if not path.is_file():
-        return {"path": str(path), "exists": False}
+        return {
+            "path": _display_path(path, redact=redact),
+            "exists": False,
+        }
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1 << 20), b""):
             digest.update(chunk)
     return {
-        "path": str(path),
+        "path": _display_path(path, redact=redact),
         "exists": True,
         "bytes": path.stat().st_size,
         "sha256": digest.hexdigest(),
@@ -208,6 +286,8 @@ def _docking_provenance(case: ValidationCase, params: DockingParams, box: Box) -
         "boxSource": "explicit" if case.center is not None else "reference-autobox",
         "box": box.summary(),
         "allowBadResidues": case.allow_bad_residues,
+        "defaultAltloc": case.default_altloc,
+        "keepHetero": list(case.keep_hetero),
     }
 
 
@@ -243,12 +323,75 @@ def environment_info() -> dict[str, str]:
     return versions
 
 
-def load_manifest(
+def _required_text(raw: dict[str, Any], key: str, case_id: str) -> str:
+    value = raw.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise InvalidInputError(f"validation case {case_id!r} needs {key}")
+    return value.strip()
+
+
+def _required_bool(raw: dict[str, Any], key: str, case_id: str) -> bool:
+    value = raw.get(key)
+    if not isinstance(value, bool):
+        raise InvalidInputError(f"validation case {case_id!r} {key} must be a boolean")
+    return value
+
+
+def _validate_license(case_id: str, license_id: str, redistributable: bool, local_only: bool) -> None:
+    if license_id not in KNOWN_LICENSES:
+        raise InvalidInputError(
+            f"validation case {case_id!r} has unknown license {license_id!r}; "
+            "add it to validation/benchmark/licenses.json"
+        )
+    if redistributable and license_id not in OPEN_LICENSES:
+        raise InvalidInputError(
+            f"validation case {case_id!r} marks {license_id!r} redistributable, "
+            "but that licence is not open"
+        )
+    if local_only and redistributable:
+        raise InvalidInputError(
+            f"validation case {case_id!r} cannot be both localOnly and redistributable"
+        )
+
+
+def _dataset_from_dict(raw: Any) -> ValidationDataset:
+    if not isinstance(raw, dict):
+        raise InvalidInputError("benchmark manifest needs a dataset object")
+    dataset_id = str(raw.get("id", "")).strip()
+    if not dataset_id:
+        raise InvalidInputError("benchmark dataset needs an id")
+    summary = raw.get("licenseSummary")
+    if not isinstance(summary, list) or not summary:
+        raise InvalidInputError("benchmark dataset needs a non-empty licenseSummary list")
+    licenses: list[str] = []
+    for value in summary:
+        if not isinstance(value, str) or value not in KNOWN_LICENSES:
+            raise InvalidInputError(
+                f"benchmark dataset has unknown license {value!r}; "
+                "add it to validation/benchmark/licenses.json"
+            )
+        licenses.append(value)
+    redistributable = raw.get("redistributable")
+    if not isinstance(redistributable, bool):
+        raise InvalidInputError("benchmark dataset redistributable must be a boolean")
+    if redistributable and any(value not in OPEN_LICENSES for value in licenses):
+        raise InvalidInputError(
+            "benchmark dataset claims redistribution but includes a non-open licence"
+        )
+    return ValidationDataset(
+        id=dataset_id,
+        name=str(raw.get("name") or dataset_id),
+        license_summary=tuple(licenses),
+        redistributable=redistributable,
+    )
+
+
+def load_manifest_document(
     path: str | Path = DEFAULT_MANIFEST,
     *,
     root: str | Path = REPO_ROOT,
-) -> list[ValidationCase]:
-    """Parse a validation manifest; paths are relative to *root* by default."""
+) -> ValidationManifest:
+    """Parse a 1.0 or 1.1 manifest, including dataset-level licence metadata."""
     manifest_path = Path(path)
     if not manifest_path.is_file():
         raise InvalidInputError(f"validation manifest not found: {manifest_path}")
@@ -258,11 +401,15 @@ def load_manifest(
         raise InvalidInputError(f"validation manifest is not valid JSON: {exc}") from exc
     if not isinstance(payload, dict):
         raise InvalidInputError("validation manifest must be a JSON object")
-    if str(payload.get("formatVersion", "")) != "1.0":
-        raise InvalidInputError("validation manifest formatVersion must be '1.0'")
+    version = str(payload.get("formatVersion", ""))
+    if version not in {LEGACY_MANIFEST_VERSION, BENCHMARK_MANIFEST_VERSION}:
+        raise InvalidInputError(
+            "validation manifest formatVersion must be '1.0' or '1.1'"
+        )
     raw_cases = payload.get("cases")
     if not isinstance(raw_cases, list) or not raw_cases:
         raise InvalidInputError("validation manifest must contain a non-empty cases list")
+    dataset = _dataset_from_dict(payload.get("dataset")) if version == BENCHMARK_MANIFEST_VERSION else None
 
     base = Path(root)
     cases: list[ValidationCase] = []
@@ -276,14 +423,41 @@ def load_manifest(
         if case_id in seen:
             raise InvalidInputError(f"duplicate validation case id: {case_id}")
         seen.add(case_id)
-        cases.append(_case_from_dict(raw, base, case_id))
-    return cases
+        cases.append(_case_from_dict(raw, base, case_id, version, dataset))
+
+    if dataset is not None:
+        for case in cases:
+            if case.license not in dataset.license_summary:
+                raise InvalidInputError(
+                    f"validation case {case.id!r} licence {case.license!r} "
+                    "is not in the dataset licenseSummary"
+                )
+            if dataset.redistributable and not case.redistributable:
+                raise InvalidInputError(
+                    f"validation case {case.id!r} is restricted in a redistributable dataset"
+                )
+            if dataset.redistributable is False and case.redistributable:
+                raise InvalidInputError(
+                    f"validation case {case.id!r} is redistributable in a restricted dataset"
+                )
+    return ValidationManifest(cases=cases, dataset=dataset)
+
+
+def load_manifest(
+    path: str | Path = DEFAULT_MANIFEST,
+    *,
+    root: str | Path = REPO_ROOT,
+) -> list[ValidationCase]:
+    """Compatibility wrapper; use :func:`load_manifest_document` for metadata."""
+    return load_manifest_document(path, root=root).cases
 
 
 def _case_from_dict(
     raw: dict[str, Any],
     base: Path,
     case_id: str,
+    version: str = LEGACY_MANIFEST_VERSION,
+    dataset: ValidationDataset | None = None,
 ) -> ValidationCase:
     def path_value(key: str) -> Path:
         value = raw.get(key)
@@ -303,6 +477,35 @@ def _case_from_dict(
         raise InvalidInputError(
             f"validation case {case_id!r} affinityRange low must not exceed high"
         )
+
+    source = ""
+    license_id = ""
+    redistributable: bool | None = None
+    local_only = False
+    source_url = ""
+    accessed_at = ""
+    source_sha256 = ""
+    target_family = str(raw.get("targetFamily", ""))
+    ligand_chain = str(raw.get("ligandChain", ""))
+    ligand_residue = str(raw.get("ligandResidue", ""))
+    if version == BENCHMARK_MANIFEST_VERSION:
+        source = _required_text(raw, "source", case_id)
+        license_id = _required_text(raw, "license", case_id)
+        redistributable = _required_bool(raw, "redistributable", case_id)
+        local_only = _required_bool(raw, "localOnly", case_id) if "localOnly" in raw else False
+        source_url = _required_text(raw, "sourceUrl", case_id)
+        accessed_at = _required_text(raw, "accessedAt", case_id)
+        if not _DATE_RE.fullmatch(accessed_at):
+            raise InvalidInputError(
+                f"validation case {case_id!r} accessedAt must use YYYY-MM-DD"
+            )
+        source_sha256 = _required_text(raw, "sourceSha256", case_id)
+        if not _SHA256_RE.fullmatch(source_sha256):
+            raise InvalidInputError(
+                f"validation case {case_id!r} sourceSha256 must be a 64-character hex digest"
+            )
+        _validate_license(case_id, license_id, redistributable, local_only)
+
     return ValidationCase(
         id=case_id,
         name=str(raw.get("name") or case_id),
@@ -321,8 +524,33 @@ def _case_from_dict(
         ),
         affinity_range=affinity,
         allow_bad_residues=bool(raw.get("allowBadResidues", False)),
+        default_altloc=str(raw.get("defaultAltloc", "")),
+        keep_hetero=_string_tuple(raw.get("keepHetero"), "keepHetero", case_id),
         reference_source=str(raw.get("referenceSource", "")),
+        dataset=dataset.id if dataset is not None else "legacy",
+        source=source,
+        license=license_id,
+        redistributable=redistributable,
+        local_only=local_only,
+        source_url=source_url,
+        accessed_at=accessed_at,
+        source_sha256=source_sha256,
+        target_family=target_family,
+        ligand_chain=ligand_chain,
+        ligand_residue=ligand_residue,
     )
+
+
+def _string_tuple(value: Any, key: str, case_id: str) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, list) or not all(
+        isinstance(item, str) and item.strip() for item in value
+    ):
+        raise InvalidInputError(
+            f"validation case {case_id!r} {key} must be a list of residue keys"
+        )
+    return tuple(item.strip() for item in value)
 
 
 def _number(value: Any, key: str, case_id: str) -> float:
@@ -409,6 +637,7 @@ def run_case(
     out_dir: str | Path,
     *,
     exhaustiveness: int | None = None,
+    artifact_key: str | None = None,
 ) -> ValidationCaseResult:
     """Run one case; never raises for a case-level failure."""
     missing = missing_files(case)
@@ -421,14 +650,18 @@ def run_case(
 
     if exhaustiveness is not None:
         case = replace(case, exhaustiveness=exhaustiveness)
-    case_dir = Path(out_dir) / "cases" / case.id
+    case_dir = Path(out_dir) / "cases" / (artifact_key or case.id)
     case_dir.mkdir(parents=True, exist_ok=True)
     started = time.monotonic()
     try:
         ligand = prepare_ligand(case.ligand)
         receptor = prepare_receptor(
             case.receptor,
-            ReceptorPrepOptions(allow_bad_residues=case.allow_bad_residues),
+            ReceptorPrepOptions(
+                allow_bad_residues=case.allow_bad_residues,
+                default_altloc=case.default_altloc,
+                keep_residues=case.keep_hetero,
+            ),
         )
         ligand_path = case_dir / "ligand.pdbqt"
         receptor_path = case_dir / "receptor.pdbqt"
@@ -454,11 +687,12 @@ def run_case(
             if result.poses and result.poses_sdf.strip()
             else None
         )
+        redact = case.redistributable is False
         provenance = {
             "inputs": {
-                "receptor": _file_info(case.receptor),
-                "ligand": _file_info(case.ligand),
-                "reference": _file_info(case.reference),
+                "receptor": _file_info(case.receptor, redact=redact),
+                "ligand": _file_info(case.ligand, redact=redact),
+                "reference": _file_info(case.reference, redact=redact),
             },
             "reference": {
                 "source": case.reference_source,
@@ -484,6 +718,7 @@ def run_case(
                 provenance=provenance,
             )
 
+        (case_dir / "poses.sdf").write_text(result.poses_sdf, encoding="utf-8")
         rmsds = rmsd_vs_reference(result.poses_sdf, case.reference)
         findings = validate_poses(result.poses_sdf, reference=case.reference, box=box)
         best_findings = findings[0]
@@ -534,6 +769,8 @@ def run_manifest(
     *,
     case_ids: set[str] | None = None,
     exhaustiveness: int | None = None,
+    seeds: list[int] | None = None,
+    dataset: ValidationDataset | None = None,
 ) -> ValidationReport:
     selected = [case for case in cases if case_ids is None or case.id in case_ids]
     if case_ids is not None:
@@ -542,13 +779,24 @@ def run_manifest(
             raise InvalidInputError(f"unknown validation case(s): {sorted(unknown)}")
     output = Path(out_dir)
     output.mkdir(parents=True, exist_ok=True)
-    results = [
-        run_case(case, output, exhaustiveness=exhaustiveness) for case in selected
-    ]
+    results: list[ValidationCaseResult] = []
+    for case in selected:
+        for seed in seeds or [case.seed]:
+            results.append(
+                run_case(
+                    replace(case, seed=seed),
+                    output,
+                    exhaustiveness=exhaustiveness,
+                    artifact_key=(
+                        f"{case.id}-seed{seed}" if seeds is not None else None
+                    ),
+                )
+            )
     return ValidationReport(
         cases=results,
         generated_at=datetime.now(UTC).isoformat(timespec="seconds"),
         environment=environment_info(),
+        dataset=dataset,
     )
 
 
@@ -566,11 +814,22 @@ def write_report(report: ValidationReport, out_dir: str | Path) -> tuple[Path, P
 
 
 def format_markdown(report: ValidationReport) -> str:
+    dataset = report.dataset or ValidationDataset(
+        id="legacy", name="Legacy 1IEP control", license_summary=(), redistributable=None
+    )
+    license_summary = ", ".join(dataset.license_summary) or "not recorded"
+    redistribution = (
+        "yes"
+        if dataset.redistributable is True
+        else "no" if dataset.redistributable is False else "not recorded"
+    )
     lines = [
         "# VinaStudio validation report",
         "",
-        "Report schema: 2.0",
+        f"Report schema: {REPORT_SCHEMA_VERSION}",
         f"Generated: {report.generated_at}",
+        f"Dataset: {dataset.id} ({dataset.name})",
+        f"Dataset licences: {license_summary}; redistributable: {redistribution}",
         "",
         "This is a reproducible redocking check, not an accuracy ranking. "
         "The geometry checks are a PoseBusters-style subset, not the official suite.",
@@ -589,16 +848,17 @@ def format_markdown(report: ValidationReport) -> str:
         "",
         "## Cases",
         "",
-        "| Case | Status | Best affinity | RMSD | Poses | Error poses | Reason |",
-        "|---|---|---:|---:|---:|---:|---|",
+        "| Case | Seed | Status | Best affinity | RMSD | Poses | Error poses | Licence | Reason |",
+        "|---|---:|---|---:|---:|---:|---:|---|---|",
     ]
     for result in report.cases:
         affinity = "—" if result.best_affinity is None else f"{result.best_affinity:.3f}"
         rmsd = "—" if result.best_rmsd is None else f"{result.best_rmsd:.3f}"
         reason = result.reason.replace("|", "\\|")
+        licence = result.case.license or "legacy"
         lines.append(
-            f"| {result.case.id} | {result.status} | {affinity} | {rmsd} | "
-            f"{result.pose_count} | {result.error_poses} | {reason} |"
+            f"| {result.case.id} | {result.case.seed} | {result.status} | {affinity} | {rmsd} | "
+            f"{result.pose_count} | {result.error_poses} | {licence} | {reason} |"
         )
     provenance_rows = []
     for result in report.cases:
@@ -626,7 +886,8 @@ def format_markdown(report: ValidationReport) -> str:
         "the reference could be matched for reference-relative checks, no geometry "
         "error in any pose, and any configured affinity range met. Warnings are "
         "recorded but do not fail a case. Skipped cases mean their optional input "
-        "files are absent; they are not evidence of success.",
+        "files are absent; they are not evidence of success. Restricted datasets "
+        "are not redistributed with this report.",
         "",
     ]
     return "\n".join(lines)

@@ -1,6 +1,6 @@
 # VinaStudio Functional Validation Protocol
 
-**Scope:** user-facing software behaviour of VinaStudio 0.6.4.  
+**Scope:** user-facing software behaviour of VinaStudio 0.6.5.
 **Not a scientific accuracy claim.** Docking accuracy, 1IEP redocking and the
 claim–evidence matrix live in [`docs/ACADEMIC_VALIDATION.md`](../../docs/ACADEMIC_VALIDATION.md)
 and [`docs/VALIDATION.md`](../../docs/VALIDATION.md). A functional pass here
@@ -47,9 +47,10 @@ It records:
   extract and validation manifest;
 - the exact commands used.
 
-The tested tree is **0.6.4 plus an uncommitted validation patch**; the released
-tag remains `v0.6.4`. This is intentional: the record must describe what was
-actually on disk, not relabel a dirty tree as the release commit.
+The original 2026-10-30 record was captured on **0.6.4 plus an uncommitted
+validation patch**. The clean 0.6.5 release-control record is
+[`records/2026-11-02-v0.6.5/`](records/2026-11-02-v0.6.5/); it is kept separate
+so the historical evidence is not relabelled as if it had been rerun on 0.6.5.
 
 ### Reproduce
 
@@ -116,6 +117,8 @@ constants. Screenshots are in `records/2026-10-30/ui/`.
 | U20 | PubChem provider | Text search `aspirin` returned CID **2244**, formula `C9H8O4`, `has3D=true`; see record narrative. |
 | U21 | Provider UI | Compound-search dialog → PubChem → `aspirin` rendered CID 2244 and a download action; see `completion/ui/flow-provider-ui.png`. |
 | U22 | Diagnostics | Environment → Diagnose: 11 checks (10 server + WebGL) all healthy; safe repair created missing app directories; see `completion/diagnostics/environment-diagnostics.png`. |
+| U23 | Storage cleanup | Job history reports indexed storage; terminal jobs expose a confirmed delete action; see `records/2026-11-02-v0.6.6/ui/job-storage.png`. |
+| U24 | Browser E2E | Playwright runs 11 production routes and diagnostics; see `records/2026-11-02-v0.6.6/raw/e2e.log`. |
 
 ### Defect evidence
 
@@ -173,3 +176,18 @@ failures), five-pocket site screening, ChEMBL/PubChem, upload, project
 persistence, affinity maps, results favorite filtering, sketcher import and
 desktop software-render startup. See
 [`records/2026-10-30/completion/README.md`](records/2026-10-30/completion/README.md).
+
+
+## 9. 0.6.5 release-control record
+
+The clean 0.6.5 rerun is kept in
+[`records/2026-11-02-v0.6.5/`](records/2026-11-02-v0.6.5/). It records:
+
+- 830 backend tests, 27 frontend tests, and the 1IEP rerun;
+- commit `94ccd73`, release commit/tag `1021850` / `v0.6.5`;
+- diagnostics UI evidence;
+- the 1IEP result again: **−13.286 kcal/mol**, **0.353 Å**, 5 poses, no
+  geometry errors.
+
+It explicitly inherits the interaction-level UI walkthrough from the historical
+0.6.4 record rather than pretending it was freshly executed on 0.6.5.

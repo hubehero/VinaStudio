@@ -130,6 +130,8 @@ class JobState:
     # Persistence mirror written into job.json (never the large fields)
     label: str = ""
     params: dict[str, Any] = field(default_factory=dict)
+    #: Reproduction metadata captured once at launch (versions + input hashes).
+    provenance: dict[str, Any] = field(default_factory=dict)
     # Worker group (for cancellation and reaping): one entry per shard
     # process — a batch job runs N children that all feed this one state.
     _processes: list[BaseProcess] = field(default_factory=list, repr=False)
@@ -200,6 +202,7 @@ class JobManager:
             scoring=params.get("scoring", "vina"),
             label=_job_label(params),
             params=_persistable_params(params),
+            provenance=_job_provenance(params),
         )
         self._jobs[job_id] = state
 
@@ -247,6 +250,7 @@ class JobManager:
             # render a batch badge rather than inventing a name.
             label=_job_label(params) if params.get("label") else "",
             params=_persistable_params(persist_params),
+            provenance=_job_provenance(params),
         )
         self._jobs[job_id] = state
 
@@ -340,6 +344,7 @@ class JobManager:
             # The library name is what the runs list shows.
             label=str(params.get("library") or ""),
             params=_persistable_params(persist_params),
+            provenance=_job_provenance(params),
         )
         self._jobs[job_id] = state
 
@@ -382,6 +387,7 @@ class JobManager:
             total_ligands=len(receptors),
             label=str(params.get("label") or "ensemble"),
             params=_persistable_params(params),
+            provenance=_job_provenance(params),
         )
         self._jobs[job_id] = state
 
@@ -419,6 +425,7 @@ class JobManager:
             total_ligands=len(candidates),
             label=str(params.get("label") or "site screen"),
             params=_persistable_params(params),
+            provenance=_job_provenance(params),
         )
         self._jobs[job_id] = state
 
@@ -788,6 +795,21 @@ class JobManager:
         _write_job_json(job_id, payload, ligand_rows=batch_rows)
         return True
 
+    def forget_job(self, job_id: str) -> bool:
+        """Drop a terminal job from the in-memory list after its files are gone.
+
+        The caller has already checked the terminal state and removed the
+        directory; a running job is refused here as a second guard.
+        """
+        with self._lock:
+            state = self._jobs.get(job_id)
+            if state is None:
+                return False
+            if state.status == "running":
+                raise ValueError(f"job {job_id} is still running")
+            self._jobs.pop(job_id, None)
+            return True
+
     def get_job(self, job_id: str) -> JobState | None:
         with self._lock:
             state = self._jobs.get(job_id)
@@ -1138,6 +1160,62 @@ def read_site_rows(job_id: str) -> list[dict[str, Any]]:
     return rows
 
 
+def _job_provenance(params: dict[str, Any]) -> dict[str, Any]:
+    """Capture the software and input identity for ``job.json``.
+
+    Hashes are limited to explicitly named files. Batch/screening rosters can
+    contain thousands of ligand paths; hashing every entry at launch would slow
+    the job and bloat the index, so the run-level receptor plus the roster
+    identity are recorded instead.
+    """
+    import hashlib
+    from pathlib import Path
+
+    from vinastudio import __version__
+
+    def digest(path_value: object) -> str | None:
+        if not isinstance(path_value, str) or not path_value:
+            return None
+        path = Path(path_value)
+        if not path.is_file():
+            return None
+        h = hashlib.sha256()
+        try:
+            with path.open("rb") as handle:
+                for chunk in iter(lambda: handle.read(1 << 20), b""):
+                    h.update(chunk)
+        except OSError:
+            return None
+        return h.hexdigest()
+
+    try:
+        from vinastudio.core.validation import environment_info
+
+        runtime = environment_info()
+    except Exception:  # noqa: BLE001 - provenance must not block a run
+        runtime = {"appVersion": str(__version__)}
+
+    inputs: dict[str, Any] = {}
+    for key in ("receptor_path", "flex_pdbqt_path", "ligand_path"):
+        value = params.get(key) or params.get(
+            {"receptor_path": "receptorPath", "flex_pdbqt_path": "flexReceptorPath", "ligand_path": "ligandPath"}[key]
+        )
+        if isinstance(value, str) and value:
+            inputs[key] = {"path": value, "sha256": digest(value)}
+    return {
+        "appVersion": str(__version__),
+        "runtime": runtime,
+        "engine": str(params.get("engine") or "vina"),
+        "scoring": str(params.get("scoring") or "vina"),
+        "seed": int(params.get("seed") or 0),
+        "inputs": inputs,
+        "roster": (
+            str(params.get("library") or params.get("libraryId") or "")
+            or str(params.get("selection_id") or "")
+        ),
+    }
+
+
 def _job_label(params: dict[str, Any]) -> str:
     """Display name for the jobs list: the ligand file, or an honest fallback.
 
@@ -1208,6 +1286,7 @@ def _job_json_payload(state: JobState, *, now: float | None = None) -> dict[str,
         "updatedAt": time.time() if now is None else now,
         "label": state.label,
         "params": state.params,
+        "provenance": state.provenance,
         "poses": list(state.poses),
         "bestAffinity": state.screening_best if state.is_screening else state.best_affinity,
         "nPoses": state.n_poses,
@@ -1378,6 +1457,7 @@ def _state_from_payload(data: dict[str, Any], job_id: str) -> JobState:
         failed_ligands=int(data.get("failedLigands") or 0),
         label=str(data.get("label") or ""),
         params=dict(data.get("params") or {}),
+        provenance=dict(data.get("provenance") or {}),
     )
 
     if state.is_screening:

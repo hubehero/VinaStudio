@@ -8,6 +8,11 @@ beforeEach(() => {
 })
 
 describe('docking form persistence', () => {
+  it('defaults new runs to the reproducible project seed', () => {
+    const form = useDockingFormStore()
+    expect(form.seed).toBe(42)
+  })
+
   it('retains the live protocol across a route component remount', () => {
     const form = useDockingFormStore()
     form.exhaustiveness = 32

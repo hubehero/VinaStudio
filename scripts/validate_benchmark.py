@@ -19,7 +19,7 @@ from pathlib import Path
 
 from vinastudio.core.validation import (
     DEFAULT_MANIFEST,
-    load_manifest,
+    load_manifest_document,
     missing_files,
     run_manifest,
     write_report,
@@ -27,11 +27,12 @@ from vinastudio.core.validation import (
 
 
 def _list_cases(cases) -> None:  # type: ignore[no-untyped-def]
-    print(f"{'ID':<8} {'STATUS':<8} NAME")
+    print(f"{'ID':<8} {'STATUS':<8} {'LICENSE':<24} NAME")
     for case in cases:
         missing = missing_files(case)
         status = "skip" if missing else "ready"
-        print(f"{case.id:<8} {status:<8} {case.name}")
+        licence = case.license or "legacy"
+        print(f"{case.id:<8} {status:<8} {licence:<24} {case.name}")
         for path in missing:
             print(f"         missing: {path}")
 
@@ -64,6 +65,11 @@ def main(argv: list[str] | None = None) -> int:
         help="override the manifest exhaustiveness for this run",
     )
     parser.add_argument(
+        "--seeds",
+        default=None,
+        help="comma-separated docking seeds (for example 42,43,44,45,46)",
+    )
+    parser.add_argument(
         "--strict",
         action="store_true",
         help="also exit non-zero when any case is skipped",
@@ -75,17 +81,27 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    cases = load_manifest(args.manifest)
+    cases = load_manifest_document(args.manifest)
     if args.list:
-        _list_cases(cases)
+        _list_cases(cases.cases)
         return 0
 
     selected = set(args.cases) if args.cases else None
+    seeds = None
+    if args.seeds:
+        try:
+            seeds = [int(value) for value in args.seeds.split(",") if value.strip()]
+        except ValueError as exc:
+            parser.error(f"--seeds must be comma-separated integers: {exc}")
+        if not seeds:
+            parser.error("--seeds needs at least one integer")
     report = run_manifest(
-        cases,
+        cases.cases,
         args.out_dir,
         case_ids=selected,
         exhaustiveness=args.exhaustiveness,
+        seeds=seeds,
+        dataset=cases.dataset,
     )
     json_path, md_path = write_report(report, args.out_dir)
 

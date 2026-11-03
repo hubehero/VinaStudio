@@ -358,6 +358,7 @@ defineExpose({ open })
               >
                 {{ isMigrating ? t('workspace.settings.migrating') : t('workspace.settings.migrateButton') }}
               </ElButton>
+              <p class="workspace-migrate__hint">{{ t('workspace.settings.migrateHint') }}</p>
             </div>
           </div>
         </div>
@@ -651,6 +652,13 @@ defineExpose({ open })
   margin-top: 8px;
 }
 
+.workspace-migrate__hint {
+  width: 100%;
+  margin: 2px 0 0;
+  color: var(--vs-text-faint);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
 .workspace-migrate__input {
   display: flex;
   gap: 8px;

@@ -12,6 +12,28 @@ entries about the product — no internal task ids or workflow narration.
 
 ## [Unreleased]
 
+## [0.6.6] - 2026-11-02
+
+### 已变更
+
+- **开放基准层**：新增许可注册表、1.1 manifest、受限数据策略检查和 PDB/PoseBusters 开放数据工具；4-target pilot v1 为 1/4、v2 为 3/4（5SIS 仍失败）；确认性 12-target × 5 seeds 为 60/60，mean RMSD 0.534 Å；官方 PoseBusters 0.6.5 top pose 60/60、全部 pose 7/60。仅对预注册开放集合，不声明通用准确率。
+- **默认可复现**：新对接默认使用 seed 42；显式设为 0 才使用每次随机的种子。完成作业的 `job.json` 记录软件版本、引擎、seed、输入哈希和 roster 标识。
+- **任务存储清理**：历史任务页显示有索引任务的体积，终态任务可在确认后删除；运行任务和未索引准备目录不会出现在可删除项中。
+- **浏览器冒烟与可访问性**：Playwright 生产构建冒烟接入发布 CI；3D 视口增加 aria 标签/文本说明；迁移提示明确“复制并校验后切换，失败保留原工作区”。
+- **Catalog/迁移恢复**：显式重建目录前生成带时间戳的 `catalog.sqlite.bak-*`；工作区迁移在切换前校验源/目标文件清单。
+- **公开 CI smoke**：发布树增加后端 API smoke，覆盖健康、工作区、文件识别、配体准备、盒体与只读诊断；不依赖 Qt、网络或完整对接。
+- **0.6.5 干净证据**：新增 0.6.5 的 1IEP 重跑记录（−13.286 kcal/mol / 0.353 Å）；历史 0.6.4 记录保持不变。
+
+### Changed
+
+- **Open benchmark layer**: add a licence registry, 1.1 manifest, restricted-data policy gate and PDB/PoseBusters open-data tools; the 4-target pilot v1 is 1/4 and v2 is 3/4 (5SIS still fails); the frozen confirmatory 12-target × 5-seed set is 60/60 with mean RMSD 0.534 Å; official PoseBusters 0.6.5 gives 60/60 top poses and 7/60 all poses. This is limited to the pre-registered open set, not a universal accuracy claim.
+- **Reproducible defaults**: new docking runs use seed 42; set 0 explicitly for a random seed. Completed `job.json` records software versions, engine, seed, input hashes and roster identity.
+- **Job storage cleanup**: job history shows indexed storage size and allows confirmed deletion of terminal jobs; running jobs and unindexed preparation directories are never offered.
+- **Browser smoke and accessibility**: Playwright production-build smoke runs in public CI; the 3D viewport gets ARIA labels and a text description; migration states that it copies, verifies, then switches and keeps the original on failure.
+- **Catalog/migration recovery**: explicit catalog rebuild writes a timestamped `catalog.sqlite.bak-*` first; workspace migration verifies source/target inventories before switching.
+- **Public CI smoke**: the release tree now checks health, workspace init, file detection, ligand preparation, box arithmetic and read-only diagnostics without Qt, network or a full docking run.
+- **Clean 0.6.5 evidence**: add a 0.6.5 1IEP rerun record (−13.286 kcal/mol / 0.353 Å); historical 0.6.4 evidence remains unchanged.
+
 ## [0.6.5] - 2026-10-30
 
 ### 新增

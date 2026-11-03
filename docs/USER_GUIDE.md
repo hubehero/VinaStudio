@@ -225,7 +225,7 @@ Open **Docking**, confirm the receptor, ligand and box, then set:
 | Exhaustiveness | Search effort; higher is slower and more thorough |
 | Number of poses | How many poses to keep |
 | Energy range | Keep poses within this energy of the best one |
-| Seed | Makes a run reproducible when the engine supports it |
+| Seed | Defaults to 42 for reproducibility; set 0 to randomise each run |
 | CPU | Threads to use; 0 means all available |
 
 Press **Run**. The job starts in a separate process, so the interface stays
@@ -346,6 +346,14 @@ projects in the workspace's `projects/` folder.
   is stored in the project as its display name.
 - Project writes are atomic; an interrupted save does not truncate the previous
   file. Only `.vinaproj` paths are accepted by Save As.
+
+### Job storage and cleanup
+
+The Job history header shows the total size of indexed jobs. A terminal job has
+a small delete button; confirmation is required, and the action removes its
+poses, log and result-index row. Running jobs and unindexed preparation
+directories are never offered for deletion. Nothing is deleted automatically;
+use this when a workspace has accumulated old results.
 
 ---
 

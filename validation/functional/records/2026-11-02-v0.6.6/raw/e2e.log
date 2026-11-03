@@ -1,0 +1,48 @@
+$ playwright test
+[WebServer] $ vite build
+[WebServer] [EVAL] Use of direct `eval` function is strongly discouraged as it poses security risks and may cause issues with minification.
+[WebServer]        ╭─[ node_modules/.pnpm/3dmol@2.5.5/node_modules/3dmol/build/3Dmol.es6.js:42893:20 ]
+[WebServer]        │
+[WebServer]  42893 │         callback = eval("(" + callback + ")");
+[WebServer]        │                    ──┬─  
+[WebServer]        │                      ╰─── Use of direct `eval` here.
+[WebServer]        │ 
+[WebServer]        │ Help: Consider using indirect eval. For more information, check the documentation: https://rolldown.rs/guide/troubleshooting#avoiding-direct-eval
+[WebServer] ───────╯
+[WebServer] 
+[WebServer] [plugin builtin:vite-reporter] 
+[WebServer] (!) Some chunks are larger than 2400 kB after minification. Consider:
+[WebServer] - Using dynamic import() to code-split the application
+[WebServer] - Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+[WebServer] - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[WebServer] [INEFFECTIVE_DYNAMIC_IMPORT] node_modules/.pnpm/3dmol@2.5.5/node_modules/3dmol/build/3Dmol.es6.js is dynamically imported by src/components/panels/MoleculeLibraryDialog.vue?vue&type=script&setup=true&lang.ts but also statically imported by src/composables/use3Dmol.ts, dynamic import will not move module into another chunk.
+[WebServer] 
+[WebServer] $ /home/hubehero/.local/bin/pnpm run build
+[WebServer] $ vite build
+[WebServer] [EVAL] Use of direct `eval` function is strongly discouraged as it poses security risks and may cause issues with minification.
+[WebServer]        ╭─[ node_modules/.pnpm/3dmol@2.5.5/node_modules/3dmol/build/3Dmol.es6.js:42893:20 ]
+[WebServer]        │
+[WebServer]  42893 │         callback = eval("(" + callback + ")");
+[WebServer]        │                    ──┬─  
+[WebServer]        │                      ╰─── Use of direct `eval` here.
+[WebServer]        │ 
+[WebServer]        │ Help: Consider using indirect eval. For more information, check the documentation: https://rolldown.rs/guide/troubleshooting#avoiding-direct-eval
+[WebServer] ───────╯
+[WebServer] 
+[WebServer] [plugin builtin:vite-reporter] 
+[WebServer] (!) Some chunks are larger than 2400 kB after minification. Consider:
+[WebServer] - Using dynamic import() to code-split the application
+[WebServer] - Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+[WebServer] - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[WebServer] [INEFFECTIVE_DYNAMIC_IMPORT] node_modules/.pnpm/3dmol@2.5.5/node_modules/3dmol/build/3Dmol.es6.js is dynamically imported by src/components/panels/MoleculeLibraryDialog.vue?vue&type=script&setup=true&lang.ts but also statically imported by src/composables/use3Dmol.ts, dynamic import will not move module into another chunk.
+[WebServer] 
+[WebServer] swagger: swagger-ui-bundle.js already exists, skipping
+[WebServer] swagger: swagger-ui.css already exists, skipping
+[WebServer] Interface built into /home/hubehero/SELF_PROJECT/AutoDock_Vina/vinastudio/server/static
+
+Running 2 tests using 1 worker
+
+  ✓  1 e2e/smoke.spec.ts:23:1 › primary routes render on the production bundle (4.5s)
+  ✓  2 e2e/smoke.spec.ts:45:1 › environment diagnostics runs in the production bundle (617ms)
+
+  2 passed (10.7s)

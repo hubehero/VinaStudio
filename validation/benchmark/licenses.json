@@ -1,0 +1,72 @@
+{
+  "formatVersion": "1.0",
+  "reviewedAt": "2026-11-02",
+  "note": "Compliance registry, not legal advice. Re-check current terms before release.",
+  "licenses": {
+    "CC0-1.0": {
+      "name": "Creative Commons Zero 1.0 Universal",
+      "url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "tier": "open",
+      "redistributable": true,
+      "commercial": "yes",
+      "attribution": "recommended"
+    },
+    "MIT": {
+      "name": "MIT License",
+      "url": "https://opensource.org/license/mit",
+      "tier": "open",
+      "redistributable": true,
+      "commercial": "yes",
+      "attribution": "required"
+    },
+    "CC-BY-3.0": {
+      "name": "Creative Commons Attribution 3.0",
+      "url": "https://creativecommons.org/licenses/by/3.0/",
+      "tier": "attribution",
+      "redistributable": true,
+      "commercial": "yes",
+      "attribution": "required"
+    },
+    "CC-BY-SA-3.0": {
+      "name": "Creative Commons Attribution-ShareAlike 3.0",
+      "url": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "tier": "attribution",
+      "redistributable": true,
+      "commercial": "yes",
+      "attribution": "required",
+      "shareAlike": true
+    },
+    "PDBbind-User-Agreement": {
+      "name": "PDBbind / PDBbind+ user agreement",
+      "url": "https://www.pdbbind-plus.org.cn/termofuse",
+      "tier": "local-restricted",
+      "redistributable": false,
+      "commercial": "academic-only",
+      "attribution": "required"
+    },
+    "DUD-E-Terms": {
+      "name": "DUD-E / docking.org terms",
+      "url": "https://www.decoys.docking.org/",
+      "tier": "local-restricted",
+      "redistributable": false,
+      "commercial": "unclear",
+      "attribution": "required"
+    },
+    "ZINC-Terms": {
+      "name": "UCSF ZINC terms",
+      "url": "https://wiki.docking.org/index.php?title=UCSF_ZINC_License",
+      "tier": "local-restricted",
+      "redistributable": false,
+      "commercial": "unclear",
+      "attribution": "required"
+    },
+    "Unconfirmed": {
+      "name": "Licence not confirmed",
+      "url": "",
+      "tier": "unconfirmed",
+      "redistributable": false,
+      "commercial": "no",
+      "attribution": "unknown"
+    }
+  }
+}

@@ -517,6 +517,19 @@ def main() -> int:
     else:
         ok("every vinastudio import resolves inside this tree")
 
+    # 11. Benchmark data policy. A scientific dataset is not released unless
+    #     its licence/redistribution metadata and tracked paths are consistent.
+    print("\n[11] Benchmark data policy")
+    policy = REPO_ROOT / "scripts" / "check_benchmark_policy.py"
+    if not policy.is_file():
+        bad("benchmark policy script", "scripts/check_benchmark_policy.py is missing")
+    else:
+        result = run(sys.executable, str(policy), "--root", str(REPO_ROOT))
+        if result.returncode != 0:
+            bad("benchmark data policy", result.stdout.strip() or "policy check failed")
+        else:
+            ok("benchmark manifests and tracked paths are consistent")
+
     print()
     if failures:
         print(f"\033[31m{len(failures)} check(s) failed — do not tag.\033[0m")

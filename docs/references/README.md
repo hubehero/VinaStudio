@@ -78,3 +78,7 @@ Machine-readable entries: [`VinaStudio.bib`](VinaStudio.bib).
   redistributed.
 - PDB coordinates are public structure data; cite the PDB entry and the primary
   structure paper where available.
+- Benchmark data licences, restricted-data rules and the open pilot are recorded
+  in [`validation/benchmark/DATA_SOURCES.md`](../../validation/benchmark/DATA_SOURCES.md)
+  and [`validation/benchmark/records/2026-11-02-open-pilot/`](../../validation/benchmark/records/2026-11-02-open-pilot/).
+  The pilot is not an accuracy claim.

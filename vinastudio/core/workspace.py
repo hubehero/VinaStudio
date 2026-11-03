@@ -191,7 +191,9 @@ def migrate_workspace(source: Path, target: Path) -> WorkspaceConfig:
 
     target.mkdir(parents=True, exist_ok=True)
 
-    # Copy everything, then reload config from the new location.
+    # Copy everything, then verify the inventory before the caller switches
+    # the active workspace.  A partial copy must never look like a successful
+    # migration.
     for item in items:
         dest = target / item.name
         if item.is_dir():
@@ -199,6 +201,17 @@ def migrate_workspace(source: Path, target: Path) -> WorkspaceConfig:
         else:
             shutil.copy2(item, dest)
 
+    def inventory(root: Path) -> dict[str, int]:
+        return {
+            path.relative_to(root).as_posix(): path.stat().st_size
+            for path in root.rglob("*")
+            if path.is_file()
+        }
+
+    if inventory(source) != inventory(target):
+        raise InvalidInputError(
+            "workspace migration verification failed: source and target inventories differ"
+        )
     return load_config(target)
 
 

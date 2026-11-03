@@ -2,10 +2,18 @@
 
 **简体中文** · [English](ACADEMIC_VALIDATION.md) · [主页](../README.md)
 
-**报告版本：** 1.0  
-**软件版本：** 0.6.4（开发树）  
-**报告日期：** 2026-10-29  
+**报告版本：** 1.1
+**软件版本：** 0.6.5（发布树）
+**报告日期：** 2026-11-02
 **状态：** 可复现的软件验证报告，不是经过同行评议的基准论文。
+
+> **开发附记（2026-11-02，0.6.6 工作树）。** 已运行开放 PoseBusters 4-target
+> pilot 作为链路检查：v1 1/4、v2 3/4（5SIS 仍失败），它们**不属于** 0.6.5 的结果。
+> 随后在排除 pilot 的 12 个预注册开放靶点上用 5 个 seed 运行，结果为
+> **60/60 passed**，mean top-1 RMSD **0.5343 Å**（bootstrap 95% CI
+> [0.4710, 0.6020] Å）。这只对该开放集合有效，不是通用准确率、亲和力或富集
+> 声明；官方 PoseBusters 0.6.5 `redock` 已对制备条件运行：top pose 60/60，全部 pose 7/60。证据见
+> [`validation/benchmark/records/2026-11-02-open-posebusters-v1/`](../validation/benchmark/records/2026-11-02-open-posebusters-v1/)。
 
 > **一句话范围。** 本报告检验 VinaStudio 在已提交的 1IEP redocking 对照上，
 > 准备、对接、位姿恢复、几何检查和报告链路是否可复现；它**不**估计通用对接
@@ -54,7 +62,7 @@
 
 ### 3.1 对接引擎
 
-VinaStudio 0.6.4 通过 Python API 或官方命令行二进制驱动
+VinaStudio 0.6.5 通过 Python API 或官方命令行二进制驱动
 **AutoDock Vina 1.2.7**。报告记录实际使用的后端；两者是同一个引擎，不是两种
 打分方法。Vina 打分函数和搜索流程见 Trott & Olson [1]；1.2.x API 和力场变化
 见 Eberhardt 等 [2]。
@@ -164,7 +172,7 @@ HIE；这些警告与结果一起保留。带有这些警告的通过，不表�
 
 | 项目 | 值 |
 |---|---|
-| 应用版本 | 0.6.4 |
+| 应用版本 | 0.6.5 |
 | Python | 3.12.14 |
 | 平台 | Linux x86_64 |
 | Vina | 1.2.7 |
@@ -175,7 +183,7 @@ HIE；这些警告与结果一起保留。带有这些警告的通过，不表�
 | gemmi | 0.7.5 |
 | 引擎后端 | `vina` Python API |
 | CPU 数 | 8 |
-| Git commit | 由报告记录；本草案由 dirty 工作树生成 |
+| Git commit | `94ccd73`（干净的 0.6.5 重跑；发布 tag `v0.6.5`，发布提交 `1021850`） |
 
 1IEP 协议：
 
@@ -262,7 +270,7 @@ uv run python scripts/validate_benchmark.py --case 1iep \
 
 ### 6.4 CLI/API 等价
 
-`tests/integration/test_vina_cli_backend.py` 通过 **9/9**，包括固定
+`tests/integration/pipeline/test_vina_cli_backend.py` 通过 **9/9**，包括固定
 seed/exhaustiveness 下相同的 pose 数和每个 pose 能量在 0.01 kcal/mol 内一致，
 以及结果契约。它不比较坐标；这里说的是能量层面一致，不是逐坐标几何等价。
 两个后端共享 Vina 1.2.7。
@@ -372,19 +380,19 @@ pnpm -C web build
 ```
 
 生成物位于 `validation-output/`，按设计被 gitignore。JSON 报告为 schema
-`2.0`，包含环境、校验和、参考独立性、完整对接参数和每个 case 的 provenance。
+`2.1`，包含数据集/逐 case 许可、环境、校验和、参考独立性、完整对接参数和每个 case 的 provenance。
 
 ## 11. Claim–evidence 矩阵
 
 | 声明 | 证据 | 结果 |
 |---|---|---|
-| 1IEP 配体准备在电荷规范化后与上游一致 | `tests/integration/test_ligand_prep.py` | pass |
-| 1IEP 受体 2702 原子和文档化元素计数 | `tests/integration/test_receptor_prep.py`、golden test | pass |
+| 1IEP 配体准备在电荷规范化后与上游一致 | `tests/integration/pipeline/test_ligand_prep.py` | pass |
+| 1IEP 受体 2702 原子和文档化元素计数 | `tests/integration/pipeline/test_receptor_prep.py`、golden test | pass |
 | 排名第一的 pose 在 2 Å 内接近 PDB 坐标参考 | 生成的 `validation-report.json` | 0.353 Å |
 | Pose 通过六项项目检查 | 生成的报告 | 0 error，0 warning |
-| 固定协议下 CLI 与 API 一致 | `tests/integration/test_vina_cli_backend.py` | 9/9 pass |
-| 无效盒子被拒绝 | `tests/unit/test_box.py`、`tests/integration/test_docking_api.py` | pass |
-| 缺失可选 case 是 skipped，不是 passed | `tests/unit/test_validation.py` | pass |
+| 固定协议下 CLI 与 API 一致 | `tests/integration/pipeline/test_vina_cli_backend.py` | 9/9 pass |
+| 无效盒子被拒绝 | `tests/unit/core/test_box.py`、`tests/integration/api/test_docking_api.py` | pass |
+| 缺失可选 case 是 skipped，不是 passed | `tests/unit/tools/benchmark/test_validation.py` | pass |
 | 参考图与对接配体一致 | harness provenance + `reference_matches_poses` | true（两者都源自教程 SDF） |
 | 不声明富集/通用准确率 | 本报告 + 未运行数据集 | 显式不声明 |
 
@@ -419,3 +427,4 @@ BibTeX：[`docs/references/VinaStudio.bib`](references/VinaStudio.bib)。访问�
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | 1.0 | 2026-10-29 | 初始 0.6.4 报告；独立 1IEP 参考；provenance schema；重原子碰撞检查。 |
+| 1.1 | 2026-11-02 | 0.6.5 干净版本重跑；结果为 −13.286 kcal/mol / 0.353 Å、5 poses、0 几何错误；协议与限制不变。 |

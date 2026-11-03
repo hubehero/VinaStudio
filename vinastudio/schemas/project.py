@@ -27,7 +27,7 @@ class ProjectDockingConfig(BaseModel):
     energyRange: float = 3.0
     minRmsd: float = 1.0
     cpu: int = 0
-    seed: int = 0
+    seed: int = 42
     noRefine: bool = False
     maxEvals: int = 0
     verbosity: int = 1

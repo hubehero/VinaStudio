@@ -607,6 +607,8 @@ defineExpose({ highlightResidues })
     <div
       ref="container"
       class="viewport__canvas"
+      role="img"
+      :aria-label="t('viewport.canvasLabel')"
       :class="{ 'is-dragging': dragging }"
       @pointerdown.capture="onPointerDown"
     />
@@ -656,14 +658,30 @@ defineExpose({ highlightResidues })
       </el-button>
     </div>
 
+    <p class="viewport__a11y">
+      {{ t('viewport.canvasHint') }}
+    </p>
+
     <div class="viewport__toolbar">
       <el-tooltip :content="t('viewport.focusView')" placement="bottom">
-        <el-button size="small" text :disabled="!ready" @click="resetView">
+        <el-button
+          size="small"
+          text
+          :disabled="!ready"
+          :aria-label="t('viewport.focusView')"
+          @click="resetView"
+        >
           <el-icon><Aim /></el-icon>
         </el-button>
       </el-tooltip>
       <el-tooltip :content="t('viewport.exportPng')" placement="bottom">
-        <el-button size="small" text :disabled="!ready" @click="openPngDialog">
+        <el-button
+          size="small"
+          text
+          :disabled="!ready"
+          :aria-label="t('viewport.exportPng')"
+          @click="openPngDialog"
+        >
           <el-icon><Download /></el-icon>
         </el-button>
       </el-tooltip>
@@ -830,6 +848,18 @@ defineExpose({ highlightResidues })
   color: var(--vs-text-faint);
   font-size: 11px;
   pointer-events: none;
+}
+
+.viewport__a11y {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .viewport__toolbar {

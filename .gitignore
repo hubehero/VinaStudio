@@ -70,3 +70,11 @@ command-code-session-*.html
 # committed; the packaged builds bundle their own verified copy.
 vinastudio/resources/vina/vina
 vinastudio/resources/vina/vina.exe
+
+# Playwright
+web/test-results/
+web/playwright-report/
+
+# Benchmark data cache
+.benchmark-data/
+validation/benchmark/data/

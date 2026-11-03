@@ -139,7 +139,7 @@ async function startScreening(): Promise<void> {
       nPoses: nPoses.value,
       energyRange: energyRange.value,
       cpu: 0,
-      seed: 0,
+      seed: 42,
       ...(parallelism.value != null ? { parallelism: parallelism.value } : {}),
     })
   } catch (error) {

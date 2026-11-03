@@ -1028,6 +1028,31 @@ def list_views(*, db_path: Path | None = None) -> list[dict[str, Any]]:
     return [_view_row(row) for row in rows]
 
 
+def delete_run(job_id: str, *, db_path: Path | None = None) -> bool:
+    """Remove one run and its child rows from the search index.
+
+    This is only an index operation; the job directory is removed by
+    ``core.storage.delete_terminal_job`` after the caller has validated its
+    terminal state.  Returns False when the run was not indexed.
+    """
+    db = db_path or results_db_path()
+    if not db.is_file():
+        return False
+    with _WRITE_LOCK, closing(_connect(db)) as conn:
+        _ensure_schema(conn)
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            conn.execute("DELETE FROM poses WHERE run_id = ?", (job_id,))
+            conn.execute("DELETE FROM screening_items WHERE run_id = ?", (job_id,))
+            conn.execute("DELETE FROM run_tags WHERE run_id = ?", (job_id,))
+            cursor = conn.execute("DELETE FROM runs WHERE job_id = ?", (job_id,))
+            conn.commit()
+        except BaseException:
+            conn.rollback()
+            raise
+        return cursor.rowcount > 0
+
+
 def delete_view(view_id: int, *, db_path: Path | None = None) -> bool:
     db = db_path or results_db_path()
     with _WRITE_LOCK, closing(_connect(db)) as conn:

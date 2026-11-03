@@ -1,0 +1,680 @@
+{
+  "formatVersion": "1.0",
+  "selectionSeed": 20261102,
+  "count": 12,
+  "pool": "validation/benchmark/manifests/posebusters-pool.txt",
+  "excludedPilots": [
+    "5SB2",
+    "5SD5",
+    "5SIS",
+    "6M2B"
+  ],
+  "limit": 24,
+  "selected": [
+    {
+      "pdbId": "8DHG",
+      "ligandCode": "T78",
+      "ligandChain": "A",
+      "ligandSeq": "403",
+      "family": "DIHYDROOROTATE DEHYDROGENASE (QUINONE), MITOCHONDRIAL",
+      "keepHetero": [
+        "A:401"
+      ],
+      "sourceUrl": "https://files.rcsb.org/download/8DHG.pdb",
+      "sourceSha256": "e491e0b3ab968e47cdaab01ef3e3b562f2809e59bccbf861c7cfb615f40daa58"
+    },
+    {
+      "pdbId": "7ZU2",
+      "ligandCode": "DHT",
+      "ligandChain": "A",
+      "ligandSeq": "1001",
+      "family": "ANDROGEN RECEPTOR",
+      "keepHetero": [],
+      "sourceUrl": "https://files.rcsb.org/download/7ZU2.pdb",
+      "sourceSha256": "4cfa98c841c7351070d889f32f7b3784ef1d9e95cc14db8d885028c45c926243"
+    },
+    {
+      "pdbId": "8AEM",
+      "ligandCode": "LVF",
+      "ligandChain": "A",
+      "ligandSeq": "407",
+      "family": "CASEIN KINASE II SUBUNIT ALPHA",
+      "keepHetero": [],
+      "sourceUrl": "https://files.rcsb.org/download/8AEM.pdb",
+      "sourceSha256": "fe66e0c81e8955ea085a3b170ecfef225bf76d73f23eb0d587d6c92f73e5db9d"
+    },
+    {
+      "pdbId": "7NPL",
+      "ligandCode": "UKZ",
+      "ligandChain": "A",
+      "ligandSeq": "401",
+      "family": "ALPHA-1-ANTITRYPSIN",
+      "keepHetero": [],
+      "sourceUrl": "https://files.rcsb.org/download/7NPL.pdb",
+      "sourceSha256": "9d7072a40cc450621079b1a6acb84d1210ac8d75b680cb8bcfba67f32434b1d9"
+    },
+    {
+      "pdbId": "7WQQ",
+      "ligandCode": "5Z6",
+      "ligandChain": "A",
+      "ligandSeq": "501",
+      "family": "RETINOIC ACID RECEPTOR ALPHA",
+      "keepHetero": [],
+      "sourceUrl": "https://files.rcsb.org/download/7WQQ.pdb",
+      "sourceSha256": "3c3de244fbad1db42ecb71a7ac237be26b1f6e9650979950b8528fb422959251"
+    },
+    {
+      "pdbId": "8DSC",
+      "ligandCode": "NCA",
+      "ligandChain": "A",
+      "ligandSeq": "1001",
+      "family": "NICOTINAMIDE PHOSPHORIBOSYLTRANSFERASE",
+      "keepHetero": [
+        "A:1003",
+        "A:1005",
+        "A:1006",
+        "B:1103"
+      ],
+      "sourceUrl": "https://files.rcsb.org/download/8DSC.pdb",
+      "sourceSha256": "d591c28c9a6e09b73e221088afb3339be817db0aae54171c412fd3ed854ea5d4"
+    },
+    {
+      "pdbId": "7R59",
+      "ligandCode": "I5F",
+      "ligandChain": "A",
+      "ligandSeq": "602",
+      "family": "POLY [ADP-RIBOSE] POLYMERASE 2",
+      "keepHetero": [],
+      "sourceUrl": "https://files.rcsb.org/download/7R59.pdb",
+      "sourceSha256": "f1331b24b8846d62a2c980e60f83b040673b5fb6818e387a20bad8b9dd0bae49"
+    },
+    {
+      "pdbId": "8BOM",
+      "ligandCode": "QU6",
+      "ligandChain": "A",
+      "ligandSeq": "1001",
+      "family": "EPHRIN TYPE-A RECEPTOR 2",
+      "keepHetero": [],
+      "sourceUrl": "https://files.rcsb.org/download/8BOM.pdb",
+      "sourceSha256": "3dc593d605bad6c93b1367d16c71e9082fd96db269a57faef229c288a5b5affe"
+    },
+    {
+      "pdbId": "7LOE",
+      "ligandCode": "Y84",
+      "ligandChain": "A",
+      "ligandSeq": "201",
+      "family": "LYSOZYME",
+      "keepHetero": [],
+      "sourceUrl": "https://files.rcsb.org/download/7LOE.pdb",
+      "sourceSha256": "242919fc367e5d92eeec97fb16aa139da90365dcb307edaf646fda45dd8b5dc0"
+    },
+    {
+      "pdbId": "7QGP",
+      "ligandCode": "DJ8",
+      "ligandChain": "A",
+      "ligandSeq": "401",
+      "family": "SERINE/THREONINE-PROTEIN KINASE 10",
+      "keepHetero": [
+        "A:403"
+      ],
+      "sourceUrl": "https://files.rcsb.org/download/7QGP.pdb",
+      "sourceSha256": "4526f22c48152f62838b9cba598443a316dee238d1612b17cf09e04e17b301a0"
+    },
+    {
+      "pdbId": "7XJN",
+      "ligandCode": "NSD",
+      "ligandChain": "A",
+      "ligandSeq": "401",
+      "family": "PUTRESCINE-BINDING PERIPLASMIC PROTEIN",
+      "keepHetero": [],
+      "sourceUrl": "https://files.rcsb.org/download/7XJN.pdb",
+      "sourceSha256": "50c8724f94dc745d202f04a97dd84ae510fd17bf4a754369056a5fe78cd9a891"
+    },
+    {
+      "pdbId": "7AKL",
+      "ligandCode": "RK5",
+      "ligandChain": "A",
+      "ligandSeq": "501",
+      "family": "DUAL SPECIFICITY TYROSINE-PHOSPHORYLATION-REGULATED KINASE",
+      "keepHetero": [],
+      "sourceUrl": "https://files.rcsb.org/download/7AKL.pdb",
+      "sourceSha256": "4d4422a4831fd40b852e7f167be7df3b223bff893144856e7f5728256083c4df"
+    }
+  ],
+  "audit": [
+    {
+      "pdbId": "8DHG",
+      "ligandCode": "T78",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/8DHG.pdb",
+      "sourceSha256": "e491e0b3ab968e47cdaab01ef3e3b562f2809e59bccbf861c7cfb615f40daa58",
+      "resolution": 2.0,
+      "family": "DIHYDROOROTATE DEHYDROGENASE (QUINONE), MITOCHONDRIAL",
+      "ligandChain": "A",
+      "ligandSeq": "403",
+      "heavyAtoms": 35,
+      "span": 14.351,
+      "hasAltloc": true,
+      "covalent": false,
+      "keepHetero": [
+        "A:401"
+      ],
+      "keptHetero": [
+        {
+          "residue": "FMN",
+          "key": "A:401",
+          "minDistance": 5.042
+        }
+      ],
+      "eligible": true,
+      "reasons": []
+    },
+    {
+      "pdbId": "6Z4N",
+      "ligandCode": "Q7B",
+      "eligible": false,
+      "reasons": [
+        "cannot fetch 6Z4N: HTTP Error 404: Not Found"
+      ]
+    },
+    {
+      "pdbId": "7ZU2",
+      "ligandCode": "DHT",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/7ZU2.pdb",
+      "sourceSha256": "4cfa98c841c7351070d889f32f7b3784ef1d9e95cc14db8d885028c45c926243",
+      "resolution": 2.0,
+      "family": "ANDROGEN RECEPTOR",
+      "ligandChain": "A",
+      "ligandSeq": "1001",
+      "heavyAtoms": 21,
+      "span": 9.254,
+      "hasAltloc": true,
+      "covalent": false,
+      "keepHetero": [],
+      "keptHetero": [],
+      "eligible": true,
+      "reasons": []
+    },
+    {
+      "pdbId": "7BKA",
+      "ligandCode": "4JC",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/7BKA.pdb",
+      "sourceSha256": "c0117b015dd7822a41c3668737ab451a8774dce12937db904e262e0e480e9209",
+      "resolution": 2.0,
+      "family": "3-HYDROXYDECANOYL-[ACYL-CARRIER-PROTEIN] DEHYDRATASE",
+      "ligandChain": "A",
+      "ligandSeq": "201",
+      "heavyAtoms": 60,
+      "span": 65.002,
+      "hasAltloc": false,
+      "covalent": false,
+      "keepHetero": [],
+      "keptHetero": [],
+      "eligible": false,
+      "reasons": [
+        "ligand heavy atoms 60 outside 8-40"
+      ]
+    },
+    {
+      "pdbId": "8AEM",
+      "ligandCode": "LVF",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/8AEM.pdb",
+      "sourceSha256": "fe66e0c81e8955ea085a3b170ecfef225bf76d73f23eb0d587d6c92f73e5db9d",
+      "resolution": 2.0,
+      "family": "CASEIN KINASE II SUBUNIT ALPHA",
+      "ligandChain": "A",
+      "ligandSeq": "407",
+      "heavyAtoms": 13,
+      "span": 5.778,
+      "hasAltloc": true,
+      "covalent": false,
+      "keepHetero": [],
+      "keptHetero": [],
+      "eligible": true,
+      "reasons": []
+    },
+    {
+      "pdbId": "7NPL",
+      "ligandCode": "UKZ",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/7NPL.pdb",
+      "sourceSha256": "9d7072a40cc450621079b1a6acb84d1210ac8d75b680cb8bcfba67f32434b1d9",
+      "resolution": 2.0,
+      "family": "ALPHA-1-ANTITRYPSIN",
+      "ligandChain": "A",
+      "ligandSeq": "401",
+      "heavyAtoms": 27,
+      "span": 11.201,
+      "hasAltloc": false,
+      "covalent": false,
+      "keepHetero": [],
+      "keptHetero": [],
+      "eligible": true,
+      "reasons": []
+    },
+    {
+      "pdbId": "7WQQ",
+      "ligandCode": "5Z6",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/7WQQ.pdb",
+      "sourceSha256": "3c3de244fbad1db42ecb71a7ac237be26b1f6e9650979950b8528fb422959251",
+      "resolution": 2.0,
+      "family": "RETINOIC ACID RECEPTOR ALPHA",
+      "ligandChain": "A",
+      "ligandSeq": "501",
+      "heavyAtoms": 27,
+      "span": 12.754,
+      "hasAltloc": true,
+      "covalent": false,
+      "keepHetero": [],
+      "keptHetero": [],
+      "eligible": true,
+      "reasons": []
+    },
+    {
+      "pdbId": "6Z14",
+      "ligandCode": "Q4Z",
+      "eligible": false,
+      "reasons": [
+        "cannot fetch 6Z14: HTTP Error 404: Not Found"
+      ]
+    },
+    {
+      "pdbId": "7MFP",
+      "ligandCode": "Z7P",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/7MFP.pdb",
+      "sourceSha256": "b94b49db8c74fb8d7ac68e1deb0b0a865a496a2f7b0495dec2316c48af3762ac",
+      "resolution": 2.0,
+      "family": "L136 AMINOTRANSFERASE",
+      "ligandChain": "A",
+      "ligandSeq": "401",
+      "heavyAtoms": 200,
+      "span": 72.411,
+      "hasAltloc": true,
+      "covalent": false,
+      "keepHetero": [],
+      "keptHetero": [],
+      "eligible": false,
+      "reasons": [
+        "ligand heavy atoms 200 outside 8-40"
+      ]
+    },
+    {
+      "pdbId": "8DSC",
+      "ligandCode": "NCA",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/8DSC.pdb",
+      "sourceSha256": "d591c28c9a6e09b73e221088afb3339be817db0aae54171c412fd3ed854ea5d4",
+      "resolution": 2.0,
+      "family": "NICOTINAMIDE PHOSPHORIBOSYLTRANSFERASE",
+      "ligandChain": "A",
+      "ligandSeq": "1001",
+      "heavyAtoms": 18,
+      "span": 37.439,
+      "hasAltloc": true,
+      "covalent": false,
+      "keepHetero": [
+        "A:1003",
+        "A:1005",
+        "A:1006",
+        "B:1103"
+      ],
+      "keptHetero": [
+        {
+          "residue": "TIE",
+          "key": "A:1003",
+          "minDistance": 5.618
+        },
+        {
+          "residue": "CL",
+          "key": "A:1005",
+          "minDistance": 4.164
+        },
+        {
+          "residue": "CL",
+          "key": "A:1006",
+          "minDistance": 4.166
+        },
+        {
+          "residue": "TIE",
+          "key": "B:1103",
+          "minDistance": 5.511
+        }
+      ],
+      "eligible": true,
+      "reasons": []
+    },
+    {
+      "pdbId": "7R59",
+      "ligandCode": "I5F",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/7R59.pdb",
+      "sourceSha256": "f1331b24b8846d62a2c980e60f83b040673b5fb6818e387a20bad8b9dd0bae49",
+      "resolution": 2.0,
+      "family": "POLY [ADP-RIBOSE] POLYMERASE 2",
+      "ligandChain": "A",
+      "ligandSeq": "602",
+      "heavyAtoms": 13,
+      "span": 6.904,
+      "hasAltloc": true,
+      "covalent": false,
+      "keepHetero": [],
+      "keptHetero": [],
+      "eligible": true,
+      "reasons": []
+    },
+    {
+      "pdbId": "8BOM",
+      "ligandCode": "QU6",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/8BOM.pdb",
+      "sourceSha256": "3dc593d605bad6c93b1367d16c71e9082fd96db269a57faef229c288a5b5affe",
+      "resolution": 2.0,
+      "family": "EPHRIN TYPE-A RECEPTOR 2",
+      "ligandChain": "A",
+      "ligandSeq": "1001",
+      "heavyAtoms": 35,
+      "span": 12.558,
+      "hasAltloc": true,
+      "covalent": false,
+      "keepHetero": [],
+      "keptHetero": [],
+      "eligible": true,
+      "reasons": []
+    },
+    {
+      "pdbId": "7LOE",
+      "ligandCode": "Y84",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/7LOE.pdb",
+      "sourceSha256": "242919fc367e5d92eeec97fb16aa139da90365dcb307edaf646fda45dd8b5dc0",
+      "resolution": 2.0,
+      "family": "LYSOZYME",
+      "ligandChain": "A",
+      "ligandSeq": "201",
+      "heavyAtoms": 11,
+      "span": 4.963,
+      "hasAltloc": true,
+      "covalent": false,
+      "keepHetero": [],
+      "keptHetero": [],
+      "eligible": true,
+      "reasons": []
+    },
+    {
+      "pdbId": "6YR2",
+      "ligandCode": "T1C",
+      "eligible": false,
+      "reasons": [
+        "cannot fetch 6YR2: HTTP Error 404: Not Found"
+      ]
+    },
+    {
+      "pdbId": "7CD9",
+      "ligandCode": "FVR",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/7CD9.pdb",
+      "sourceSha256": "61fa5e8e8fc6735cf14f332825a1d5bd5be58eb62633a0061dc0d685a596d1c4",
+      "resolution": 2.0,
+      "family": "HISTONE-LYSINE N-METHYLTRANSFERASE SETDB1",
+      "ligandChain": "A",
+      "ligandSeq": "501",
+      "heavyAtoms": 66,
+      "span": 15.398,
+      "hasAltloc": true,
+      "covalent": false,
+      "keepHetero": [],
+      "keptHetero": [],
+      "eligible": false,
+      "reasons": [
+        "ligand heavy atoms 66 outside 8-40"
+      ]
+    },
+    {
+      "pdbId": "7K0V",
+      "ligandCode": "VQP",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/7K0V.pdb",
+      "sourceSha256": "252ad3f9f39c398ae83a19e1891da06f1ee15c40479b70f25e7b203f514ef046",
+      "resolution": 2.0,
+      "family": "NON-SPECIFIC SERINE/THREONINE PROTEIN KINASE",
+      "ligandChain": "A",
+      "ligandSeq": "801",
+      "heavyAtoms": 128,
+      "span": 73.699,
+      "hasAltloc": true,
+      "covalent": false,
+      "keepHetero": [],
+      "keptHetero": [],
+      "eligible": false,
+      "reasons": [
+        "ligand heavy atoms 128 outside 8-40"
+      ]
+    },
+    {
+      "pdbId": "7QGP",
+      "ligandCode": "DJ8",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/7QGP.pdb",
+      "sourceSha256": "4526f22c48152f62838b9cba598443a316dee238d1612b17cf09e04e17b301a0",
+      "resolution": 2.0,
+      "family": "SERINE/THREONINE-PROTEIN KINASE 10",
+      "ligandChain": "A",
+      "ligandSeq": "401",
+      "heavyAtoms": 35,
+      "span": 14.029,
+      "hasAltloc": false,
+      "covalent": false,
+      "keepHetero": [
+        "A:403"
+      ],
+      "keptHetero": [
+        {
+          "residue": "CL",
+          "key": "A:403",
+          "minDistance": 3.207
+        }
+      ],
+      "eligible": true,
+      "reasons": []
+    },
+    {
+      "pdbId": "7MY1",
+      "ligandCode": "IPE",
+      "eligible": false,
+      "reasons": [
+        "cannot fetch 7MY1: HTTP Error 404: Not Found"
+      ]
+    },
+    {
+      "pdbId": "7XJN",
+      "ligandCode": "NSD",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/7XJN.pdb",
+      "sourceSha256": "50c8724f94dc745d202f04a97dd84ae510fd17bf4a754369056a5fe78cd9a891",
+      "resolution": 2.0,
+      "family": "PUTRESCINE-BINDING PERIPLASMIC PROTEIN",
+      "ligandChain": "A",
+      "ligandSeq": "401",
+      "heavyAtoms": 36,
+      "span": 64.513,
+      "hasAltloc": true,
+      "covalent": false,
+      "keepHetero": [],
+      "keptHetero": [],
+      "eligible": true,
+      "reasons": []
+    },
+    {
+      "pdbId": "7UJ4",
+      "ligandCode": "OQ4",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/7UJ4.pdb",
+      "sourceSha256": "30b59fe89652b559d15b99abd77d3586dde8418c26259014d55f972ab7ecd2b6",
+      "resolution": 2.0,
+      "family": "ISOFORM 2 OF MENIN",
+      "ligandChain": "A",
+      "ligandSeq": "601",
+      "heavyAtoms": 88,
+      "span": 35.014,
+      "hasAltloc": false,
+      "covalent": false,
+      "keepHetero": [
+        "A:602",
+        "B:602"
+      ],
+      "keptHetero": [
+        {
+          "residue": "MG",
+          "key": "A:602",
+          "minDistance": 3.989
+        },
+        {
+          "residue": "MG",
+          "key": "B:602",
+          "minDistance": 4.06
+        }
+      ],
+      "eligible": false,
+      "reasons": [
+        "ligand heavy atoms 88 outside 8-40"
+      ]
+    },
+    {
+      "pdbId": "7AKL",
+      "ligandCode": "RK5",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/7AKL.pdb",
+      "sourceSha256": "4d4422a4831fd40b852e7f167be7df3b223bff893144856e7f5728256083c4df",
+      "resolution": 2.0,
+      "family": "DUAL SPECIFICITY TYROSINE-PHOSPHORYLATION-REGULATED KINASE",
+      "ligandChain": "A",
+      "ligandSeq": "501",
+      "heavyAtoms": 19,
+      "span": 9.411,
+      "hasAltloc": false,
+      "covalent": false,
+      "keepHetero": [],
+      "keptHetero": [],
+      "eligible": true,
+      "reasons": []
+    },
+    {
+      "pdbId": "7L5F",
+      "ligandCode": "XNG",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/7L5F.pdb",
+      "sourceSha256": "ab3940ce5529bebdf0a7bc5cc861b14d7e1247233d50e28af0a06c6e9e00774c",
+      "resolution": 2.0,
+      "family": "N-ACYL HOMOSERINE LACTONASE AIIA",
+      "ligandChain": "A",
+      "ligandSeq": "304",
+      "heavyAtoms": 18,
+      "span": 10.103,
+      "hasAltloc": true,
+      "covalent": true,
+      "keepHetero": [
+        "A:302",
+        "A:303"
+      ],
+      "keptHetero": [
+        {
+          "residue": "CO",
+          "key": "A:302",
+          "minDistance": 2.059
+        },
+        {
+          "residue": "CO",
+          "key": "A:303",
+          "minDistance": 2.22
+        }
+      ],
+      "eligible": false,
+      "reasons": [
+        "LINK record connects ligand to polymer"
+      ]
+    },
+    {
+      "pdbId": "6Z0R",
+      "ligandCode": "Q4H",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/6Z0R.pdb",
+      "sourceSha256": "ff977d311d11ca61fe2a95bf6f9ed359833f4708b34efa60b941d93ac1e6d6a1",
+      "resolution": 2.0,
+      "family": "PHOSPHORIBOSYLAMINOIMIDAZOLE-SUCCINOCARBOXAMIDE SYNTHASE",
+      "ligandChain": "A",
+      "ligandSeq": "301",
+      "heavyAtoms": 9,
+      "span": 4.665,
+      "hasAltloc": true,
+      "covalent": false,
+      "keepHetero": [],
+      "keptHetero": [],
+      "eligible": true,
+      "reasons": []
+    },
+    {
+      "pdbId": "7L7C",
+      "ligandCode": "XQ1",
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/7L7C.pdb",
+      "sourceSha256": "590926df63c04064d4bc86be8f0e60d4004f967a1084ca4a9f99519d24feab79",
+      "resolution": 2.0,
+      "family": "THIOL:DISULFIDE INTERCHANGE PROTEIN DSBA",
+      "ligandChain": "A",
+      "ligandSeq": "201",
+      "heavyAtoms": 21,
+      "span": 9.631,
+      "hasAltloc": true,
+      "covalent": false,
+      "keepHetero": [],
+      "keptHetero": [],
+      "eligible": true,
+      "reasons": []
+    }
+  ]
+}

@@ -87,7 +87,7 @@ class ScreeningStartRequest(BaseModel):
             "budget). Omit to use max(1, cpu_count-1)."
         ),
     )
-    seed: int = 0
+    seed: int = 42
     noRefine: bool = False
     engine: Literal["vina"] = "vina"
 

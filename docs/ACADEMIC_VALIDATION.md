@@ -2,11 +2,23 @@
 
 **English** · [简体中文](ACADEMIC_VALIDATION.zh-CN.md) · [Home](../README.en.md)
 
-**Report version:** 1.0  
-**Software version:** 0.6.4 (development tree)  
-**Report date:** 2026-10-29  
+**Report version:** 1.1
+**Software version:** 0.6.5 (release tree)
+**Report date:** 2026-11-02
 **Status:** reproducible software-validation report, not a peer-reviewed
 benchmark paper.
+
+> **Development addendum (2026-11-02, 0.6.6 worktree).** An open PoseBusters
+> 4-target pilot was run as a plumbing check: v1 1/4, v2 3/4 (5SIS remains a
+> failure). It is **not** part of the 0.6.5 result. A separate pre-registered
+> 12-target open set (pilot IDs excluded) was then run with five seeds:
+> **60/60 passed**, mean top-1 RMSD **0.5343 Å** (bootstrap 95% CI
+> [0.4710, 0.6020] Å). This is a result for that open set only, not a universal
+> accuracy, affinity, or enrichment claim. Official PoseBusters 0.6.5 `redock` was run against the prepared condition:
+> top pose 60/60, all poses 7/60. Evidence:
+> [`validation/benchmark/records/2026-11-02-open-posebusters-v1/`](../validation/benchmark/records/2026-11-02-open-posebusters-v1/).
+> Pilot evidence remains in
+> [`validation/benchmark/records/2026-11-02-open-pilot/`](../validation/benchmark/records/2026-11-02-open-pilot/).
 
 > **One-sentence scope.** This report tests whether VinaStudio's preparation,
 > docking, pose-recovery, geometry-check and reporting path is reproducible on
@@ -59,7 +71,7 @@ generated report field, or a cited source, it is marked as a limitation.
 
 ### 3.1 Docking engine
 
-VinaStudio 0.6.4 drives **AutoDock Vina 1.2.7** through either the Python API
+VinaStudio 0.6.5 drives **AutoDock Vina 1.2.7** through either the Python API
 or the official command-line binary. The report records which backend was used;
 the two are the same engine, not two scoring methods. The Vina scoring function
 and search procedure are described by Trott & Olson [1]; the 1.2.x API and force
@@ -191,7 +203,7 @@ Environment recorded by the report generator:
 
 | Item | Value |
 |---|---|
-| App version | 0.6.4 |
+| App version | 0.6.5 |
 | Python | 3.12.14 |
 | Platform | Linux x86_64 |
 | Vina | 1.2.7 |
@@ -202,7 +214,7 @@ Environment recorded by the report generator:
 | gemmi | 0.7.5 |
 | Engine backend | `vina` Python API |
 | CPU count | 8 |
-| Git commit | recorded by the report; the draft run was generated from a dirty working tree |
+| Git commit | `94ccd73` (clean 0.6.5 rerun; release tag `v0.6.5`, release commit `1021850`) |
 
 The 1IEP protocol:
 
@@ -295,7 +307,7 @@ approximation, not a cosmetic label.
 
 ### 6.4 CLI/API equivalence
 
-`tests/integration/test_vina_cli_backend.py` passes **9/9** tests, including
+`tests/integration/pipeline/test_vina_cli_backend.py` passes **9/9** tests, including
 identical pose counts and per-pose energies within 0.01 kcal/mol at fixed
 seed/exhaustiveness, plus the result contract. It does not compare coordinates;
 the wording here says energy-level agreement, not pose-for-pose geometric
@@ -432,13 +444,13 @@ provenance.
 
 | Claim | Evidence | Result |
 |---|---|---|
-| 1IEP ligand preparation matches upstream after charge normalization | `tests/integration/test_ligand_prep.py` | pass |
-| 1IEP receptor has 2702 atoms and documented element counts | `tests/integration/test_receptor_prep.py`, golden test | pass |
+| 1IEP ligand preparation matches upstream after charge normalization | `tests/integration/pipeline/test_ligand_prep.py` | pass |
+| 1IEP receptor has 2702 atoms and documented element counts | `tests/integration/pipeline/test_receptor_prep.py`, golden test | pass |
 | Top-ranked pose is within 2 Å of the PDB-coordinate reference | generated `validation-report.json` | 0.353 Å |
 | Poses satisfy the six project checks | generated report | 0 errors, 0 warnings |
-| CLI and API agree at fixed protocol | `tests/integration/test_vina_cli_backend.py` | 9/9 pass |
-| Invalid box is rejected | `tests/unit/test_box.py`, `tests/integration/test_docking_api.py` | pass |
-| Missing optional case is skipped, not passed | `tests/unit/test_validation.py` | pass |
+| CLI and API agree at fixed protocol | `tests/integration/pipeline/test_vina_cli_backend.py` | 9/9 pass |
+| Invalid box is rejected | `tests/unit/core/test_box.py`, `tests/integration/api/test_docking_api.py` | pass |
+| Missing optional case is skipped, not passed | `tests/unit/tools/benchmark/test_validation.py` | pass |
 | Reference graph is consistent with the docked ligand | harness provenance + `reference_matches_poses` | true (both derive from the tutorial SDF) |
 | No enrichment/accuracy claim is made | this report + no dataset run | explicit non-claim |
 
@@ -474,3 +486,4 @@ licences permit redistribution are included in this repository.
 | Version | Date | Change |
 |---|---|---|
 | 1.0 | 2026-10-29 | Initial 0.6.4 report; independent 1IEP reference; provenance schema; heavy-atom clash check. |
+| 1.1 | 2026-11-02 | Clean 0.6.5 rerun; result −13.286 kcal/mol / 0.353 Å, 5 poses, 0 geometry errors; protocol and limitations unchanged. |

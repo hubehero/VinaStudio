@@ -68,7 +68,7 @@ class DockingRequest(BaseModel):
     minRmsd: float = Field(default=1.0, ge=0)
     maxEvals: int = Field(default=0, ge=0)
     cpu: int = Field(default=0, ge=0)
-    seed: int = Field(default=0, ge=0)
+    seed: int = Field(default=42, ge=0)
     noRefine: bool = False
     verbosity: int = Field(default=1, ge=0, le=2)
     spacing: float = Field(default=0.375, gt=0)
@@ -619,7 +619,7 @@ class EnsembleDockingRequest(BaseModel):
     minRmsd: float = 1.0
     maxEvals: int = 0
     cpu: int = 0
-    seed: int = 0
+    seed: int = 42
     noRefine: bool = False
     verbosity: int = 1
     spacing: float = 0.375
@@ -689,7 +689,7 @@ class BatchDockingRequest(BaseModel):
             "the memory budget). Omit to use max(1, cpu_count-1)."
         ),
     )
-    seed: int = 0
+    seed: int = 42
     noRefine: bool = False
     weights: list[float] | None = None
     engine: Literal["vina", "vina-cli"] = Field(

@@ -18,7 +18,7 @@ export const useDockingFormStore = defineStore('docking-form', () => {
   const minRmsd = ref(1.0)
   const maxEvals = ref(0)
   const cpu = ref(0)
-  const seed = ref(0)
+  const seed = ref(42)
   const noRefine = ref(false)
   const verbosity = ref(1)
   const mapPathsRaw = ref('')
@@ -72,7 +72,7 @@ export const useDockingFormStore = defineStore('docking-form', () => {
     minRmsd.value = 1.0
     maxEvals.value = 0
     cpu.value = 0
-    seed.value = 0
+    seed.value = 42
     noRefine.value = false
     verbosity.value = 1
     mapPathsRaw.value = ''

@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import logging
 import mimetypes
+import shutil
 import sqlite3
 import threading
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -859,6 +861,16 @@ def rebuild_catalog() -> dict[str, Any]:
     if workspace is None:
         raise InvalidInputError("no workspace configured")
     path = db.catalog_path()
-    # Explicit rebuild re-imports legacy sources; the catalog itself is not
-    # deleted, so user-created collections/libraries remain.
-    return migrate.import_legacy(workspace, path)
+    # Preserve the current database before an explicit rebuild.  The import is
+    # additive and idempotent, but a backup makes a bad schema/migration
+    # recoverable without hand-editing the workspace.
+    backup: str | None = None
+    if path.is_file():
+        target = path.with_name(
+            f"{path.name}.bak-{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}"
+        )
+        shutil.copy2(path, target)
+        backup = str(target)
+    result = migrate.import_legacy(workspace, path)
+    result["backup"] = backup
+    return result

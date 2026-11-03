@@ -33,7 +33,7 @@ class DockingParams:
     min_rmsd: float = 1.0
     max_evals: int = 0
     cpu: int = 0
-    seed: int = 0
+    seed: int = 42
     no_refine: bool = False
     verbosity: int = 1
     spacing: float = 0.375

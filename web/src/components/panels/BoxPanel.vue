@@ -119,7 +119,7 @@ async function runScreen(): Promise<void> {
     })),
     exhaustiveness: screenExhaustiveness.value,
     nPoses: 5,
-    seed: 0,
+    seed: 42,
   })
 }
 

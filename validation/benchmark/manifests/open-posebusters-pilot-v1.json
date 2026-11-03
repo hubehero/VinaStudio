@@ -1,0 +1,180 @@
+{
+  "formatVersion": "1.1",
+  "dataset": {
+    "id": "open-posebusters-pilot-v1",
+    "name": "Open PoseBusters pilot",
+    "licenseSummary": [
+      "CC0-1.0",
+      "MIT"
+    ],
+    "redistributable": true
+  },
+  "resources": [
+    {
+      "path": "open/pilot/5SB2/5SB2.pdb",
+      "url": "https://files.rcsb.org/download/5SB2.pdb",
+      "sha256": "70ff623629b79cf975efd8774f7aff7af339d6c9983f78a41b04b99fa76f809f"
+    },
+    {
+      "path": "open/pilot/5SB2/1K2.sdf",
+      "url": "https://files.rcsb.org/ligands/download/1K2_ideal.sdf",
+      "sha256": "be12f8537703e8ca43323a258a5264d6187986008b9f12eacb0563d40495ab60"
+    },
+    {
+      "path": "open/pilot/5SD5/5SD5.pdb",
+      "url": "https://files.rcsb.org/download/5SD5.pdb",
+      "sha256": "55fb183e67fd3e53ffea8d3b2fd0a8cb421fcd2da7aff06d7f769fb73aadbc2b"
+    },
+    {
+      "path": "open/pilot/5SD5/HWI.sdf",
+      "url": "https://files.rcsb.org/ligands/download/HWI_ideal.sdf",
+      "sha256": "7c350c465ff78bcb1b7847e7439a0dee07435d0cd56291e55080382b5feec8dc"
+    },
+    {
+      "path": "open/pilot/5SIS/5SIS.pdb",
+      "url": "https://files.rcsb.org/download/5SIS.pdb",
+      "sha256": "cffa76f859e3b1a60d01787c82a79f541db447813de333fecdf89df01aca279a"
+    },
+    {
+      "path": "open/pilot/5SIS/JSM.sdf",
+      "url": "https://files.rcsb.org/ligands/download/JSM_ideal.sdf",
+      "sha256": "481b75cac5038be87d43caa82b5f948e9d5000a089edd8c58a0fdbc5e47bc5fb"
+    },
+    {
+      "path": "open/pilot/6M2B/6M2B.pdb",
+      "url": "https://files.rcsb.org/download/6M2B.pdb",
+      "sha256": "5543a295196e10810f4ed22b0660a63dfdda68a17fc4f0eba103df50de154fcf"
+    },
+    {
+      "path": "open/pilot/6M2B/EZO.sdf",
+      "url": "https://files.rcsb.org/ligands/download/EZO_ideal.sdf",
+      "sha256": "b2a0ced44acc075bd4f9c73ef3db9b7c0b1f6877260dc212e0ddc7072d513d53"
+    }
+  ],
+  "cases": [
+    {
+      "id": "5sb2",
+      "name": "5SB2 1K2 redocking pilot",
+      "receptor": ".benchmark-data/open/pilot/5SB2/5SB2.pdb",
+      "ligand": ".benchmark-data/open/pilot/5SB2/1K2.sdf",
+      "reference": ".benchmark-data/open/pilot/5SB2/5SB2_reference.sdf",
+      "referenceSource": "RCSB PDB 5SB2 HETATM 1K2 chain A 1006; coordinates over CCD 1K2 graph",
+      "center": [
+        -22.44,
+        0.413,
+        -2.536
+      ],
+      "size": [
+        22.0,
+        22.0,
+        22.0
+      ],
+      "exhaustiveness": 8,
+      "nPoses": 9,
+      "seed": 42,
+      "rmsdThreshold": 2.0,
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/5SB2.pdb",
+      "accessedAt": "2026-11-02",
+      "sourceSha256": "70ff623629b79cf975efd8774f7aff7af339d6c9983f78a41b04b99fa76f809f",
+      "targetFamily": "PoseBusters pilot",
+      "ligandChain": "A",
+      "ligandResidue": "1K2"
+    },
+    {
+      "id": "5sd5",
+      "name": "5SD5 HWI redocking pilot",
+      "receptor": ".benchmark-data/open/pilot/5SD5/5SD5.pdb",
+      "ligand": ".benchmark-data/open/pilot/5SD5/HWI.sdf",
+      "reference": ".benchmark-data/open/pilot/5SD5/5SD5_reference.sdf",
+      "referenceSource": "RCSB PDB 5SD5 HETATM HWI chain A 202; coordinates over CCD HWI graph",
+      "center": [
+        6.051,
+        2.116,
+        14.158
+      ],
+      "size": [
+        22.0,
+        22.0,
+        22.0
+      ],
+      "exhaustiveness": 8,
+      "nPoses": 9,
+      "seed": 42,
+      "rmsdThreshold": 2.0,
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/5SD5.pdb",
+      "accessedAt": "2026-11-02",
+      "sourceSha256": "55fb183e67fd3e53ffea8d3b2fd0a8cb421fcd2da7aff06d7f769fb73aadbc2b",
+      "targetFamily": "PoseBusters pilot",
+      "ligandChain": "A",
+      "ligandResidue": "HWI"
+    },
+    {
+      "id": "5sis",
+      "name": "5SIS JSM redocking pilot",
+      "receptor": ".benchmark-data/open/pilot/5SIS/5SIS.pdb",
+      "ligand": ".benchmark-data/open/pilot/5SIS/JSM.sdf",
+      "reference": ".benchmark-data/open/pilot/5SIS/5SIS_reference.sdf",
+      "referenceSource": "RCSB PDB 5SIS HETATM JSM chain A 803; coordinates over CCD JSM graph",
+      "center": [
+        32.257,
+        108.568,
+        58.361
+      ],
+      "size": [
+        22.0,
+        22.0,
+        22.0
+      ],
+      "exhaustiveness": 8,
+      "nPoses": 9,
+      "seed": 42,
+      "rmsdThreshold": 2.0,
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/5SIS.pdb",
+      "accessedAt": "2026-11-02",
+      "sourceSha256": "cffa76f859e3b1a60d01787c82a79f541db447813de333fecdf89df01aca279a",
+      "targetFamily": "PoseBusters pilot",
+      "ligandChain": "A",
+      "ligandResidue": "JSM"
+    },
+    {
+      "id": "6m2b",
+      "name": "6M2B EZO redocking pilot",
+      "receptor": ".benchmark-data/open/pilot/6M2B/6M2B.pdb",
+      "ligand": ".benchmark-data/open/pilot/6M2B/EZO.sdf",
+      "reference": ".benchmark-data/open/pilot/6M2B/6M2B_reference.sdf",
+      "referenceSource": "RCSB PDB 6M2B HETATM EZO chain A 403; coordinates over CCD EZO graph",
+      "center": [
+        27.402,
+        -22.631,
+        22.529
+      ],
+      "size": [
+        22.0,
+        22.0,
+        22.0
+      ],
+      "exhaustiveness": 8,
+      "nPoses": 9,
+      "seed": 42,
+      "rmsdThreshold": 2.0,
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "sourceUrl": "https://files.rcsb.org/download/6M2B.pdb",
+      "accessedAt": "2026-11-02",
+      "sourceSha256": "5543a295196e10810f4ed22b0660a63dfdda68a17fc4f0eba103df50de154fcf",
+      "targetFamily": "PoseBusters pilot",
+      "ligandChain": "A",
+      "ligandResidue": "EZO"
+    }
+  ]
+}

@@ -1,0 +1,585 @@
+{
+  "formatVersion": "2.1",
+  "generatedAt": "2026-11-02T14:09:16+00:00",
+  "environment": {
+    "appVersion": "0.6.6",
+    "python": "3.12.14",
+    "platform": "Linux 7.0.0-42-generic (x86_64)",
+    "cpuCount": "8",
+    "vina": "1.2.7",
+    "meeko": "0.8.0",
+    "rdkit": "2026.9.1",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "gemmi": "0.7.5",
+    "gitCommit": "94ccd739d45aa261558691ffa13af022d320b2dc",
+    "gitDirty": "yes",
+    "engineBackend": "vina",
+    "engineReason": "the vina Python module is installed"
+  },
+  "dataset": {
+    "id": "open-posebusters-pilot-v2",
+    "name": "Open PoseBusters pilot v2 (cofactor-aware)",
+    "licenseSummary": [
+      "CC0-1.0",
+      "MIT"
+    ],
+    "redistributable": true
+  },
+  "summary": {
+    "total": 4,
+    "passed": 3,
+    "failed": 1,
+    "skipped": 0
+  },
+  "cases": [
+    {
+      "id": "5sb2",
+      "name": "5SB2 1K2 redocking pilot",
+      "status": "passed",
+      "reason": "",
+      "bestAffinity": -12.446,
+      "bestRmsd": 0.5078213596663035,
+      "poseCount": 5,
+      "receptorAtoms": 2729,
+      "ligandAtoms": 32,
+      "box": {
+        "center": [
+          -22.44,
+          0.413,
+          -2.536
+        ],
+        "size": [
+          22.0,
+          22.0,
+          22.0
+        ],
+        "spacing": 0.375,
+        "forceEvenVoxels": false,
+        "voxels": [
+          59,
+          59,
+          59
+        ],
+        "gridPoints": [
+          60,
+          60,
+          60
+        ],
+        "volume": 10648.0,
+        "canWriteMaps": false
+      },
+      "checks": [],
+      "worstCheck": null,
+      "errorPoses": 0,
+      "warningPoses": 0,
+      "receptorWarnings": [
+        "histidine tautomer unresolved (no HD1/HE2); defaulted to HIE: A:625, A:648, A:716, A:739, A:758, A:896",
+        "Removed 7 residue(s) with alternate locations: A:631, A:644, A:645, A:646, A:648, A:678, A:792"
+      ],
+      "ligandWarnings": [],
+      "provenance": {
+        "inputs": {
+          "receptor": {
+            "path": ".benchmark-data/open/pilot/5SB2/5SB2.pdb",
+            "exists": true,
+            "bytes": 243081,
+            "sha256": "70ff623629b79cf975efd8774f7aff7af339d6c9983f78a41b04b99fa76f809f"
+          },
+          "ligand": {
+            "path": ".benchmark-data/open/pilot/5SB2/1K2.sdf",
+            "exists": true,
+            "bytes": 3554,
+            "sha256": "be12f8537703e8ca43323a258a5264d6187986008b9f12eacb0563d40495ab60"
+          },
+          "reference": {
+            "path": ".benchmark-data/open/pilot/5SB2/5SB2_reference.sdf",
+            "exists": true,
+            "bytes": 2637,
+            "sha256": "5813d398b255dbbf1ff776624b2dc0c8618336e1247ffcdb081b122eb495719b"
+          }
+        },
+        "reference": {
+          "source": "RCSB PDB 5SB2 HETATM 1K2 chain A 1006; coordinates over CCD 1K2 graph",
+          "independentFromLigand": true,
+          "matchesDockedPose": true
+        },
+        "parameters": {
+          "engine": "vina",
+          "scoring": "vina",
+          "weights": null,
+          "exhaustiveness": 8,
+          "nPoses": 9,
+          "seed": 42,
+          "energyRange": 3.0,
+          "minRmsd": 1.0,
+          "maxEvals": 0,
+          "cpu": 0,
+          "noRefine": false,
+          "spacing": 0.375,
+          "forceEvenVoxels": false,
+          "boxSource": "explicit",
+          "box": {
+            "center": [
+              -22.44,
+              0.413,
+              -2.536
+            ],
+            "size": [
+              22.0,
+              22.0,
+              22.0
+            ],
+            "spacing": 0.375,
+            "forceEvenVoxels": false,
+            "voxels": [
+              59,
+              59,
+              59
+            ],
+            "gridPoints": [
+              60,
+              60,
+              60
+            ],
+            "volume": 10648.0,
+            "canWriteMaps": false
+          },
+          "allowBadResidues": false,
+          "defaultAltloc": "",
+          "keepHetero": []
+        },
+        "receptor": {
+          "atoms": 2729,
+          "warnings": [
+            "histidine tautomer unresolved (no HD1/HE2); defaulted to HIE: A:625, A:648, A:716, A:739, A:758, A:896",
+            "Removed 7 residue(s) with alternate locations: A:631, A:644, A:645, A:646, A:648, A:678, A:792"
+          ]
+        },
+        "ligand": {
+          "atoms": 32,
+          "warnings": []
+        }
+      },
+      "elapsedMs": 16862,
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "localOnly": false,
+      "targetFamily": "PoseBusters pilot"
+    },
+    {
+      "id": "5sd5",
+      "name": "5SD5 HWI redocking pilot",
+      "status": "passed",
+      "reason": "",
+      "bestAffinity": -8.355,
+      "bestRmsd": 0.5839510489640437,
+      "poseCount": 9,
+      "receptorAtoms": 1640,
+      "ligandAtoms": 34,
+      "box": {
+        "center": [
+          6.051,
+          2.116,
+          14.158
+        ],
+        "size": [
+          22.0,
+          22.0,
+          22.0
+        ],
+        "spacing": 0.375,
+        "forceEvenVoxels": false,
+        "voxels": [
+          59,
+          59,
+          59
+        ],
+        "gridPoints": [
+          60,
+          60,
+          60
+        ],
+        "volume": 10648.0,
+        "canWriteMaps": false
+      },
+      "checks": [],
+      "worstCheck": null,
+      "errorPoses": 0,
+      "warningPoses": 0,
+      "receptorWarnings": [
+        "histidine tautomer unresolved (no HD1/HE2); defaulted to HIE: A:0, A:30, A:38, A:157",
+        "1 residues were not matched by Meeko's templates and were excluded from the receptor"
+      ],
+      "ligandWarnings": [],
+      "provenance": {
+        "inputs": {
+          "receptor": {
+            "path": ".benchmark-data/open/pilot/5SD5/5SD5.pdb",
+            "exists": true,
+            "bytes": 294516,
+            "sha256": "55fb183e67fd3e53ffea8d3b2fd0a8cb421fcd2da7aff06d7f769fb73aadbc2b"
+          },
+          "ligand": {
+            "path": ".benchmark-data/open/pilot/5SD5/HWI.sdf",
+            "exists": true,
+            "bytes": 3924,
+            "sha256": "7c350c465ff78bcb1b7847e7439a0dee07435d0cd56291e55080382b5feec8dc"
+          },
+          "reference": {
+            "path": ".benchmark-data/open/pilot/5SD5/5SD5_reference.sdf",
+            "exists": true,
+            "bytes": 2528,
+            "sha256": "353899b7e448293f37352956ac3b02aa7db2de0338b3046ca642afb9f084d57d"
+          }
+        },
+        "reference": {
+          "source": "RCSB PDB 5SD5 HETATM HWI chain A 202; coordinates over CCD HWI graph",
+          "independentFromLigand": true,
+          "matchesDockedPose": true
+        },
+        "parameters": {
+          "engine": "vina",
+          "scoring": "vina",
+          "weights": null,
+          "exhaustiveness": 8,
+          "nPoses": 9,
+          "seed": 42,
+          "energyRange": 3.0,
+          "minRmsd": 1.0,
+          "maxEvals": 0,
+          "cpu": 0,
+          "noRefine": false,
+          "spacing": 0.375,
+          "forceEvenVoxels": false,
+          "boxSource": "explicit",
+          "box": {
+            "center": [
+              6.051,
+              2.116,
+              14.158
+            ],
+            "size": [
+              22.0,
+              22.0,
+              22.0
+            ],
+            "spacing": 0.375,
+            "forceEvenVoxels": false,
+            "voxels": [
+              59,
+              59,
+              59
+            ],
+            "gridPoints": [
+              60,
+              60,
+              60
+            ],
+            "volume": 10648.0,
+            "canWriteMaps": false
+          },
+          "allowBadResidues": true,
+          "defaultAltloc": "A",
+          "keepHetero": [
+            "A:201"
+          ]
+        },
+        "receptor": {
+          "atoms": 1640,
+          "warnings": [
+            "histidine tautomer unresolved (no HD1/HE2); defaulted to HIE: A:0, A:30, A:38, A:157",
+            "1 residues were not matched by Meeko's templates and were excluded from the receptor"
+          ]
+        },
+        "ligand": {
+          "atoms": 34,
+          "warnings": []
+        }
+      },
+      "elapsedMs": 23468,
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "localOnly": false,
+      "targetFamily": "PoseBusters pilot"
+    },
+    {
+      "id": "5sis",
+      "name": "5SIS JSM redocking pilot",
+      "status": "failed",
+      "reason": "best RMSD 5.714 Å exceeds 2.000 Å",
+      "bestAffinity": -8.941,
+      "bestRmsd": 5.7140105907541,
+      "poseCount": 9,
+      "receptorAtoms": 3049,
+      "ligandAtoms": 34,
+      "box": {
+        "center": [
+          32.257,
+          108.568,
+          58.361
+        ],
+        "size": [
+          22.0,
+          22.0,
+          22.0
+        ],
+        "spacing": 0.375,
+        "forceEvenVoxels": false,
+        "voxels": [
+          59,
+          59,
+          59
+        ],
+        "gridPoints": [
+          60,
+          60,
+          60
+        ],
+        "volume": 10648.0,
+        "canWriteMaps": false
+      },
+      "checks": [],
+      "worstCheck": null,
+      "errorPoses": 0,
+      "warningPoses": 0,
+      "receptorWarnings": [
+        "histidine tautomer unresolved (no HD1/HE2); defaulted to HIE: A:476, A:495, A:525, A:529, A:535, A:545, A:563, A:567, A:580, A:594, A:595, A:608, A:661",
+        "Removed 6 residue(s) with alternate locations: A:461, A:573, A:576, A:718, A:742, A:756"
+      ],
+      "ligandWarnings": [],
+      "provenance": {
+        "inputs": {
+          "receptor": {
+            "path": ".benchmark-data/open/pilot/5SIS/5SIS.pdb",
+            "exists": true,
+            "bytes": 285525,
+            "sha256": "cffa76f859e3b1a60d01787c82a79f541db447813de333fecdf89df01aca279a"
+          },
+          "ligand": {
+            "path": ".benchmark-data/open/pilot/5SIS/JSM.sdf",
+            "exists": true,
+            "bytes": 4011,
+            "sha256": "481b75cac5038be87d43caa82b5f948e9d5000a089edd8c58a0fdbc5e47bc5fb"
+          },
+          "reference": {
+            "path": ".benchmark-data/open/pilot/5SIS/5SIS_reference.sdf",
+            "exists": true,
+            "bytes": 2790,
+            "sha256": "73a21e117fce46bcd56c0028670b9cef670e35e07ea9770e8f6ef268f8f1ea63"
+          }
+        },
+        "reference": {
+          "source": "RCSB PDB 5SIS HETATM JSM chain A 803; coordinates over CCD JSM graph",
+          "independentFromLigand": true,
+          "matchesDockedPose": true
+        },
+        "parameters": {
+          "engine": "vina",
+          "scoring": "vina",
+          "weights": null,
+          "exhaustiveness": 8,
+          "nPoses": 9,
+          "seed": 42,
+          "energyRange": 3.0,
+          "minRmsd": 1.0,
+          "maxEvals": 0,
+          "cpu": 0,
+          "noRefine": false,
+          "spacing": 0.375,
+          "forceEvenVoxels": false,
+          "boxSource": "explicit",
+          "box": {
+            "center": [
+              32.257,
+              108.568,
+              58.361
+            ],
+            "size": [
+              22.0,
+              22.0,
+              22.0
+            ],
+            "spacing": 0.375,
+            "forceEvenVoxels": false,
+            "voxels": [
+              59,
+              59,
+              59
+            ],
+            "gridPoints": [
+              60,
+              60,
+              60
+            ],
+            "volume": 10648.0,
+            "canWriteMaps": false
+          },
+          "allowBadResidues": false,
+          "defaultAltloc": "",
+          "keepHetero": [
+            "A:801",
+            "A:802"
+          ]
+        },
+        "receptor": {
+          "atoms": 3049,
+          "warnings": [
+            "histidine tautomer unresolved (no HD1/HE2); defaulted to HIE: A:476, A:495, A:525, A:529, A:535, A:545, A:563, A:567, A:580, A:594, A:595, A:608, A:661",
+            "Removed 6 residue(s) with alternate locations: A:461, A:573, A:576, A:718, A:742, A:756"
+          ]
+        },
+        "ligand": {
+          "atoms": 34,
+          "warnings": []
+        }
+      },
+      "elapsedMs": 25206,
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "localOnly": false,
+      "targetFamily": "PoseBusters pilot"
+    },
+    {
+      "id": "6m2b",
+      "name": "6M2B EZO redocking pilot",
+      "status": "passed",
+      "reason": "",
+      "bestAffinity": -10.179,
+      "bestRmsd": 1.6304686933517007,
+      "poseCount": 9,
+      "receptorAtoms": 3410,
+      "ligandAtoms": 26,
+      "box": {
+        "center": [
+          27.402,
+          -22.631,
+          22.529
+        ],
+        "size": [
+          22.0,
+          22.0,
+          22.0
+        ],
+        "spacing": 0.375,
+        "forceEvenVoxels": false,
+        "voxels": [
+          59,
+          59,
+          59
+        ],
+        "gridPoints": [
+          60,
+          60,
+          60
+        ],
+        "volume": 10648.0,
+        "canWriteMaps": false
+      },
+      "checks": [],
+      "worstCheck": null,
+      "errorPoses": 0,
+      "warningPoses": 0,
+      "receptorWarnings": [
+        "histidine tautomer unresolved (no HD1/HE2); defaulted to HIE: A:41, A:56, A:86, A:101, A:152, A:159, A:248, A:394",
+        "Removed 9 residue(s) with alternate locations: A:149, A:155, A:174, A:197, A:312, A:313, A:337, A:362, A:42"
+      ],
+      "ligandWarnings": [],
+      "provenance": {
+        "inputs": {
+          "receptor": {
+            "path": ".benchmark-data/open/pilot/6M2B/6M2B.pdb",
+            "exists": true,
+            "bytes": 293139,
+            "sha256": "5543a295196e10810f4ed22b0660a63dfdda68a17fc4f0eba103df50de154fcf"
+          },
+          "ligand": {
+            "path": ".benchmark-data/open/pilot/6M2B/EZO.sdf",
+            "exists": true,
+            "bytes": 2768,
+            "sha256": "b2a0ced44acc075bd4f9c73ef3db9b7c0b1f6877260dc212e0ddc7072d513d53"
+          },
+          "reference": {
+            "path": ".benchmark-data/open/pilot/6M2B/6M2B_reference.sdf",
+            "exists": true,
+            "bytes": 2196,
+            "sha256": "73eab62f088e12d7672c17166d6ee81d197f8bae9abec0918df0b3c45b2ade89"
+          }
+        },
+        "reference": {
+          "source": "RCSB PDB 6M2B HETATM EZO chain A 403; coordinates over CCD EZO graph",
+          "independentFromLigand": true,
+          "matchesDockedPose": true
+        },
+        "parameters": {
+          "engine": "vina",
+          "scoring": "vina",
+          "weights": null,
+          "exhaustiveness": 8,
+          "nPoses": 9,
+          "seed": 42,
+          "energyRange": 3.0,
+          "minRmsd": 1.0,
+          "maxEvals": 0,
+          "cpu": 0,
+          "noRefine": false,
+          "spacing": 0.375,
+          "forceEvenVoxels": false,
+          "boxSource": "explicit",
+          "box": {
+            "center": [
+              27.402,
+              -22.631,
+              22.529
+            ],
+            "size": [
+              22.0,
+              22.0,
+              22.0
+            ],
+            "spacing": 0.375,
+            "forceEvenVoxels": false,
+            "voxels": [
+              59,
+              59,
+              59
+            ],
+            "gridPoints": [
+              60,
+              60,
+              60
+            ],
+            "volume": 10648.0,
+            "canWriteMaps": false
+          },
+          "allowBadResidues": false,
+          "defaultAltloc": "",
+          "keepHetero": [
+            "A:401",
+            "A:402"
+          ]
+        },
+        "receptor": {
+          "atoms": 3410,
+          "warnings": [
+            "histidine tautomer unresolved (no HD1/HE2); defaulted to HIE: A:41, A:56, A:86, A:101, A:152, A:159, A:248, A:394",
+            "Removed 9 residue(s) with alternate locations: A:149, A:155, A:174, A:197, A:312, A:313, A:337, A:362, A:42"
+          ]
+        },
+        "ligand": {
+          "atoms": 26,
+          "warnings": []
+        }
+      },
+      "elapsedMs": 16368,
+      "source": "PDB",
+      "license": "CC0-1.0",
+      "redistributable": true,
+      "localOnly": false,
+      "targetFamily": "PoseBusters pilot"
+    }
+  ]
+}

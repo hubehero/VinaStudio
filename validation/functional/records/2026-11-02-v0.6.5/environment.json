@@ -1,0 +1,79 @@
+{
+  "schemaVersion": "1.0",
+  "generatedAt": "2026-11-02T10:21:52+00:00",
+  "purpose": "clean 0.6.5 functional and 1IEP software-control evidence; not a docking-accuracy benchmark",
+  "software": {
+    "appVersion": "0.6.5",
+    "gitHead": "94ccd739d45aa261558691ffa13af022d320b2dc",
+    "gitDirty": true,
+    "releaseTag": "v0.6.5",
+    "releaseCommit": "1021850"
+  },
+  "runtime": {
+    "appVersion": "0.6.5",
+    "python": "3.12.14",
+    "platform": "Linux 7.0.0-42-generic (x86_64)",
+    "cpuCount": "8",
+    "vina": "1.2.7",
+    "meeko": "0.8.0",
+    "rdkit": "2026.9.1",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "gemmi": "0.7.5",
+    "gitCommit": "94ccd739d45aa261558691ffa13af022d320b2dc",
+    "gitDirty": "no",
+    "engineBackend": "vina",
+    "engineReason": "the vina Python module is installed"
+  },
+  "inputs": {
+    "1iep_receptorH.pdb": {
+      "path": "vinastudio/resources/sample/1iep/1iep_receptorH.pdb",
+      "sha256": "5f6aee6029f9a2a2c2be32d4eb948ae70808690573e1b69a0850cdffd7048ca7",
+      "bytes": 357444
+    },
+    "1iep_ligand.sdf": {
+      "path": "vinastudio/resources/sample/1iep/1iep_ligand.sdf",
+      "sha256": "051b8742c32adc05c07fb486a4e7c9327f84e131cee33ac4e6a568d07553eb38",
+      "bytes": 6621
+    },
+    "1iep_reference.sdf": {
+      "path": "vinastudio/resources/sample/1iep/1iep_reference.sdf",
+      "sha256": "1bcc3920c107e60300fb7ac7fbe4d332c0ae2eb9b75baf2f7b7978f124343700",
+      "bytes": 3242
+    },
+    "1iep_crystal_ligand.pdb": {
+      "path": "vinastudio/resources/sample/1iep/1iep_crystal_ligand.pdb",
+      "sha256": "8ad50e10d641f5ad3fcdbeb2ad409d1af9850eedd95484b33f9608630cc066bd",
+      "bytes": 5998
+    },
+    "manifest.json": {
+      "path": "validation/manifest.json",
+      "sha256": "9e80518619135e84928d72a738e425cd0a05cc8778e27995eb410c391e34bd85",
+      "bytes": 750
+    }
+  },
+  "suites": {
+    "backend": {
+      "command": "uv run pytest -q",
+      "tests": 830,
+      "result": "passed",
+      "evidence": "raw/pytest-junit.xml"
+    },
+    "frontend": {
+      "tests": 27,
+      "files": 9,
+      "result": "passed",
+      "evidence": "raw/frontend-test.log"
+    },
+    "scientificControl": {
+      "command": "uv run python scripts/validate_benchmark.py --case 1iep --out-dir validation-output/0.6.5-2026-11-02",
+      "result": "passed",
+      "evidence": "validation-report.json"
+    }
+  },
+  "commands": {
+    "backend": "uv run pytest -q --junitxml=validation/functional/records/2026-11-02-v0.6.5/raw/pytest-junit.xml",
+    "frontend": "pnpm -C web typecheck && pnpm -C web test && pnpm -C web build",
+    "scientific": "uv run python scripts/validate_benchmark.py --case 1iep --out-dir validation-output/0.6.5-2026-11-02"
+  }
+}

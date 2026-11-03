@@ -11,13 +11,14 @@
 Python 模块时走 API，Windows 上走随包命令行二进制——分子参数化与格式转换由
 **Meeko** 完成。
 
-**文档入口：** [用户手册](docs/USER_GUIDE.zh-CN.md) · [Windows 支持](docs/WINDOWS.zh-CN.md) · [架构](docs/ARCHITECTURE.zh-CN.md) · [更新记录](CHANGELOG.md)
+**文档入口：** [文档索引](docs/README.md) · [用户手册](docs/USER_GUIDE.zh-CN.md) · [Windows 支持](docs/WINDOWS.zh-CN.md) · [架构](docs/ARCHITECTURE.zh-CN.md) · [更新记录](CHANGELOG.md)
 **English:** [README.en.md](README.en.md) · [User guide](docs/USER_GUIDE.md) · [Windows](docs/WINDOWS.md)
 
 ## 文档
 
 | 文档 | 简体中文 | English |
 |---|---|---|
+| 文档索引与分类 | [docs/README.md](docs/README.md) | [Documentation index](docs/README.md) |
 | 用户手册（从安装到导出） | [用户手册](docs/USER_GUIDE.zh-CN.md) | [User guide](docs/USER_GUIDE.md) |
 | Windows 支持与边界 | [Windows 支持](docs/WINDOWS.zh-CN.md) | [Windows](docs/WINDOWS.md) |
 | 架构与三条约束 | [架构](docs/ARCHITECTURE.zh-CN.md) | [Architecture](docs/ARCHITECTURE.md) |

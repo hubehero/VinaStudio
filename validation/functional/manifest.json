@@ -2,9 +2,9 @@
   "schemaVersion": "1.0",
   "scope": "user-facing functional behaviour; not a docking-accuracy claim",
   "software": {
-    "version": "0.6.4",
-    "releaseTag": "v0.6.4",
-    "record": "records/2026-10-30"
+    "version": "0.6.5",
+    "releaseTag": "v0.6.5",
+    "record": "records/2026-11-02-v0.6.5"
   },
   "statusDefinitions": {
     "pass": "automated and/or UI-observed for the listed entry points",
@@ -331,6 +331,44 @@
         "completion/raw/desktop-startup.log",
         "completion/raw/desktop-startup-angle.log"
       ]
+    },
+    {
+      "id": "F21",
+      "area": "Job storage accounting and terminal cleanup",
+      "entry": "Job history",
+      "status": "pass",
+      "tests": [
+        "test_storage.py",
+        "test_storage_api.py"
+      ],
+      "ui": [
+        "records/2026-11-02-v0.6.6/ui/job-storage.png"
+      ],
+      "gap": "running jobs and unindexed prep directories are not deletable"
+    },
+    {
+      "id": "F22",
+      "area": "Catalog backup/rebuild and workspace migration verification",
+      "entry": "Catalog rebuild / Settings migration",
+      "status": "pass",
+      "tests": [
+        "test_catalog_api.py",
+        "test_workspace.py"
+      ],
+      "gap": "catalog backup is timestamped; migration copy is inventory-verified before switch"
+    },
+    {
+      "id": "F23",
+      "area": "Production browser E2E",
+      "entry": "11 routes + diagnostics",
+      "status": "pass",
+      "tests": [
+        "web/e2e/smoke.spec.ts"
+      ],
+      "ui": [
+        "records/2026-11-02-v0.6.6/raw/e2e.log"
+      ],
+      "gap": "route and diagnostics smoke, not a full docking run"
     }
   ]
 }

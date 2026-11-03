@@ -18,6 +18,7 @@ import type {
   DockingStatus,
   EnsembleDockingRequest,
   InteractionData,
+  JobStorageSummary,
   PoseInfo,
   PoseValidationItem,
   RmsdResponse,
@@ -42,6 +43,7 @@ export const useDockingStore = defineStore('docking', () => {
 
   // -- history (TASK-07) ----------------------------------------------------
   const jobSummaries = ref<DockingJobSummary[]>([])
+  const jobStorage = ref<JobStorageSummary | null>(null)
 
   // -- pose navigation -----------------------------------------------------
   const currentPoseIndex = ref<number>(0)
@@ -521,6 +523,26 @@ export const useDockingStore = defineStore('docking', () => {
     }
   }
 
+  async function fetchStorage(): Promise<void> {
+    try {
+      jobStorage.value = await api.dockingStorage()
+    } catch {
+      jobStorage.value = null
+    }
+  }
+
+  async function deleteHistoryJob(job: DockingJobSummary): Promise<boolean> {
+    try {
+      await api.deleteDockingJob(job.jobId)
+    } catch {
+      return false
+    }
+    if (activeJobId.value === job.jobId) reset()
+    if (activeBatchId.value === job.jobId) resetBatch()
+    await Promise.all([fetchJobs(), fetchStorage()])
+    return true
+  }
+
   /**
    * Open a finished (or still live) job from the history list as the active
    * view. Restored jobs replay from workspace artifacts, so their poses and
@@ -660,7 +682,10 @@ export const useDockingStore = defineStore('docking', () => {
     reset,
     // history (TASK-07)
     jobSummaries,
+    jobStorage,
     fetchJobs,
+    fetchStorage,
+    deleteHistoryJob,
     openHistoryJob,
     openHistoryBatch,
     // batch

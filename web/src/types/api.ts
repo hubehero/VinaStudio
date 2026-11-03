@@ -613,6 +613,28 @@ export interface DockingJobStatus {
   elapsedMs: number | null
 }
 
+export interface JobStorageEntry {
+  jobId: string
+  label: string
+  status: string
+  createdAt: number
+  bytes: number
+  files: number
+  deletable: boolean
+}
+
+export interface JobStorageSummary {
+  count: number
+  totalBytes: number
+  deletableBytes: number
+  entries: JobStorageEntry[]
+}
+
+export interface DeletedJob {
+  jobId: string
+  bytes: number
+}
+
 export interface DockingJobSummary {
   jobId: string
   status: DockingStatus

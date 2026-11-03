@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { Delete } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
 import { useDockingStore } from '@/stores/docking'
-import type { DockingJobSummary } from '@/types/api'
+import type { DockingJobSummary, JobStorageEntry } from '@/types/api'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -12,6 +14,7 @@ const docking = useDockingStore()
 
 onMounted(() => {
   void docking.fetchJobs()
+  void docking.fetchStorage()
 })
 
 // A job that finishes while this view is open must appear in the list.
@@ -51,6 +54,34 @@ function bestClass(job: DockingJobSummary): Record<string, boolean> {
   return { 'history__best--warn': job.bestAffinity !== null && job.bestAffinity >= 0 }
 }
 
+function storageEntry(job: DockingJobSummary): JobStorageEntry | undefined {
+  return docking.jobStorage?.entries.find((entry) => entry.jobId === job.jobId)
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KiB`
+  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MiB`
+  return `${(bytes / 1024 ** 3).toFixed(2)} GiB`
+}
+
+async function deleteJob(job: DockingJobSummary): Promise<void> {
+  try {
+    await ElMessageBox.confirm(
+      t('docking.history.deleteConfirm', { name: rowLabel(job) }),
+      t('docking.history.deleteTitle'),
+      { type: 'warning', confirmButtonText: t('common.delete') },
+    )
+  } catch {
+    return
+  }
+  if (await docking.deleteHistoryJob(job)) {
+    ElMessage.success(t('docking.history.deleted'))
+  } else {
+    ElMessage.error(t('docking.history.deleteFailed'))
+  }
+}
+
 async function open(job: DockingJobSummary): Promise<void> {
   if (job.isBatch) {
     await docking.openHistoryBatch(job)
@@ -66,6 +97,12 @@ async function open(job: DockingJobSummary): Promise<void> {
     <div class="vs-card__header">
       <div>
         <div class="vs-card__title">{{ t('docking.history.title') }}</div>
+        <div v-if="docking.jobStorage" class="history__storage">
+          {{ t('docking.history.storage', {
+            jobs: docking.jobStorage.count,
+            size: formatBytes(docking.jobStorage.totalBytes),
+          }) }}
+        </div>
       </div>
     </div>
     <div class="vs-card__body">
@@ -80,7 +117,7 @@ async function open(job: DockingJobSummary): Promise<void> {
           <span>{{ t('docking.history.colStatus') }}</span>
         </div>
         <ul class="history__list">
-          <li v-for="job in docking.jobSummaries" :key="job.jobId">
+          <li v-for="job in docking.jobSummaries" :key="job.jobId" class="history__item">
             <button
               type="button"
               class="history__row"
@@ -97,6 +134,16 @@ async function open(job: DockingJobSummary): Promise<void> {
               <span class="history__badge" :class="`history__badge--${job.status}`">
                 {{ t(`docking.status.${job.status}`) }}
               </span>
+            </button>
+            <button
+              v-if="storageEntry(job)?.deletable"
+              type="button"
+              class="history__delete"
+              :title="t('docking.history.deleteJob')"
+              :aria-label="t('docking.history.deleteJob')"
+              @click.stop="deleteJob(job)"
+            >
+              <el-icon><Delete /></el-icon>
             </button>
           </li>
         </ul>
@@ -131,6 +178,18 @@ async function open(job: DockingJobSummary): Promise<void> {
   padding: 0 8px 6px;
 }
 
+.history__storage { margin-top: 3px; color: var(--vs-text-faint); font-size: 10.5px; }
+.history__item { display: flex; align-items: center; gap: 2px; }
+.history__delete {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: var(--vs-text-faint);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--vs-radius);
+}
+.history__delete:hover, .history__delete:focus-visible { color: var(--vs-danger); background: var(--vs-bg-sunken); }
 .history__list {
   list-style: none;
   margin: 0;

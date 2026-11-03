@@ -125,13 +125,30 @@ const activeFilterCount = computed(
   () => (store.sourceFilter ? 1 : 0) + (store.status ? 1 : 0) + (store.tagFilter ? 1 : 0),
 )
 
-function handleCatalogCommand(command: string): void {
+async function handleCatalogCommand(command: string): Promise<void> {
   if (command === 'smiles') smilesOpen.value = true
   else if (command === 'draw') sketcher.value?.open()
   else if (command === 'library') libraryDialog.value?.open()
   else if (command === 'suggestions') showSuggestions.value = !showSuggestions.value
   else if (command === 'saveView') void saveCurrentView()
-  else if (command.startsWith('sample:')) {
+  else if (command === 'rebuild') {
+    try {
+      await ElMessageBox.confirm(
+        t('catalog.rebuildConfirm'),
+        t('catalog.rebuildTitle'),
+        { type: 'warning', confirmButtonText: t('catalog.rebuild') },
+      )
+    } catch {
+      return
+    }
+    try {
+      await api.catalogRebuild()
+      await store.refresh()
+      ElMessage.success(t('catalog.rebuilt'))
+    } catch (cause) {
+      ElMessage.error(cause instanceof Error ? cause.message : t('catalog.rebuildFailed'))
+    }
+  } else if (command.startsWith('sample:')) {
     const sample = samples.value.find((item) => `sample:${item.path}` === command)
     if (sample) void importSample(sample)
   }
@@ -740,6 +757,7 @@ async function applySuggestion(id: string): Promise<void> {
               <el-dropdown-item command="draw">{{ t('molecules.drawButton') }}</el-dropdown-item>
               <el-dropdown-item command="library">{{ t('catalog.fromLibrary') }}</el-dropdown-item>
               <el-dropdown-item command="saveView">{{ t('catalog.saveView') }}</el-dropdown-item>
+              <el-dropdown-item command="rebuild">{{ t('catalog.rebuild') }}</el-dropdown-item>
               <el-dropdown-item v-if="samples.length > 0" disabled>{{ t('catalog.samples') }}</el-dropdown-item>
               <el-dropdown-item
                 v-for="sample in samples"

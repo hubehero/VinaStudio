@@ -1,7 +1,7 @@
 {
   "name": "vinastudio-web",
   "private": true,
-  "version": "0.6.5",
+  "version": "0.6.6",
   "type": "module",
   "description": "Vue 3 interface for the VinaStudio docking workbench",
   "scripts": {
@@ -10,7 +10,8 @@
     "build:checked": "vue-tsc --noEmit && vite build",
     "typecheck": "vue-tsc --noEmit",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "3dmol": "^2.5.5",
@@ -22,6 +23,7 @@
     "vue-router": "^5.4.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@types/node": "^26.6.5",
     "@vitejs/plugin-vue": "^6.0.10",
     "jsdom": "^30.1.3",

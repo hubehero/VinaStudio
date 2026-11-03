@@ -13,7 +13,7 @@ from typing import Final, Literal
 
 APP_NAME: Final = "VinaStudio"
 APP_ID: Final = "vinastudio"
-APP_VERSION: Final = "0.6.5"
+APP_VERSION: Final = "0.6.6"
 
 PACKAGE_DIR: Final = Path(__file__).resolve().parent
 STATIC_DIR: Final = PACKAGE_DIR / "server" / "static"
@@ -164,7 +164,7 @@ class DockingDefaults:
 
     scoring: ScoringFunction = "vina"
     cpu: int = 0  # 0 => use every available core
-    seed: int = 0  # 0 => pick a random seed
+    seed: int = 42  # 0 => pick a random seed
     no_refine: bool = False
     verbosity: int = 1
     exhaustiveness: int = 8

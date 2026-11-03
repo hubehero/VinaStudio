@@ -1,0 +1,589 @@
+{
+  "dataset": {
+    "id": "open-posebusters-v1",
+    "name": "Open PoseBusters confirmatory 12",
+    "licenseSummary": [
+      "CC0-1.0",
+      "MIT"
+    ],
+    "redistributable": true
+  },
+  "targets": [
+    {
+      "id": "7akl",
+      "runs": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "successRate": 1.0,
+      "meanRmsd": 0.3363,
+      "medianRmsd": 0.337,
+      "seeds": [
+        {
+          "seed": 42,
+          "status": "passed",
+          "bestRmsd": 0.33704630323787177,
+          "bestAffinity": -9.949,
+          "reason": ""
+        },
+        {
+          "seed": 43,
+          "status": "passed",
+          "bestRmsd": 0.3409074577313345,
+          "bestAffinity": -9.959,
+          "reason": ""
+        },
+        {
+          "seed": 44,
+          "status": "passed",
+          "bestRmsd": 0.33215722339372883,
+          "bestAffinity": -9.971,
+          "reason": ""
+        },
+        {
+          "seed": 45,
+          "status": "passed",
+          "bestRmsd": 0.324223363553098,
+          "bestAffinity": -9.975,
+          "reason": ""
+        },
+        {
+          "seed": 46,
+          "status": "passed",
+          "bestRmsd": 0.34714065100323055,
+          "bestAffinity": -9.955,
+          "reason": ""
+        }
+      ]
+    },
+    {
+      "id": "7loe",
+      "runs": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "successRate": 1.0,
+      "meanRmsd": 0.4202,
+      "medianRmsd": 0.405,
+      "seeds": [
+        {
+          "seed": 42,
+          "status": "passed",
+          "bestRmsd": 0.4389689365692375,
+          "bestAffinity": -8.146,
+          "reason": ""
+        },
+        {
+          "seed": 43,
+          "status": "passed",
+          "bestRmsd": 0.4050488186065296,
+          "bestAffinity": -8.126,
+          "reason": ""
+        },
+        {
+          "seed": 44,
+          "status": "passed",
+          "bestRmsd": 0.45328758681838677,
+          "bestAffinity": -8.139,
+          "reason": ""
+        },
+        {
+          "seed": 45,
+          "status": "passed",
+          "bestRmsd": 0.3993516336172014,
+          "bestAffinity": -8.142,
+          "reason": ""
+        },
+        {
+          "seed": 46,
+          "status": "passed",
+          "bestRmsd": 0.40427409693739386,
+          "bestAffinity": -8.164,
+          "reason": ""
+        }
+      ]
+    },
+    {
+      "id": "7npl",
+      "runs": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "successRate": 1.0,
+      "meanRmsd": 0.3077,
+      "medianRmsd": 0.3071,
+      "seeds": [
+        {
+          "seed": 42,
+          "status": "passed",
+          "bestRmsd": 0.3070867895177132,
+          "bestAffinity": -13.798,
+          "reason": ""
+        },
+        {
+          "seed": 43,
+          "status": "passed",
+          "bestRmsd": 0.30078773123127767,
+          "bestAffinity": -13.81,
+          "reason": ""
+        },
+        {
+          "seed": 44,
+          "status": "passed",
+          "bestRmsd": 0.31097897987794243,
+          "bestAffinity": -13.79,
+          "reason": ""
+        },
+        {
+          "seed": 45,
+          "status": "passed",
+          "bestRmsd": 0.31295875955976243,
+          "bestAffinity": -13.792,
+          "reason": ""
+        },
+        {
+          "seed": 46,
+          "status": "passed",
+          "bestRmsd": 0.3068067916578894,
+          "bestAffinity": -13.802,
+          "reason": ""
+        }
+      ]
+    },
+    {
+      "id": "7qgp",
+      "runs": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "successRate": 1.0,
+      "meanRmsd": 0.5113,
+      "medianRmsd": 0.5011,
+      "seeds": [
+        {
+          "seed": 42,
+          "status": "passed",
+          "bestRmsd": 0.48700965082840036,
+          "bestAffinity": -10.599,
+          "reason": ""
+        },
+        {
+          "seed": 43,
+          "status": "passed",
+          "bestRmsd": 0.5286792438304562,
+          "bestAffinity": -10.506,
+          "reason": ""
+        },
+        {
+          "seed": 44,
+          "status": "passed",
+          "bestRmsd": 0.44090458961418955,
+          "bestAffinity": -10.489,
+          "reason": ""
+        },
+        {
+          "seed": 45,
+          "status": "passed",
+          "bestRmsd": 0.5989574990884462,
+          "bestAffinity": -10.557,
+          "reason": ""
+        },
+        {
+          "seed": 46,
+          "status": "passed",
+          "bestRmsd": 0.5011439485246303,
+          "bestAffinity": -10.369,
+          "reason": ""
+        }
+      ]
+    },
+    {
+      "id": "7r59",
+      "runs": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "successRate": 1.0,
+      "meanRmsd": 0.3909,
+      "medianRmsd": 0.4061,
+      "seeds": [
+        {
+          "seed": 42,
+          "status": "passed",
+          "bestRmsd": 0.41794690498269677,
+          "bestAffinity": -7.306,
+          "reason": ""
+        },
+        {
+          "seed": 43,
+          "status": "passed",
+          "bestRmsd": 0.4227728977559028,
+          "bestAffinity": -7.371,
+          "reason": ""
+        },
+        {
+          "seed": 44,
+          "status": "passed",
+          "bestRmsd": 0.40611678881061564,
+          "bestAffinity": -7.365,
+          "reason": ""
+        },
+        {
+          "seed": 45,
+          "status": "passed",
+          "bestRmsd": 0.32708655641070816,
+          "bestAffinity": -7.341,
+          "reason": ""
+        },
+        {
+          "seed": 46,
+          "status": "passed",
+          "bestRmsd": 0.380382904250643,
+          "bestAffinity": -7.348,
+          "reason": ""
+        }
+      ]
+    },
+    {
+      "id": "7wqq",
+      "runs": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "successRate": 1.0,
+      "meanRmsd": 0.508,
+      "medianRmsd": 0.5057,
+      "seeds": [
+        {
+          "seed": 42,
+          "status": "passed",
+          "bestRmsd": 0.4955075587120152,
+          "bestAffinity": -13.034,
+          "reason": ""
+        },
+        {
+          "seed": 43,
+          "status": "passed",
+          "bestRmsd": 0.5096544944407967,
+          "bestAffinity": -13.052,
+          "reason": ""
+        },
+        {
+          "seed": 44,
+          "status": "passed",
+          "bestRmsd": 0.5056639932544876,
+          "bestAffinity": -13.033,
+          "reason": ""
+        },
+        {
+          "seed": 45,
+          "status": "passed",
+          "bestRmsd": 0.5425092591802435,
+          "bestAffinity": -13.026,
+          "reason": ""
+        },
+        {
+          "seed": 46,
+          "status": "passed",
+          "bestRmsd": 0.4864151557093015,
+          "bestAffinity": -13.047,
+          "reason": ""
+        }
+      ]
+    },
+    {
+      "id": "7xjn",
+      "runs": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "successRate": 1.0,
+      "meanRmsd": 0.9424,
+      "medianRmsd": 0.9419,
+      "seeds": [
+        {
+          "seed": 42,
+          "status": "passed",
+          "bestRmsd": 0.9429779071289707,
+          "bestAffinity": -5.441,
+          "reason": ""
+        },
+        {
+          "seed": 43,
+          "status": "passed",
+          "bestRmsd": 0.9371259846526032,
+          "bestAffinity": -5.416,
+          "reason": ""
+        },
+        {
+          "seed": 44,
+          "status": "passed",
+          "bestRmsd": 0.9414102895833103,
+          "bestAffinity": -5.416,
+          "reason": ""
+        },
+        {
+          "seed": 45,
+          "status": "passed",
+          "bestRmsd": 0.9485996696886067,
+          "bestAffinity": -5.409,
+          "reason": ""
+        },
+        {
+          "seed": 46,
+          "status": "passed",
+          "bestRmsd": 0.9418736645644147,
+          "bestAffinity": -5.416,
+          "reason": ""
+        }
+      ]
+    },
+    {
+      "id": "7zu2",
+      "runs": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "successRate": 1.0,
+      "meanRmsd": 0.6017,
+      "medianRmsd": 0.6017,
+      "seeds": [
+        {
+          "seed": 42,
+          "status": "passed",
+          "bestRmsd": 0.603164946246839,
+          "bestAffinity": -10.543,
+          "reason": ""
+        },
+        {
+          "seed": 43,
+          "status": "passed",
+          "bestRmsd": 0.6016598073741701,
+          "bestAffinity": -10.54,
+          "reason": ""
+        },
+        {
+          "seed": 44,
+          "status": "passed",
+          "bestRmsd": 0.5986153069495346,
+          "bestAffinity": -10.545,
+          "reason": ""
+        },
+        {
+          "seed": 45,
+          "status": "passed",
+          "bestRmsd": 0.6056359113715575,
+          "bestAffinity": -10.558,
+          "reason": ""
+        },
+        {
+          "seed": 46,
+          "status": "passed",
+          "bestRmsd": 0.5996699092000529,
+          "bestAffinity": -10.553,
+          "reason": ""
+        }
+      ]
+    },
+    {
+      "id": "8aem",
+      "runs": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "successRate": 1.0,
+      "meanRmsd": 0.476,
+      "medianRmsd": 0.4712,
+      "seeds": [
+        {
+          "seed": 42,
+          "status": "passed",
+          "bestRmsd": 0.4701354142077691,
+          "bestAffinity": -7.737,
+          "reason": ""
+        },
+        {
+          "seed": 43,
+          "status": "passed",
+          "bestRmsd": 0.4712174902069357,
+          "bestAffinity": -7.746,
+          "reason": ""
+        },
+        {
+          "seed": 44,
+          "status": "passed",
+          "bestRmsd": 0.4957786416723357,
+          "bestAffinity": -7.742,
+          "reason": ""
+        },
+        {
+          "seed": 45,
+          "status": "passed",
+          "bestRmsd": 0.4585877988245768,
+          "bestAffinity": -7.747,
+          "reason": ""
+        },
+        {
+          "seed": 46,
+          "status": "passed",
+          "bestRmsd": 0.4843870829758398,
+          "bestAffinity": -7.747,
+          "reason": ""
+        }
+      ]
+    },
+    {
+      "id": "8bom",
+      "runs": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "successRate": 1.0,
+      "meanRmsd": 1.1943,
+      "medianRmsd": 1.1928,
+      "seeds": [
+        {
+          "seed": 42,
+          "status": "passed",
+          "bestRmsd": 1.209435204666093,
+          "bestAffinity": -12.442,
+          "reason": ""
+        },
+        {
+          "seed": 43,
+          "status": "passed",
+          "bestRmsd": 1.175963568434717,
+          "bestAffinity": -12.453,
+          "reason": ""
+        },
+        {
+          "seed": 44,
+          "status": "passed",
+          "bestRmsd": 1.178275192207418,
+          "bestAffinity": -12.467,
+          "reason": ""
+        },
+        {
+          "seed": 45,
+          "status": "passed",
+          "bestRmsd": 1.215054260987078,
+          "bestAffinity": -12.357,
+          "reason": ""
+        },
+        {
+          "seed": 46,
+          "status": "passed",
+          "bestRmsd": 1.1928197205421638,
+          "bestAffinity": -12.416,
+          "reason": ""
+        }
+      ]
+    },
+    {
+      "id": "8dhg",
+      "runs": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "successRate": 1.0,
+      "meanRmsd": 0.5124,
+      "medianRmsd": 0.5088,
+      "seeds": [
+        {
+          "seed": 42,
+          "status": "passed",
+          "bestRmsd": 0.5029110969431587,
+          "bestAffinity": -12.045,
+          "reason": ""
+        },
+        {
+          "seed": 43,
+          "status": "passed",
+          "bestRmsd": 0.5299677348669442,
+          "bestAffinity": -12.012,
+          "reason": ""
+        },
+        {
+          "seed": 44,
+          "status": "passed",
+          "bestRmsd": 0.5087621111229544,
+          "bestAffinity": -12.042,
+          "reason": ""
+        },
+        {
+          "seed": 45,
+          "status": "passed",
+          "bestRmsd": 0.5025718427676357,
+          "bestAffinity": -12.042,
+          "reason": ""
+        },
+        {
+          "seed": 46,
+          "status": "passed",
+          "bestRmsd": 0.5178402125311294,
+          "bestAffinity": -12.034,
+          "reason": ""
+        }
+      ]
+    },
+    {
+      "id": "8dsc",
+      "runs": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "successRate": 1.0,
+      "meanRmsd": 0.21,
+      "medianRmsd": 0.2084,
+      "seeds": [
+        {
+          "seed": 42,
+          "status": "passed",
+          "bestRmsd": 0.22202427294730145,
+          "bestAffinity": -6.718,
+          "reason": ""
+        },
+        {
+          "seed": 43,
+          "status": "passed",
+          "bestRmsd": 0.20837919495210894,
+          "bestAffinity": -6.726,
+          "reason": ""
+        },
+        {
+          "seed": 44,
+          "status": "passed",
+          "bestRmsd": 0.19110410193864966,
+          "bestAffinity": -6.732,
+          "reason": ""
+        },
+        {
+          "seed": 45,
+          "status": "passed",
+          "bestRmsd": 0.2299425048910173,
+          "bestAffinity": -6.734,
+          "reason": ""
+        },
+        {
+          "seed": 46,
+          "status": "passed",
+          "bestRmsd": 0.19869351049068298,
+          "bestAffinity": -6.729,
+          "reason": ""
+        }
+      ]
+    }
+  ],
+  "overall": {
+    "targets": 12,
+    "evaluableRuns": 60,
+    "passedRuns": 60,
+    "successRate": 1.0,
+    "meanRmsd": 0.5343,
+    "medianRmsd": 0.4854,
+    "bootstrap95": [
+      0.47102332185772056,
+      0.6020004706882385
+    ]
+  }
+}
