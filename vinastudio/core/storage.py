@@ -9,13 +9,18 @@ only accepts an indexed **terminal** job.  Preparation directories without a
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from pathlib import Path
 from typing import Any
 
-from vinastudio.core.paths import JOB_STATE_FILENAME, resolve_within
+from vinastudio.core.paths import JOB_STATE_FILENAME
 
 TERMINAL = frozenset({"completed", "failed", "cancelled"})
+# Production ids are 12-character lowercase hex; the wider safe alphabet keeps
+# never joined to a filesystem path directly; it must name one of these
+# already-enumerated directories.
+_JOB_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 
 def _directory_size(directory: Path) -> tuple[int, int]:
@@ -93,19 +98,32 @@ def summarize_jobs(root: Path) -> dict[str, Any]:
     }
 
 
+def _find_job_directory(root: Path, job_id: str) -> Path:
+    """Find an existing child by exact id without using it as a path segment.
+
+    Enumeration keeps the filesystem expression independent of request data.
+    The regex is a second guard for malformed/legacy ids; both failures are
+    reported as invalid rather than as a missing job.
+    """
+    if not _JOB_ID.fullmatch(job_id):
+        raise ValueError(f"job id escapes the jobs root: {job_id}")
+    try:
+        for child in root.resolve().iterdir():
+            if child.name == job_id and child.is_dir():
+                return child
+    except OSError as exc:
+        raise FileNotFoundError(job_id) from exc
+    raise FileNotFoundError(job_id)
+
+
 def delete_terminal_job(root: Path, job_id: str) -> dict[str, Any]:
     """Delete one indexed terminal job; return its id/bytes.
 
     Raises ``FileNotFoundError`` for no index and ``ValueError`` for a
-    non-terminal or unreadable job.  Path containment is enforced by
-    ``resolve_within`` so a URL segment cannot escape the jobs root.
+    non-terminal, malformed or unreadable job.  The directory is selected by
+    enumerating the jobs root, never by joining request data to a path.
     """
-    try:
-        directory = resolve_within(root, job_id)
-    except ValueError as exc:
-        raise ValueError(f"job id escapes the jobs root: {job_id}") from exc
-    if directory.parent != root.resolve() or not directory.is_dir():
-        raise FileNotFoundError(job_id)
+    directory = _find_job_directory(root, job_id)
     index = directory / JOB_STATE_FILENAME
     payload = _read_index(index)
     if payload is None:
