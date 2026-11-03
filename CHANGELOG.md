@@ -12,6 +12,16 @@ entries about the product — no internal task ids or workflow narration.
 
 ## [Unreleased]
 
+## [Unreleased]
+
+### 修复
+
+- **任务存储路径边界**：删除终态任务时只从 jobs 根目录枚举并按安全 job id 选择，不再把请求路径拼进文件系统；修复 CodeQL `py/path-injection` 告警。
+
+### Fixed
+
+- **Job-storage path boundary**: terminal-job cleanup enumerates the jobs root and matches a safe job id instead of joining request data into a filesystem path; resolves the CodeQL `py/path-injection` alerts.
+
 ## [0.6.6] - 2026-11-02
 
 ### 已变更
