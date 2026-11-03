@@ -12,7 +12,8 @@ sample and public PDB/ligand data.
 | `molecules.png` | Catalog, Studies, collections and built-in library |
 | `binding-site.png` | 3D binding-site box and receptor/ligand display controls |
 
-The README links only `preview.jpg`; the individual PNGs are kept for
-documentation and release notes. These are project screenshots, not experimental
+The README uses a GitHub attachment of `preview.jpg`, because
+`raw.githubusercontent.com` is blocked on some networks; the individual
+PNGs are kept for documentation and release notes. These are project screenshots, not experimental
 evidence. Raw sample structures are kept in
 `vinastudio/resources/sample/1iep/`; no restricted data is shown.

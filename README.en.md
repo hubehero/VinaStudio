@@ -13,7 +13,7 @@ starting jobs, reviewing results, and keeping the parameters, inputs and logs
 from each run with the job. It is for people who repeat the same workflow often
 and would rather not rebuild the command line every time.
 
-![VinaStudio interface overview](docs/images/preview.jpg)
+![VinaStudio interface overview](https://github.com/user-attachments/assets/52492a9f-e995-40f5-bf5b-4ff35f6c4bc9)
 
 Top left is a docking result; top right is the workbench; bottom left is the
 molecule catalog; bottom right is the results report.

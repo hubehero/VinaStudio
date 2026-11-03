@@ -12,7 +12,7 @@ VinaStudio 是 AutoDock Vina 的桌面界面。Vina 仍然负责对接计算；V
 参数、输入和日志留在作业记录里。适合需要反复跑同一套流程、又不想每次重写命令
 的人。
 
-![VinaStudio 界面总览](docs/images/preview.jpg)
+![VinaStudio 界面总览](https://github.com/user-attachments/assets/52492a9f-e995-40f5-bf5b-4ff35f6c4bc9)
 
 图中左上为对接结果，右上为工作台，左下为分子目录，右下为结果汇报。
 
