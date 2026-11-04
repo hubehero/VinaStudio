@@ -201,6 +201,6 @@ administrator rights.
   build: `-8.593 kcal/mol`, 1 pose, 16.359 s (run `40525620815`); it also ran the
   packaged backend check. That covers process spawn, stdout redirection, the CLI
   backend and the bundled engine.
-- Linux artifacts: 0.6.2 by run `40525620815` — tar.gz 396,903,392 B
+- Linux artifacts: 0.6.2 by run `40525620815`: tar.gz 396,903,392 B
   (`19f7427a3abec6502fae5a2416b02d1e111d4ec1baf990dcfa1d9e5c630823b4`) and deb
   301,830,306 B (`0e5b35717ce375cd3f0f4b9bf88fa5dd83a7fd131f6fe3b59adeca34a1854257`).

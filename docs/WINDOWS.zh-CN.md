@@ -173,7 +173,7 @@ powershell -ExecutionPolicy Bypass -File .\vinastudio-diagnostics.ps1
   `-8.593 kcal/mol`、1 个构象、16.359 s（run `40525620815`），同时通过
   打包后 CLI 后端检查。这覆盖了进程 spawn、stdout 重定向、CLI 后端与
   随包 Vina 二进制。
-- Linux 资产：0.6.2 由 run `40525620815` 构建——tar.gz 396,903,392 B
+- Linux 资产：0.6.2 由 run `40525620815` 构建：tar.gz 396,903,392 B
   （`19f7427a3abec6502fae5a2416b02d1e111d4ec1baf990dcfa1d9e5c630823b4`），deb
   301,830,306 B（`0e5b35717ce375cd3f0f4b9bf88fa5dd83a7fd131f6fe3b59adeca34a1854257`）。
 
