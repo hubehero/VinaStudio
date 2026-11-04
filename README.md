@@ -25,25 +25,19 @@
 
 ---
 
-## 目录
+<details>
+<summary><strong>目录</strong> · 17 个章节</summary>
 
-- [项目简介](#项目简介)
-- [项目概览](#项目概览)
-- [功能](#功能)
-- [界面](#界面)
-- [安装](#安装)
-- [跑通 1IEP](#跑通-1iep)
-- [验证](#验证)
-- [工作原理](#工作原理)
-- [项目结构](#项目结构)
-- [文档](#文档)
-- [常见问题](#常见问题)
-- [开发](#开发)
-- [贡献](#贡献)
-- [引用](#引用)
-- [安全](#安全)
-- [许可证](#许可证)
-- [致谢](#致谢)
+| 开始 | 使用 | 深入 |
+|---|---|---|
+| [项目简介](#项目简介) | [安装](#安装) | [验证](#验证) |
+| [项目概览](#项目概览) | [跑通 1IEP](#跑通-1iep) | [工作原理](#工作原理) |
+| [界面预览](#界面预览) | [常见问题](#常见问题) | [项目结构](#项目结构) |
+| [功能](#功能) | [文档](#文档) | [开发](#开发) |
+| [贡献](#贡献) | [引用](#引用) | [安全](#安全) |
+| [许可证](#许可证) | [致谢](#致谢) | [Releases](https://github.com/hubehero/VinaStudio/releases) |
+
+</details>
 
 ## 项目简介
 
@@ -62,7 +56,7 @@ VinaStudio 是 [AutoDock Vina](https://github.com/ccsb-scripps/AutoDock-Vina) �
 
 ## 项目概览
 
-| | |
+| 项目 | 说明 |
 |---|---|
 | **对接引擎** | AutoDock Vina 1.2.7；Vinardo；AutoDock4（需要外部 AutoGrid4 地图） |
 | **输入** | 受体：PDB、mmCIF；配体：MOL、SDF、MOL2、PDB、SMILES，以及内置 2D 画板 |
@@ -72,6 +66,19 @@ VinaStudio 是 [AutoDock Vina](https://github.com/ccsb-scripps/AutoDock-Vina) �
 | **导出** | PDBQT/SDF、CSV、HTML 报告、`.vinaproj` 项目文件、作业记录 |
 | **平台** | Linux x86_64、Windows 10 1809+/11 x64；macOS 可从源码尝试，未提供发布包 |
 | **界面** | PySide6 桌面外壳、Vue 3 SPA、3Dmol.js、回环 FastAPI |
+
+## 界面预览
+
+<p align="center">
+  <a href="https://hubehero.github.io/VinaStudio/experience/">
+    <img src="https://github.com/user-attachments/assets/52492a9f-e995-40f5-bf5b-4ff35f6c4bc9" alt="VinaStudio 界面总览" width="900">
+  </a>
+</p>
+
+<p align="center"><sub>左上：对接结果 · 右上：工作台 · 左下：分子目录 · 右下：结果汇报</sub></p>
+
+交互式导览覆盖准备、盒子、对接生命周期、Catalog 和验证记录：[打开交互式导览](https://hubehero.github.io/VinaStudio/experience/)。
+
 
 ## 功能
 
@@ -102,20 +109,6 @@ VinaStudio 是 [AutoDock Vina](https://github.com/ccsb-scripps/AutoDock-Vina) �
 - Catalog 管理分子身份、文件、Study、集合和筛选库；
 - 项目文件保存准备产物和当前管线，重新打开时可以继续；
 - 导出 CSV、pose、HTML 报告和结果包，便于在论文或报告中使用。
-
-## 界面
-
-<p align="center">
-  <a href="https://hubehero.github.io/VinaStudio/experience/">
-    <img src="https://github.com/user-attachments/assets/52492a9f-e995-40f5-bf5b-4ff35f6c4bc9" alt="VinaStudio 界面总览" width="900">
-  </a>
-</p>
-
-<p align="center"><sub>左上：对接结果 · 右上：工作台 · 左下：分子目录 · 右下：结果汇报</sub></p>
-
-交互式导览覆盖准备、盒子、对接生命周期、Catalog 和验证记录：
-
-[打开交互式导览](https://hubehero.github.io/VinaStudio/experience/)
 
 ## 安装
 

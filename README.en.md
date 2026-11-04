@@ -25,25 +25,19 @@
 
 ---
 
-## Contents
+<details>
+<summary><strong>Contents</strong> · 17 sections</summary>
 
-- [Overview](#overview)
-- [At a glance](#at-a-glance)
-- [Features](#features)
-- [Interface](#interface)
-- [Install](#install)
-- [Run the 1IEP example](#run-the-1iep-example)
-- [Validation](#validation)
-- [How it works](#how-it-works)
-- [Repository layout](#repository-layout)
-- [Documentation](#documentation)
-- [FAQ](#faq)
-- [Development](#development)
-- [Contributing](#contributing)
-- [Citation](#citation)
-- [Security](#security)
-- [License](#license)
-- [Acknowledgements](#acknowledgements)
+| Start | Use | Dive deeper |
+|---|---|---|
+| [Overview](#overview) | [Install](#install) | [Validation](#validation) |
+| [At a glance](#at-a-glance) | [Run the 1IEP example](#run-the-1iep-example) | [How it works](#how-it-works) |
+| [Interface preview](#interface-preview) | [FAQ](#faq) | [Repository layout](#repository-layout) |
+| [Features](#features) | [Documentation](#documentation) | [Development](#development) |
+| [Contributing](#contributing) | [Citation](#citation) | [Security](#security) |
+| [License](#license) | [Acknowledgements](#acknowledgements) | [Releases](https://github.com/hubehero/VinaStudio/releases) |
+
+</details>
 
 ## Overview
 
@@ -62,7 +56,7 @@ It is for people who repeat the same workflow, compare several ligands, or would
 
 ## At a glance
 
-| | |
+| Item | Detail |
 |---|---|
 | **Engine** | AutoDock Vina 1.2.7; Vinardo; AutoDock4 (requires external AutoGrid4 maps) |
 | **Inputs** | Receptors: PDB, mmCIF. Ligands: MOL, SDF, MOL2, PDB, SMILES, and the built-in 2D sketcher |
@@ -72,6 +66,19 @@ It is for people who repeat the same workflow, compare several ligands, or would
 | **Exports** | PDBQT/SDF, CSV, HTML report, `.vinaproj` project, job records |
 | **Platforms** | Linux x86_64, Windows 10 1809+/11 x64; macOS source attempts are possible but no package is published |
 | **Interface** | PySide6 desktop shell, Vue 3 SPA, 3Dmol.js, loopback FastAPI |
+
+## Interface preview
+
+<p align="center">
+  <a href="https://hubehero.github.io/VinaStudio/experience/">
+    <img src="https://github.com/user-attachments/assets/52492a9f-e995-40f5-bf5b-4ff35f6c4bc9" alt="VinaStudio interface overview" width="900">
+  </a>
+</p>
+
+<p align="center"><sub>Top left: docking result · top right: workbench · bottom left: molecule catalog · bottom right: results report</sub></p>
+
+The interactive field guide covers preparation, the box, job lifecycle, Catalog and validation: [open the interactive field guide](https://hubehero.github.io/VinaStudio/experience/).
+
 
 ## Features
 
@@ -102,20 +109,6 @@ It is for people who repeat the same workflow, compare several ligands, or would
 - Catalog for molecule identity, files, Studies, collections and screening libraries.
 - Project files retain prepared artifacts and the current pipeline, so a session can be resumed.
 - Export CSV, poses, HTML reports and result bundles for papers or reports.
-
-## Interface
-
-<p align="center">
-  <a href="https://hubehero.github.io/VinaStudio/experience/">
-    <img src="https://github.com/user-attachments/assets/52492a9f-e995-40f5-bf5b-4ff35f6c4bc9" alt="VinaStudio interface overview" width="900">
-  </a>
-</p>
-
-<p align="center"><sub>Top left: docking result · top right: workbench · bottom left: molecule catalog · bottom right: results report</sub></p>
-
-The interactive field guide covers preparation, the box, job lifecycle, Catalog and validation:
-
-[Open the interactive field guide](https://hubehero.github.io/VinaStudio/experience/)
 
 ## Install
 
