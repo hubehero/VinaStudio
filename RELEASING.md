@@ -23,8 +23,8 @@ the artifacts of every version. Releases are cut from a tag and built by CI.
 gh release list
 ```
 
-That listing is what the new version is measured against. Then set the version —
-one script keeps every file in step (`pyproject.toml`, the package, the frontend,
+That listing is what the new version is measured against. Then set the version.
+One script keeps every file in step (`pyproject.toml`, the package, the frontend,
 the Debian control file, `uv.lock`):
 
 ```bash
@@ -109,7 +109,7 @@ things — never switching the scanner off:
 - **Dismiss it with a reason.** The reason is the audit trail: the Security tab
   keeps the alert, the dismissal and the argument, so the next reader sees why it
   is not a bug instead of a bare number. `.github/codeql/codeql-config.yml`
-  documents the triage of the `py/path-injection` family — the desktop UI hands
+  documents the triage of the `py/path-injection` family: the desktop UI hands
   the backend absolute paths the user picked in a file dialog, which is the API's
   contract, and containment where it is required goes through
   `core/paths.resolve_within`.
@@ -118,7 +118,7 @@ The configuration is `.github/codeql/codeql-config.yml` (advanced setup);
 `workflow_dispatch` on the CodeQL workflow re-scans on demand.
 
 Every push to `main` triggers a scan, so a release can inherit alerts that did not
-exist at the last one: the interactive-operations work added five (2026-10-15 —
+exist at the last one: the interactive-operations work added five (2026-10-15:
 one critical `py/command-line-injection`, three `py/path-injection`, one
 `py/stack-trace-exposure`), each triaged by hand. The critical one was a genuine
 false positive: `subprocess.run()` gets an argv list with no `shell=True`, so a
@@ -127,7 +127,7 @@ run `gh api repos/hubehero/VinaStudio/code-scanning/alerts?state=open`, *before*
 starting a release rather than during it.
 
 The same goes for `engine-check.yml`: check that both its jobs are green. The
-Windows one is the evidence behind any Windows claim — it docks the 1iep gold
+Windows one is the evidence behind any Windows claim: it docks the 1iep gold
 standard through the command-line backend and asserts the same regime the Linux
 tests use (2026-10-15: 23.1 s, best affinity −13.239 kcal/mol on Windows against
 −13.228 on Linux).
@@ -138,7 +138,7 @@ non-ASCII paths); every Windows build also docks 1iep inside the frozen bundle a
 asserts the result, so the packaging path is exercised before anybody downloads it.
 **macOS is source-only and is not a release target** (decision, 2026-10-21).
 
-`windows-build.yml` still publishes nothing by itself — it is the on-demand test
+`windows-build.yml` still publishes nothing by itself; it is the on-demand test
 build. `release.yml` calls it as `build-windows`, so a tag builds and attaches the
 installer automatically; 0.4.1 was the last manual attach. The public limitations are
 documented in `docs/WINDOWS.md`; keep that page in step with the build.
@@ -162,7 +162,7 @@ cannot be published.
 | Asset | Target |
 |---|---|
 | `vinastudio_X.Y.Z_amd64.deb` | Ubuntu / Debian (amd64) |
-| `vinastudio-X.Y.Z-linux-amd64.tar.gz` | portable — unpack and run `vinastudio/vinastudio` |
+| `vinastudio-X.Y.Z-linux-amd64.tar.gz` | portable; unpack and run `vinastudio/vinastudio` |
 | `vinastudio-X.Y.Z-setup.exe` | Windows 10 1809+ / 11, x64 (from 0.4.0) |
 | `SHA256SUMS` | Checksums for all three artifacts; verify before running |
 

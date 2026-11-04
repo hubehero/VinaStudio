@@ -7,8 +7,8 @@
 > **0.4.0**; 0.3.0 and earlier have no Windows asset.
 >
 > This page covers what is supported, what works, where the boundaries are, and
-> how to diagnose a problem. The scientific conventions — energies are not
-> comparable across scoring functions, PDBQT has no bond orders, and so on — are
+> how to diagnose a problem. The scientific conventions (energies are not
+> comparable across scoring functions, PDBQT has no bond orders, and so on) are
 > the same as on Linux; see the [User Guide](USER_GUIDE.md).
 
 ---
@@ -72,15 +72,15 @@ The Windows build carries the same application as the Linux build:
 
 ### The docking backend: `vina-cli`
 
-Upstream publishes **no Windows build of the `vina` Python module** — PyPI has
+Upstream publishes **no Windows build of the `vina` Python module**: PyPI has
 manylinux wheels only, and conda-forge builds it for Linux and macOS. The Windows
 application therefore uses the bundled `vina.exe` automatically:
 
 - it is the same AutoDock Vina **1.2.7** engine, with the same parameters as the
   Python API; with a fixed seed the two agree pose for pose on 1iep;
 - the environment page names the backend `vina-cli` with the reason
-  `module-missing`. The dependency table still says that importing `vina` fails —
-  that is a fact — but the capability verdict is “ready to dock”. Failing to
+  `module-missing`. The dependency table still says that importing `vina` fails
+  (that is a fact), but the capability verdict is “ready to dock”. Failing to
   import and failing to dock are different questions;
 - interactive **score / optimise / randomise** use the same binary.
 
@@ -124,7 +124,7 @@ The application is bilingual; only the installer's few screens are English
 ### 4.5 Platform coverage
 
 - x64 only; Windows ARM64, Windows 7 and Windows 8 are not supported.
-- macOS has a source-only path — no package and no release-level verification.
+- macOS has a source-only path, with no package and no release-level verification.
 - The real-machine walkthrough currently covers one Intel UHD (D3D11) machine;
   other GPU and driver combinations have not been checked one by one. The
   environment page shows the actual renderer, so include that string in a bug

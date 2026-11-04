@@ -16,7 +16,7 @@
 > 声明；官方 PoseBusters 0.6.5 `redock` 已对制备条件运行：top pose 60/60，全部 pose 7/60。证据见
 > [`validation/benchmark/records/2026-11-02-open-posebusters-v1/`](../validation/benchmark/records/2026-11-02-open-posebusters-v1/)。
 
-> **一句话范围。** 本报告检验 VinaStudio 在已提交的 1IEP redocking 对照上，
+> **范围。** 本报告检验 VinaStudio 在已提交的 1IEP redocking 对照上，
 > 准备、对接、位姿恢复、几何检查和报告链路是否可复现；它**不**估计通用对接
 > 准确率、富集能力或结合自由能。
 

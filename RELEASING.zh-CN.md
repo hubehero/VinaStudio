@@ -62,7 +62,7 @@ git push origin main
 gh workflow run release.yml
 ```
 
-等它变绿——这是发现构建问题最便宜的地方。
+等它变绿；这是发现构建问题成本最低的地方。
 
 `release.yml` 会调用 `windows-build.yml`，tag 后自动构建并挂载安装包。单独测试
 安装包时再手动派发 `windows-build.yml`，确认日志里有 `docking OK`。

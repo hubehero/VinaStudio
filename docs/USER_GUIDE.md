@@ -14,8 +14,8 @@ the end lists every step in order.
 ## 1. What VinaStudio is
 
 VinaStudio is a desktop workbench around **AutoDock Vina** (the 1.2.7 engine).
-It handles the whole docking workflow — PDBQT preparation, box definition,
-docking, pose inspection, interaction analysis and export — without asking you to
+It handles the whole docking workflow: PDBQT preparation, box definition,
+docking, pose inspection, interaction analysis and export. You do not need to
 assemble command lines by hand.
 
 The interface is bilingual (Chinese and English), and the scientific results are
@@ -36,7 +36,7 @@ computed by Vina itself; the application never invents a score.
 | Item | Requirement |
 |---|---|
 | Operating system | Linux (x86_64), Windows 10 1809+ / 11 (x64), or macOS from source |
-| Python | 3.12 — **source installs only**; the Windows installer bundles it |
+| Python | 3.12; **source installs only**. The Windows installer bundles it |
 | Package manager | [uv](https://docs.astral.sh/uv/) for source installs |
 | Node.js | 22+ and [pnpm](https://pnpm.io/), to build the interface and run frontend tests |
 | Memory | 4 GB minimum; more for large receptors |
@@ -48,7 +48,7 @@ Download `vinastudio-<version>-setup.exe` from the
 [releases page](https://github.com/hubehero/VinaStudio/releases), verify its
 SHA-256, and run it. The installer needs administrator rights and is unsigned, so
 SmartScreen asks for confirmation. It includes Python, the scientific stack and
-the Vina engine — you do **not** need to install Python, uv, Node.js or pnpm.
+the Vina engine. You do **not** need to install Python, uv, Node.js or pnpm.
 
 The full Windows scope and its boundaries are in [WINDOWS.md](WINDOWS.md).
 
@@ -76,7 +76,7 @@ already contain the built interface and the Vina binary.
 
 1. Start VinaStudio from the Start menu, the desktop shortcut, or
    `uv run python -m vinastudio` on a source install.
-2. The first launch asks for a **workspace** — a folder where prepared files,
+2. The first launch asks for a **workspace**, a folder where prepared files,
    jobs and exports are kept. Choose a normal local folder; the application
    creates `projects/`, `receptors/`, `ligands/`, `jobs/` and `exports/` inside it.
 3. The workspace can be changed later in **Settings → Workspace**.
@@ -129,7 +129,7 @@ A receptor is the protein you dock into. VinaStudio accepts PDB and mmCIF files.
    **Keep selected water/metal**. Flexible side chains can be picked here as
    well. Ignored residues are always listed in the report; allowing them does
    not make their bond orders or protonation modelled.
-4. Run the preparation. The result is a **PDBQT** file — the format Vina reads.
+4. Run the preparation. The result is a **PDBQT** file, the format Vina reads.
 5. Check the summary: residue and atom counts, any ignored residues, and the
    warnings. A drop in atom count is expected: PDBQT keeps heavy atoms and polar
    hydrogens only. The report lists every water/hetero group deleted or kept,
@@ -152,7 +152,7 @@ MOL2 and PDB files, and can also build a ligand from SMILES or from the built-in
 
 1. Load the ligand in **Molecules**.
 2. Inspect it: atom count, rotatable bonds, whether it has 3D coordinates and
-   hydrogens. A 2D structure is fine — preparation will embed and protonate it.
+   hydrogens. A 2D structure is fine; preparation will embed and protonate it.
 3. Choose the preparation options. The defaults are suitable for most drug-like
    molecules; macrocycle and amide settings are there when you need them.
 4. Run the preparation. VinaStudio writes a PDBQT and an SDF copy; the SDF is what
@@ -193,10 +193,10 @@ little surrounding space, but not the whole protein.
 
 There are three ways to set it:
 
-- **From a ligand** — if you have a co-crystal ligand, choose it and the box is
+- **From a ligand**: if you have a co-crystal ligand, choose it and the box is
   fitted around it.
-- **From residues** — pick the residues that line the site.
-- **Manually** — type the centre and edge lengths.
+- **From residues**: pick the residues that line the site.
+- **Manually**: type the centre and edge lengths.
 
 The box is drawn in the viewport and can be moved with Shift-drag. A 20 Å box is
 a reasonable default for a drug-like ligand; smaller boxes dock faster but may
@@ -321,15 +321,15 @@ new search or filter resets to the first page.
 
 ## 10. Advanced workflows
 
-- **Batch docking** — one receptor against a list of ligands, with a leaderboard
+- **Batch docking**: one receptor against a list of ligands, with a leaderboard
   and per-ligand rows.
-- **Virtual screening** — import a library, dock each molecule, rank the hits,
+- **Virtual screening**: import a library, dock each molecule, rank the hits,
   and resume if the run is interrupted.
-- **Site screening** — dock one ligand into each candidate box and rank the
+- **Site screening**: dock one ligand into each candidate box and rank the
   boxes. This is a coarse comparison between candidates, not a production run.
-- **Flexible docking** — select flexible side chains during receptor preparation;
+- **Flexible docking**: select flexible side chains during receptor preparation;
   Vina then searches their torsions as well.
-- **AutoDock4** — requires AutoGrid4 maps generated outside the application. The
+- **AutoDock4**: requires AutoGrid4 maps generated outside the application. The
   interface refuses `ad4` when no maps are supplied rather than silently running
   a different scoring function.
 
@@ -414,15 +414,15 @@ that one cannot be replayed; the interface says so.
 
 ## 12. Glossary
 
-- **Receptor** — the protein structure being docked into.
-- **Ligand** — the small molecule being docked.
-- **PDBQT** — AutoDock's structure format; heavy atoms plus polar hydrogens and
+- **Receptor**: the protein structure being docked into.
+- **Ligand**: the small molecule being docked.
+- **PDBQT**: AutoDock's structure format; heavy atoms plus polar hydrogens and
   atom types.
-- **Box** — the search volume, defined by a centre and three edge lengths.
-- **Pose** — one predicted binding conformation with its score.
-- **Affinity** — the scoring function's estimate for a pose, in kcal/mol.
-- **Exhaustiveness** — how much search effort Vina spends.
-- **RMSD** — root-mean-square deviation between two poses, in ångström.
+- **Box**: the search volume, defined by a centre and three edge lengths.
+- **Pose**: one predicted binding conformation with its score.
+- **Affinity**: the scoring function's estimate for a pose, in kcal/mol.
+- **Exhaustiveness**: how much search effort Vina spends.
+- **RMSD**: root-mean-square deviation between two poses, in ångström.
 
 ---
 

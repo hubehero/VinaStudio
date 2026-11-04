@@ -5,7 +5,7 @@
 参考文献和 claim–evidence 矩阵见
 [ACADEMIC_VALIDATION.zh-CN.md](ACADEMIC_VALIDATION.zh-CN.md)。
 
-> **一句话**：用固定数据/版本/种子跑通准备→对接→RMSD→几何检查，把结果、
+> **结论**：用固定数据/版本/种子跑通准备→对接→RMSD→几何检查，把结果、
 > 警告、失败和跳过都写出来；`passed` 只代表该 case 的排名第一 pose 满足本文件
 > 的条件、且所有 pose 没有几何 error，不代表 VinaStudio 在所有靶点上准确。
 
