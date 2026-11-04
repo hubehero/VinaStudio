@@ -5,6 +5,9 @@
 VinaStudio 由四层组成，层与层之间边界严格。本文说明这套设计，以及更重要的——
 决定其余一切的三条约束。
 
+运行结构、对接生命周期、代码结构和 Catalog 数据模型见
+[项目结构图谱](STRUCTURE.zh-CN.md)。
+
 方法学验证、可复现性与参考文献见[ACADEMIC_VALIDATION.zh-CN.md](ACADEMIC_VALIDATION.zh-CN.md)。
 
 ```
@@ -345,7 +348,7 @@ Meeko 现在把甲硫氨酸硫醚与半胱氨酸硫醇标为 `S`，旧版本用 
 ## 引擎支持
 
 随包引擎是 AutoDock Vina 1.2.7，走 Python 模块或官方 CLI 二进制；Vinardo 是
-第二个打分函数；AutoDock4 需要外部 AutoGrid4 地图。**0.6.3 不捆绑 GNINA**：
+第二个打分函数；AutoDock4 需要外部 AutoGrid4 地图。**当前版本不捆绑 GNINA**：
 它有独立的打分/输出契约，需要单独的科学验证，因此不提供半接线的引擎入口。
 共价对接与诱导契合也明确不在范围内。
 

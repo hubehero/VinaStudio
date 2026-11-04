@@ -2,8 +2,11 @@
 
 **English** · [简体中文](ARCHITECTURE.zh-CN.md) · [Home](../README.en.md)
 
-VinaStudio is four layers with strict boundaries. This document explains the
+VinaStudio has four layers with strict boundaries. This document explains the
 design and, more importantly, the three constraints that shape all of it.
+
+For a visual map of the runtime, docking lifecycle, code layout and Catalog
+model, see [Project structure](STRUCTURE.md).
 
 For methodology validation, reproducibility and references, see
 [ACADEMIC_VALIDATION.md](ACADEMIC_VALIDATION.md).
@@ -118,7 +121,7 @@ instead of shipping a bond-order guesser.
 
 The shipped engine is AutoDock Vina 1.2.7 through the Python module or the
 official CLI binary. Vinardo is the second scoring function; AutoDock4 requires
-externally generated AutoGrid4 maps. GNINA is **not bundled** in 0.6.3: it has a
+externally generated AutoGrid4 maps. GNINA is **not bundled** in the current release: it has a
 different score/output contract and needs separate scientific validation, so it
 is not exposed as a half-wired engine. Covalent docking and induced fit are also
 explicitly out of scope.

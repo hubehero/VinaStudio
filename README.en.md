@@ -32,6 +32,66 @@ molecule catalog; bottom right is the results report.
 - CSV, pose, HTML report and project export; searchable history with
   favourites, tags and comparison.
 
+## Structure at a glance
+
+<details open>
+<summary><strong>vinastudio/</strong> · Python application</summary>
+<ul>
+  <li><code>desktop/</code>: Qt window, native menus, QWebChannel file bridge</li>
+  <li><code>server/</code>: FastAPI, JobManager, WebSocket events</li>
+  <li><code>core/</code>: preparation, docking and analysis; no Qt or FastAPI dependency
+    <details>
+      <summary>Expand core</summary>
+      <ul>
+        <li><code>chem/</code>: receptor/ligand preparation, PDBQT, export, interactions</li>
+        <li><code>catalog/</code>: SQLite Catalog, search, migration</li>
+        <li><code>engines/</code>: Vina CLI adapter</li>
+        <li><code>worker.py</code>: spawn child entry point</li>
+      </ul>
+    </details>
+  </li>
+  <li><code>schemas/</code>: request/response models</li>
+  <li><code>resources/</code>: bundled 1IEP sample and validation resources</li>
+</ul>
+</details>
+
+<details>
+<summary><strong>web/</strong> · Vue 3 SPA</summary>
+<ul>
+  <li><code>src/views/</code>: workbench, catalog, box, docking, results</li>
+  <li><code>src/stores/</code>: Pinia state</li>
+  <li><code>src/components/</code>: panels, 3D viewport, dialogs, sketcher</li>
+  <li><code>src/api/</code>: HTTP, WebSocket, QWebChannel</li>
+</ul>
+</details>
+
+<details>
+<summary><strong>docs/</strong> · documentation and structure map</summary>
+<ul>
+  <li><a href="docs/structure.html">HTML tree map</a>: the full expandable visual version</li>
+  <li><a href="docs/STRUCTURE.md">Structure map (text)</a>: runtime, docking flow and path table</li>
+</ul>
+</details>
+
+<details>
+<summary><strong>validation/</strong> · evidence and benchmark</summary>
+<ul>
+  <li><code>functional/</code>: 1IEP control, functional matrix, UI evidence</li>
+  <li><code>benchmark/</code>: open-set protocol, manifests, PoseBusters records</li>
+</ul>
+</details>
+
+<details>
+<summary><strong>scripts/</strong> · build and validation tools</summary>
+<ul>
+  <li><code>dev.py</code>: API + Vite + Qt hot reload</li>
+  <li><code>build_web.py</code>: build the interface</li>
+  <li><code>fetch_samples.py</code>: fetch and verify the 1IEP sample</li>
+</ul>
+</details>
+
+At runtime, the Qt main thread and the FastAPI background thread share one desktop process. Docking runs in a spawned child process, which is why Cancel can stop it. The tree above expands in place; the full visual page is [HTML structure map](docs/structure.html) (Chinese labels). GitHub shows the HTML source rather than rendering it; open the file in a browser.
+
 ## Install
 
 ### Windows

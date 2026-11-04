@@ -25,6 +25,66 @@ VinaStudio 是 AutoDock Vina 的桌面界面。Vina 仍然负责对接计算；V
 - 用 Catalog 管理受体、配体、Study、集合和筛选库；自带 125 个常用药物条目。
 - 导出 CSV、pose、HTML 报告和项目文件；历史记录支持收藏、标签和比较。
 
+## 结构速览
+
+<details open>
+<summary><strong>vinastudio/</strong> · Python 应用</summary>
+<ul>
+  <li><code>desktop/</code>：Qt 窗口、原生菜单、QWebChannel 文件桥</li>
+  <li><code>server/</code>：FastAPI、JobManager、WebSocket 事件</li>
+  <li><code>core/</code>：准备、对接、分析；不依赖 Qt 或 FastAPI
+    <details>
+      <summary>展开 core</summary>
+      <ul>
+        <li><code>chem/</code>：配体/受体准备、PDBQT、导出、相互作用</li>
+        <li><code>catalog/</code>：SQLite Catalog、检索、迁移</li>
+        <li><code>engines/</code>：Vina CLI 适配</li>
+        <li><code>worker.py</code>：spawn 子进程入口</li>
+      </ul>
+    </details>
+  </li>
+  <li><code>schemas/</code>：请求/响应模型</li>
+  <li><code>resources/</code>：内置 1IEP 样本与验证资源</li>
+</ul>
+</details>
+
+<details>
+<summary><strong>web/</strong> · Vue 3 SPA</summary>
+<ul>
+  <li><code>src/views/</code>：工作台、分子目录、盒子、对接、结果</li>
+  <li><code>src/stores/</code>：Pinia 状态</li>
+  <li><code>src/components/</code>：面板、3D 视口、对话框、画板</li>
+  <li><code>src/api/</code>：HTTP、WebSocket、QWebChannel</li>
+</ul>
+</details>
+
+<details>
+<summary><strong>docs/</strong> · 文档与结构图谱</summary>
+<ul>
+  <li><a href="docs/structure.html">HTML 树状图谱</a>：完整、可展开的视觉版</li>
+  <li><a href="docs/STRUCTURE.zh-CN.md">结构图谱文字版</a>：运行结构、对接流程和路径表</li>
+</ul>
+</details>
+
+<details>
+<summary><strong>validation/</strong> · 验证与基准</summary>
+<ul>
+  <li><code>functional/</code>：1IEP 对照、功能矩阵、UI 证据</li>
+  <li><code>benchmark/</code>：开放集协议、清单、PoseBusters 记录</li>
+</ul>
+</details>
+
+<details>
+<summary><strong>scripts/</strong> · 构建与验证工具</summary>
+<ul>
+  <li><code>dev.py</code>：API + Vite + Qt 热重载</li>
+  <li><code>build_web.py</code>：构建界面</li>
+  <li><code>fetch_samples.py</code>：获取并校验 1IEP 样本</li>
+</ul>
+</details>
+
+运行时，Qt 主线程和 FastAPI 后台线程在同一个桌面进程；对接单独跑在 spawn 子进程里，所以“取消”可以真正终止计算。上面的树可直接展开；完整视觉版是 [HTML 结构图谱](docs/structure.html)，GitHub 会显示它的源码，下载后用浏览器打开。
+
 ## 安装
 
 ### Windows
