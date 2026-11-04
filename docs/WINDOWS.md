@@ -2,13 +2,14 @@
 
 **English** · [简体中文](WINDOWS.zh-CN.md) · [Home](../README.en.md)
 
-> **Status (2026-10-20).** The Windows desktop build has been walked through on a
-> real Windows machine, and the installer is built by CI. It ships publicly with
-> **0.4.0**; 0.3.0 and earlier have no Windows asset.
+> **Status (2026-11-03).** Windows is supported from **0.4.0**. The current
+> **0.6.8** installer is built by CI; the 2026-10-20 real-machine walkthrough
+> validated the 0.3.0 development build. No new manual walkthrough was done for
+> 0.6.8, so this page separates the hardware walkthrough from the CI build.
 >
 > This page covers what is supported, what works, where the boundaries are, and
-> how to diagnose a problem. The scientific conventions — energies are not
-> comparable across scoring functions, PDBQT has no bond orders, and so on — are
+> how to diagnose a problem. The scientific conventions (energies are not
+> comparable across scoring functions, PDBQT has no bond orders, and so on) are
 > the same as on Linux; see the [User Guide](USER_GUIDE.md).
 
 ---
@@ -23,7 +24,7 @@
 | Installer size | about 230 MB |
 | Graphics | A Direct3D 11 GPU (Intel, NVIDIA or AMD); WebGL goes through ANGLE onto D3D11 |
 | Docking engine | The bundled **AutoDock Vina 1.2.7 command-line binary** (Apache-2.0) |
-| Availability | **From 0.4.0**; the build produced from the current development tree has passed the real-machine walkthrough |
+| Availability | **0.4.0+**; 0.6.8 is the current release installer, CI-built. The real-machine walkthrough covered the 0.3.0 development build |
 | Code signing | **Unsigned**, so SmartScreen asks for confirmation on first run (see §2) |
 
 The installer carries the Python runtime, the scientific stack and the Vina
@@ -34,8 +35,8 @@ engine. **Users do not need Python, uv, Node.js or pnpm.**
 ## 2. Installing
 
 1. Download `vinastudio-<version>-setup.exe` from the
-   [releases page](https://github.com/hubehero/VinaStudio/releases) and check the
-   SHA-256 shown there.
+   [releases page](https://github.com/hubehero/VinaStudio/releases), download
+   `SHA256SUMS`, and verify the file before running it.
 2. Run it. The installer is not code-signed, so SmartScreen may say “Windows
    protected your PC”; choose **More info → Run anyway**.
 3. The installer checks for the VC++ 2015–2022 x64 runtime and points to
@@ -49,7 +50,7 @@ engine. **Users do not need Python, uv, Node.js or pnpm.**
 Silent installation, for deployment scripts:
 
 ```powershell
-vinastudio-0.4.0-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+vinastudio-<version>-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
 ```
 
 ---
@@ -72,15 +73,15 @@ The Windows build carries the same application as the Linux build:
 
 ### The docking backend: `vina-cli`
 
-Upstream publishes **no Windows build of the `vina` Python module** — PyPI has
+Upstream publishes **no Windows build of the `vina` Python module**: PyPI has
 manylinux wheels only, and conda-forge builds it for Linux and macOS. The Windows
 application therefore uses the bundled `vina.exe` automatically:
 
 - it is the same AutoDock Vina **1.2.7** engine, with the same parameters as the
   Python API; with a fixed seed the two agree pose for pose on 1iep;
 - the environment page names the backend `vina-cli` with the reason
-  `module-missing`. The dependency table still says that importing `vina` fails —
-  that is a fact — but the capability verdict is “ready to dock”. Failing to
+  `module-missing`. The dependency table still says that importing `vina` fails
+  (that is a fact), but the capability verdict is “ready to dock”. Failing to
   import and failing to dock are different questions;
 - interactive **score / optimise / randomise** use the same binary.
 
@@ -124,7 +125,7 @@ The application is bilingual; only the installer's few screens are English
 ### 4.5 Platform coverage
 
 - x64 only; Windows ARM64, Windows 7 and Windows 8 are not supported.
-- macOS has a source-only path — no package and no release-level verification.
+- macOS has a source-only path, with no package and no release-level verification.
 - The real-machine walkthrough currently covers one Intel UHD (D3D11) machine;
   other GPU and driver combinations have not been checked one by one. The
   environment page shows the actual renderer, so include that string in a bug
@@ -191,16 +192,21 @@ administrator rights.
 - Development-tree installer used for the walkthrough: `vinastudio-0.3.0-setup.exe`,
   229,564,630 bytes, SHA-256
   `ec51d3d5e8448b2ab65b4a8a02dc88c25175e86aac80dac1ae81f2c9370bbb66`.
-- **0.6.2 release installer (current)**: `vinastudio-0.6.2-setup.exe`,
+- **0.6.8 release installer (current)**: `vinastudio-0.6.8-setup.exe`,
+  232,271,727 bytes, SHA-256
+  `6adfb3298ee713fcfe79a808497df4c6a998e13ea1a80faa6d9c21ae5ed19413`,
+  built from tag `v0.6.8` (`1292125`) by run `41647837199`. This is a CI-built
+  installer; the real-machine walkthrough above remains the 0.3.0 evidence.
+- **0.6.2 historical installer**: `vinastudio-0.6.2-setup.exe`,
   232,152,460 bytes, SHA-256
   `1147bdaae7e5bf8f6a6dafd2702e424e70dc3127184f3aaa2292d197f764938b`,
-  built from tag `v0.6.2` (`3778e97`) by run `40525620815`; the 0.6.1 installer
-  is superseded.
+  built from tag `v0.6.2` (`3778e97`) by run `40525620815`.
 - Every Windows build docks 1iep once inside the frozen bundle (exhaustiveness 1)
   and asserts completion, at least one pose and a negative affinity. The 0.6.2
-  build: `-8.593 kcal/mol`, 1 pose, 16.359 s (run `40525620815`); it also ran the
-  packaged backend check. That covers process spawn, stdout redirection, the CLI
-  backend and the bundled engine.
-- Linux artifacts: 0.6.2 by run `40525620815` — tar.gz 396,903,392 B
-  (`19f7427a3abec6502fae5a2416b02d1e111d4ec1baf990dcfa1d9e5c630823b4`) and deb
-  301,830,306 B (`0e5b35717ce375cd3f0f4b9bf88fa5dd83a7fd131f6fe3b59adeca34a1854257`).
+  historical build measured `-8.593 kcal/mol`, 1 pose, 16.359 s (run
+  `40525620815`) and also ran the packaged backend check. The 0.6.8 CI build
+  passed the same engine job; its measurement is in the workflow log rather than
+  in this hardware record.
+- Linux artifacts: 0.6.8 by run `41647837199`: tar.gz 397,184,769 B
+  (`e8ad22effd5c24f8a07de444d5c65afc2c322f20f065ff7edbb1a4ecd1a18788`) and deb
+  302,004,832 B (`00b0ab0888d884e55a34ea1151018940f2541fd98bb45238c5add613be887092`).

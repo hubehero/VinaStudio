@@ -24,12 +24,12 @@ gh release list
 前端、Debian control、`uv.lock`）：
 
 ```bash
-python packaging/ci/bump-version.py --version 0.4.0
+python packaging/ci/bump-version.py --version 0.6.9
 ```
 
 ### 2. 写 CHANGELOG 小节
 
-把 `## [Unreleased]` 下的条目移到新的 `## [0.4.0] - YYYY-MM-DD` 小节，
+把 `## [Unreleased]` 下的条目移到新的 `## [0.6.9] - YYYY-MM-DD` 小节，
 `[Unreleased]` 留空；补上遗漏的用户可见变化。标题沿用 Keep a Changelog 的
 `Added` / `Changed` / `Fixed`，需要时加 `Out of scope`。中英双语都写。
 
@@ -62,7 +62,7 @@ git push origin main
 gh workflow run release.yml
 ```
 
-等它变绿——这是发现构建问题最便宜的地方。
+等它变绿；这是发现构建问题成本最低的地方。
 
 `release.yml` 会调用 `windows-build.yml`，tag 后自动构建并挂载安装包。单独测试
 安装包时再手动派发 `windows-build.yml`，确认日志里有 `docking OK`。
@@ -71,8 +71,8 @@ gh workflow run release.yml
 ### 5. 打附注 tag 并推送
 
 ```bash
-git tag -a v0.4.0 -m "VinaStudio 0.4.0"
-git push origin v0.4.0
+git tag -a v0.6.9 -m "VinaStudio 0.6.9"
+git push origin v0.6.9
 ```
 
 ### 6. 核对发布结果
@@ -103,6 +103,7 @@ git push origin v0.4.0
 |---|---|
 | `preflight` | 与第 3 步相同的检查（`--allow-published`，因为 tag 已存在） |
 | `build-linux` | 前端构建、PyInstaller、`.deb` 与 tar.gz |
+| `build-windows` | Windows 前端、PyInstaller 与安装包（由 `windows-build.yml` 提供） |
 | `create-release` | 用 CHANGELOG 正文创建 GitHub Release |
 
 预检失败会挡住整条链，不合规的发布发不出去。

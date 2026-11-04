@@ -1,6 +1,6 @@
 # Validation claim → source ledger
 
-This ledger is the review trail for the 0.6.4 academic validation report. It is
+This is the historical claim ledger for the 0.6.4 academic validation report; current results are in `docs/ACADEMIC_VALIDATION.md`. It is
 not a substitute for the report; it answers “which sentence is allowed to say
 this, and what supports it?”.
 

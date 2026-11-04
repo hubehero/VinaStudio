@@ -61,7 +61,7 @@ an online or offline event.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported privately to the maintainer on GitHub ([@hubehero](https://github.com/hubehero)).
-If a private channel is not available, open a minimal issue asking for one — do
+If a private channel is not available, open a minimal issue asking for one. Do
 not include incident details in a public thread.
 
 All complaints will be reviewed and investigated promptly and fairly. Community

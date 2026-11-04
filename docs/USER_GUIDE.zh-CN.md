@@ -2,6 +2,9 @@
 
 **简体中文** · [English](USER_GUIDE.md) · [主页](../README.md)
 
+> 本中文手册包含更长的源码安装与 Python/uv/Node.js/pnpm 排障说明；英文版是
+> 简明快速指南。两者的应用操作流程一致。
+
 > 零基础可学 · 全流程图文指南
 
 ---
@@ -136,7 +139,7 @@ pnpm --version   # 应该显示 9.x.x 或更高
 ```bash
 # 如果你有 git
 git clone <仓库地址>
-cd AutoDock_Vina
+cd VinaStudio
 
 # 或者直接解压源代码压缩包
 unzip VinaStudio-main.zip
@@ -146,14 +149,14 @@ cd VinaStudio-main
 ### 3.2 一键安装
 
 ```bash
-# 步骤 1：安装 Python 依赖（包括 vina、meeko、rdkit 等科学计算包）
-uv sync --extra dev
-
-# 步骤 2：安装前端依赖
+# 步骤 1：安装前端依赖
 pnpm -C web install
 
-# 步骤 3：构建界面（把 Vue 界面编译成静态文件）
+# 步骤 2：构建界面（把 Vue 界面编译成静态文件）
 pnpm -C web build
+
+# 步骤 3：安装 Python 依赖（包括 vina、meeko、rdkit 等科学计算包）
+uv sync --extra dev
 ```
 
 或者用封装脚本（等价于上面的步骤 2 和 3）：
@@ -561,24 +564,24 @@ RMSD（均方根偏差）表示不同构象之间的差异：
 导出结果包会写入工作区的 `exports/result-bundles/` 专属目录，文件名带时间和
 jobId；成功提示会显示绝对路径。导入他人结果包时也到同一目录选择。
 
-### 10.6 导入他人结果包
+### 10.7 导入他人结果包
 
 在报告页点击「导入结果包」，选择 VinaStudio 导出的 zip。导入会作为新的只读结果
 加入当前工作区，可查看构象、参数与日志；不会覆盖当前项目。
 
-### 10.7 可检索的帮助
+### 10.8 可检索的帮助
 
 打开「使用帮助」，按症状搜索（准备失败、文件不存在、AD4 地图、无候选位点、
 任务失败、Windows SmartScreen、闪烁）。失败卡片和警告会直接跳到对应条目；
 深入说明见 `docs/USER_GUIDE.md` 与 `docs/WINDOWS.md`。
 
-### 10.8 键盘与撤销
+### 10.9 键盘与撤销
 
 按 **Ctrl/Cmd+K** 打开命令面板（页面、设置、主题、语言）；**Ctrl/Cmd+Z** 撤销
 上一步危险操作（删除分子、清空列表、删除保存视图），删除前会确认；按 **?**
 查看完整快捷键。输入框内 Ctrl/Cmd+Z 保持文本编辑撤销。
 
-### 10.9 整理结果
+### 10.10 整理结果
 
 「历史检索」支持收藏、标签、批量打标和保存筛选视图。索引会自动升级，重建索引
 不会清掉标签/收藏。结果每页 50 条，点「加载更多」继续查看更早记录；新的搜索
@@ -683,8 +686,10 @@ source ~/.bashrc  # 或 ~/.zshrc
 
 **Q: 安装时报错 `ModuleNotFoundError: No module named 'vina'` 怎么办？**
 
-A: 确保使用 `uv sync --extra dev` 而不是普通的 `pip install`：
+A: 确保使用项目锁文件安装，并先构建界面，再安装 Python 依赖：
 ```bash
+pnpm -C web install
+pnpm -C web build
 uv sync --extra dev
 ```
 
