@@ -16,6 +16,8 @@ VinaStudio 是 AutoDock Vina 的桌面界面。Vina 仍然负责对接计算；V
 
 图中左上为对接结果，右上为工作台，左下为分子目录，右下为结果汇报。
 
+想先看整条流程如何运作，可以打开[交互式体验文档](https://hubehero.github.io/VinaStudio/experience/)；页面部署在 GitHub Pages，打开即可交互。
+
 ## 功能
 
 - 受体 PDB/mmCIF 转 PDBQT；配体 MOL/SDF/MOL2/SMILES 转 3D PDBQT，使用 Meeko。
@@ -63,6 +65,7 @@ VinaStudio 是 AutoDock Vina 的桌面界面。Vina 仍然负责对接计算；V
 <ul>
   <li><a href="docs/structure.html">HTML 树状图谱</a>：完整、可展开的视觉版</li>
   <li><a href="docs/STRUCTURE.zh-CN.md">结构图谱文字版</a>：运行结构、对接流程和路径表</li>
+  <li><a href="https://hubehero.github.io/VinaStudio/experience/">交互式体验文档</a>：从原理到功能的可操作导览</li>
 </ul>
 </details>
 

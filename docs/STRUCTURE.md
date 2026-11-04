@@ -156,6 +156,7 @@ A molecule's identity is `identity_key`; the same molecule can appear in several
 
 ## Related documents
 
+- [Interactive field guide](https://hubehero.github.io/VinaStudio/experience/)
 - [Architecture and the three constraints](ARCHITECTURE.md)
 - [Molecule Catalog design](MOLECULE_CATALOG.md)
 - [User guide](USER_GUIDE.md)

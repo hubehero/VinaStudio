@@ -18,6 +18,8 @@ and would rather not rebuild the command line every time.
 Top left is a docking result; top right is the workbench; bottom left is the
 molecule catalog; bottom right is the results report.
 
+For a guided tour of the whole workflow, open the [interactive field guide](https://hubehero.github.io/VinaStudio/experience/); it is deployed on GitHub Pages and opens directly in the browser.
+
 ## Features
 
 - Receptor PDB/mmCIF to PDBQT; ligand MOL/SDF/MOL2/SMILES to 3D PDBQT through Meeko.
@@ -70,6 +72,7 @@ molecule catalog; bottom right is the results report.
 <ul>
   <li><a href="docs/structure.html">HTML tree map</a>: the full expandable visual version</li>
   <li><a href="docs/STRUCTURE.md">Structure map (text)</a>: runtime, docking flow and path table</li>
+  <li><a href="https://hubehero.github.io/VinaStudio/experience/">Interactive field guide</a>: a hands-on tour from principles to features</li>
 </ul>
 </details>
 

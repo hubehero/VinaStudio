@@ -156,6 +156,7 @@
 
 ## 相关文档
 
+- [交互式体验文档](https://hubehero.github.io/VinaStudio/experience/)
 - [架构与三条约束](ARCHITECTURE.zh-CN.md)
 - [分子目录设计](MOLECULE_CATALOG.zh-CN.md)
 - [用户手册](USER_GUIDE.zh-CN.md)
