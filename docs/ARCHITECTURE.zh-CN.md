@@ -2,8 +2,7 @@
 
 **简体中文** · [English](ARCHITECTURE.md) · [主页](../README.md)
 
-VinaStudio 由四层组成，层与层之间边界严格。本文说明这套设计，以及更重要的——
-决定其余一切的三条约束。
+VinaStudio 由四层组成，层与层之间边界严格。本文说明这套设计，以及更重要的三条约束：它们决定了其余一切。
 
 运行结构、对接生命周期、代码结构和 Catalog 数据模型见
 [项目结构图谱](STRUCTURE.zh-CN.md)。
@@ -32,7 +31,7 @@ VinaStudio 由四层组成，层与层之间边界严格。本文说明这套设
 |---|---|---|
 | 桌面外壳 | `vinastudio/desktop/` | PySide6、`config`、`logging_setup` |
 | API 服务 | `vinastudio/server/` | FastAPI、`core`、`schemas` |
-| 领域核心 | `vinastudio/core/` | vina、meeko、rdkit、numpy —— **绝不**导入 Qt 或 FastAPI |
+| 领域核心 | `vinastudio/core/` | vina、meeko、rdkit、numpy；**绝不**导入 Qt 或 FastAPI |
 | 界面 | `web/` | 不导入任何 Python；只走 HTTP + WebSocket |
 
 `core` 不依赖框架，所以科学逻辑可以脱离显示器与事件循环单独测试。
@@ -66,7 +65,7 @@ Vite 产物是 ES 模块。`file://` 没有源（origin），Chromium 会拒绝�
    界面共用一个进程。
 2. **这里不能用 `fork`。** 父进程持有运行中的 Qt 事件循环与 asyncio 循环。
    `fork` 会把两者都复制过去，子进程一碰就可能死锁。必须使用
-   `multiprocessing.get_context("spawn")`——Linux 的默认启动方式是 `fork`。
+   `multiprocessing.get_context("spawn")`；Linux 的默认启动方式是 `fork`。
 
 进度来自 Vina 自己的 stdout。C++ 层会打印 `Computing Vina grid ... done.`、
 `Performing docking (random seed: N) ...`、`0% .. 100%` 进度条，最后是
@@ -120,8 +119,8 @@ PDB 只会更糟：PDBQT 没有键级，也不含非极性氢，渲染器只能�
    响应式 store 更新 → 3Dmol 重绘
 ```
 
-HTTP 做不到的原生能力——文件对话框、把 PNG 存到用户选定的位置、在文件管理器中
-显示文件夹——走 **QWebChannel**。桥对象以 `bridge` 发布，由
+HTTP 做不到的原生能力包括文件对话框、把 PNG 存到用户选定的位置、在文件管理器中
+显示文件夹；这些能力走 **QWebChannel**。桥对象以 `bridge` 发布，由
 `web/src/api/bridge.ts` 访问；在普通浏览器里它解析为 `null`，界面会降级而不是
 崩溃。
 
@@ -171,11 +170,11 @@ HTTP 做不到的原生能力——文件对话框、把 PNG 存到用户选定�
 
 `useMoleculeStore`（`web/src/stores/molecules.ts`）管理所有分子：
 
-- `molecules: MoleculeItem[]` —— 主列表
-- `activeId` —— 当前选中的分子
-- `receptors / ligands / unknowns` —— 由 `getEffectiveType()` 计算
-- `receptorPath / ligandPath` —— 各类型中第一个已准备/已检查的分子
-- `filters / samples` —— 挂载时从后端加载
+- `molecules: MoleculeItem[]`：主列表
+- `activeId`：当前选中的分子
+- `receptors / ligands / unknowns`：由 `getEffectiveType()` 计算
+- `receptorPath / ligandPath`：各类型中第一个已准备/已检查的分子
+- `filters / samples`：挂载时从后端加载
 
 每个 `MoleculeItem` 有自己的状态机：
 
@@ -243,7 +242,7 @@ Study、集合、筛选库与 FTS5 索引；结构文件本身仍在磁盘上。
 | 搜索盒 | 十二条边用线段绘制，语义与 Vina 一致（中心 + 边长） |
 | 盒子预检 | 盒子内没有任何受体原子时，对接前直接拒绝；否则 Vina 会返回看似成功的全 0 构象 |
 | 相互作用 | Python 里按几何距离与角度计算，用虚线圆柱绘制 |
-| 静电势 | PDBQT 部分电荷的库仑求和投到网格，写成 Gaussian cube —— **明确标注为点电荷近似，绝不称为量子 ESP** |
+| 静电势 | PDBQT 部分电荷的库仑求和投到网格，写成 Gaussian cube，**并明确标注为点电荷近似，绝不称为量子 ESP** |
 
 对接不是坐标变换：Vina 收到的受体与盒子处于同一坐标系，`poses_to_sdf()`
 把对接坐标原样写入 SDF。1iep 重对接基线会用共晶姿态核对结果（best-pose
@@ -253,7 +252,7 @@ RMSD 0.353 Å）。盒子完全在受体外是另一类失败：它会在启动�
 
 应用做不到的事情会直接写在界面上，而不是悄悄近似。最清楚的例子是 AutoDock4
 打分：它需要 AutoGrid4 生成的亲和力地图，而 AutoGrid4 不随包分发，所以能力矩阵
-把 `ad4` 标为 `nativeMaps: false`，两个对接表单都不提供它——目前没有办法提供
+把 `ad4` 标为 `nativeMaps: false`，两个对接表单都不提供它：目前没有办法提供
 地图，一个只会失败的选项比没有选项更糟。`/docking/score`、`/optimize` 与
 `/randomize` 出于同样原因拒绝它。
 
@@ -326,7 +325,7 @@ API 返回工件 URL 而不是文件内容。一个准备好的受体 PDB 约 35
 **残基在文件里被拆开。** Meeko 的解析器假设一个残基的原子是连续的。官方 1iep
 参考文件的第二行有一个孤立的 `SER A 438` 的 `HB2`，该残基其余原子在文件末尾，
 Meeko 0.8 会以“interrupted residues”拒绝整个结构。`normalise_pdb_atom_order`
-把每个残基围绕它最大的连续块重新聚合——化学上无变化，且保持残基顺序——结果与
+把每个残基围绕它最大的连续块重新聚合（化学上无变化，且保持残基顺序），结果与
 上游自己的 PDBQT 逐原子一致。
 
 **与上游的差异。** 我们的受体与上游随包的那份并非逐字节相同，差异值得知道：
@@ -338,11 +337,11 @@ Meeko 现在把甲硫氨酸硫醚与半胱氨酸硫醇标为 `S`，旧版本用 
 
 ## 值得刻意固定的依赖
 
-- **`meeko >= 0.7.1`** —— 0.5/0.6 声明 `requires_python <3.12`，在本项目的
+- **`meeko >= 0.7.1`**：0.5/0.6 声明 `requires_python <3.12`，在本项目的
   Python 3.12 上装不了。
-- **`gemmi`** —— Meeko 0.8.0 会在 `chemtempgen` 里导入 `gemmi`，但 PyPI 元数据
+- **`gemmi`**：Meeko 0.8.0 会在 `chemtempgen` 里导入 `gemmi`，但 PyPI 元数据
   完全没有声明依赖，所以必须显式列出，否则 `import meeko` 失败。
-- **`web/` 里固定 TypeScript 5.x** —— TypeScript 7 不再提供 `vue-tsc` 需要的
+- **`web/` 里固定 TypeScript 5.x**：TypeScript 7 不再提供 `vue-tsc` 需要的
   `lib/tsc`。TypeScript 只用于类型检查，Vite 自己剥离类型，固定 5.x 没有代价。
 
 ## 引擎支持

@@ -113,9 +113,9 @@ It is for people who repeat the same workflow, compare several ligands, or would
 
 <p align="center"><sub>Top left: docking result · top right: workbench · bottom left: molecule catalog · bottom right: results report</sub></p>
 
-The interactive field guide turns preparation, the box, the job lifecycle, Catalog and validation into a clickable path:
+The interactive field guide covers preparation, the box, job lifecycle, Catalog and validation:
 
-**[Open the Interactive Field Guide →](https://hubehero.github.io/VinaStudio/experience/)**
+[Open the interactive field guide](https://hubehero.github.io/VinaStudio/experience/)
 
 ## Install
 
@@ -246,7 +246,7 @@ tests/                unit and integration tests
 | Molecules, files, Studies, collections and libraries | [Catalog](docs/MOLECULE_CATALOG.md) |
 | Methods, results, failures and references | [Academic validation](docs/ACADEMIC_VALIDATION.md) · [简体中文](docs/ACADEMIC_VALIDATION.zh-CN.md) |
 | Windows installation, limits and diagnostics | [Windows support](docs/WINDOWS.md) · [简体中文](docs/WINDOWS.zh-CN.md) |
-| Clickable principles-to-features tour | [Interactive Field Guide](https://hubehero.github.io/VinaStudio/experience/) |
+| Interactive guide to principles and features | [Interactive Field Guide](https://hubehero.github.io/VinaStudio/experience/) |
 
 The full index is [`docs/README.md`](docs/README.md).
 
@@ -328,11 +328,9 @@ The code is released under the [MIT License](LICENSE). Third-party notices are i
 
 VinaStudio builds on:
 
-- [AutoDock Vina](https://github.com/ccsb-scripps/AutoDock-Vina) — docking engine
-- [Meeko](https://github.com/forlilab/Meeko) — PDBQT parameterisation and pose conversion
-- [RDKit](https://www.rdkit.org/) — molecule I/O, conformers and cheminformatics
-- [3Dmol.js](https://3dmol.csb.pitt.edu/) — molecular visualisation
-- [Vue 3](https://vuejs.org/) and [Element Plus](https://element-plus.org/) — interface
-- [PySide6](https://doc.qt.io/qtforpython/) — desktop shell
-
-If the project is useful, a star, a reproducible issue or a documentation improvement is welcome.
+- [AutoDock Vina](https://github.com/ccsb-scripps/AutoDock-Vina): docking engine
+- [Meeko](https://github.com/forlilab/Meeko): PDBQT parameterisation and pose conversion
+- [RDKit](https://www.rdkit.org/): molecule I/O, conformers and cheminformatics
+- [3Dmol.js](https://3dmol.csb.pitt.edu/): molecular visualisation
+- [Vue 3](https://vuejs.org/) and [Element Plus](https://element-plus.org/): interface
+- [PySide6](https://doc.qt.io/qtforpython/): desktop shell

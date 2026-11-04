@@ -78,8 +78,8 @@
         <div class="hero-grid">
           <div class="hero-copy">
             <p class="eyebrow"><span class="live-dot" aria-hidden="true"></span>INTERACTIVE FIELD GUIDE / 0.6.8</p>
-            <h1 id="hero-title">把对接，<br><span class="shimmer">变成一个可探索的系统。</span></h1>
-            <p class="lead">VinaStudio 不是把 Vina 藏起来，而是把准备、盒子、任务、日志和结果放在同一条可回看的路径上。向下滚动，拆开它的每一层。</p>
+            <h1 id="hero-title">把对接流程<br><span class="shimmer">放进工作台。</span></h1>
+            <p class="lead">VinaStudio 把准备、盒子、任务、日志和结果留在同一条记录里。下面按实际流程逐段展开。</p>
             <div class="hero-actions">
               <a class="btn primary" href="#model">进入系统 <span aria-hidden="true">↓</span></a>
               <a class="btn" href="../structure.html">结构图谱 <span aria-hidden="true">↗</span></a>
@@ -111,22 +111,22 @@
             </div>
           </div>
         </div>
-        <div class="scroll-cue" aria-hidden="true">scroll to unfold</div>
+        <div class="scroll-cue" aria-hidden="true">scroll / sections</div>
       </section>
 
       <section class="section" id="model" aria-labelledby="model-title">
         <header class="section-head reveal">
           <p class="kicker">01 / the model</p>
-          <h2 id="model-title">Vina 负责计算，<span class="dim">VinaStudio 负责把每一步留住。</span></h2>
+          <h2 id="model-title">Vina 计算，<span class="dim">VinaStudio 保存每一步。</span></h2>
           <p class="section-lede">Vina 的 Python API 是一组阻塞调用；命令行能完成一次对接，却不会替你管理结构、盒子、协议和失败原因。VinaStudio 把这套流程做成一个本地工作台，同时保持每一层的职责清楚。</p>
         </header>
 
         <div class="model-grid">
           <div class="model-copy reveal">
             <p><strong>对接分数不是实验自由能。</strong> Vina、Vinardo 和 AutoDock4 都是在简化模型上打分；不同打分函数的数值不能直接比较。VinaStudio 把这一点写进界面和报告，而不是把它包装成一个确定结论。</p>
-            <p><strong>结构转换不是“改个后缀”。</strong> PDBQT 只保留重原子和极性氢，丢弃非极性氢是格式本身的行为。准备阶段会报告补了多少氢、是否生成了 3D 构象，以及检出多少可旋转键。</p>
+            <p><strong>结构转换会改变原子和氢的表示。</strong> PDBQT 只保留重原子和极性氢，丢弃非极性氢是格式本身的行为。准备阶段会报告补了多少氢、是否生成了 3D 构象，以及检出多少可旋转键。</p>
             <p><strong>结果必须能回到协议。</strong> 作业保存实际使用的参数、输入哈希、引擎版本、种子和日志；关闭应用再打开，仍能解释“这个数是怎么来的”。</p>
-            <blockquote class="quote">“科学诚实”在这里不是一句口号：<span>盒子空了会被拒绝，PDBQT 不会伪装成 PDB 渲染，外部地图缺失会直接说明。</span></blockquote>
+            <blockquote class="quote">这些边界会直接写进界面：<span>盒子空了会被拒绝，PDBQT 不会伪装成 PDB 渲染，外部地图缺失会直接说明。</span></blockquote>
           </div>
 
           <div class="card flow-card reveal">
@@ -210,7 +210,7 @@
       <section class="section" id="prepare" aria-labelledby="prep-title">
         <header class="section-head reveal">
           <p class="kicker">03 / preparation lab</p>
-          <h2 id="prep-title">先把输入，<span class="dim">变成可对接的形状。</span></h2>
+          <h2 id="prep-title">输入如何变成<span class="dim">可对接的 PDBQT。</span></h2>
           <p class="section-lede">受体和配体走的是两条不同的准备路径。切换查看实际发生的转换，以及报告里为什么会出现“原子数变少”。</p>
         </header>
 
@@ -245,7 +245,7 @@
       <section class="section" id="docking" aria-labelledby="dock-title">
         <header class="section-head reveal">
           <p class="kicker">04 / docking console</p>
-          <h2 id="dock-title">参数不是装饰，<span class="dim">它们会改变搜索和结果。</span></h2>
+          <h2 id="dock-title">参数会改变<span class="dim">搜索和结果。</span></h2>
           <p class="section-lede">选择打分函数并调整搜索参数。这里生成的是可复制的协议摘要，不会伪造一次对接结果。</p>
         </header>
 
@@ -348,7 +348,7 @@ note          : resumable local job</pre>
       <section class="section" id="validation" aria-labelledby="val-title">
         <header class="section-head reveal">
           <p class="kicker">07 / evidence</p>
-          <h2 id="val-title">验证记录，<span class="dim">不是一张成功截图。</span></h2>
+          <h2 id="val-title">验证记录，<span class="dim">来自实际运行。</span></h2>
           <p class="section-lede">这些数字只对应预注册的开放集合和公开协议。它们说明软件在特定条件下能做什么，不是通用准确率、富集能力或实验自由能。</p>
         </header>
 
@@ -382,23 +382,23 @@ note          : resumable local job</pre>
       <section class="section" id="limits" aria-labelledby="limits-title">
         <header class="section-head reveal">
           <p class="kicker">08 / boundaries</p>
-          <h2 id="limits-title">知道它不做什么，<span class="dim">比知道它能做什么更重要。</span></h2>
-          <p class="section-lede">这些限制会直接影响结果解释和工作流选择。界面会把它们写出来，而不是用默认值吞掉。</p>
+          <h2 id="limits-title">先看限制，<span class="dim">再看结果。</span></h2>
+          <p class="section-lede">这些限制决定哪些结果不能外推，也决定哪些工作流需要换引擎。</p>
         </header>
 
         <div class="limits stagger reveal">
-          <article class="card limit"><span class="pill amber">AD4</span><h3>没有外部地图就不装懂</h3><p>AutoDock4 需要 AutoGrid4 生成的亲和力地图；应用不捆绑 AutoGrid4，也不会假装现场生成。</p></article>
+          <article class="card limit"><span class="pill amber">AD4</span><h3>AutoDock4 需要外部地图</h3><p>AutoDock4 需要 AutoGrid4 生成的亲和力地图；应用不捆绑 AutoGrid4，也不会假装现场生成。</p></article>
           <article class="card limit"><span class="pill violet">PROGRESS</span><h3>Vina 没有可靠的实时百分比</h3><p>单次作业用阶段文本和活动条；只有批量/筛选的计数是真实进度。不要用定时器伪造百分比。</p></article>
           <article class="card limit"><span class="pill teal">RENDER</span><h3>PDBQT 不直接渲染</h3><p>3Dmol 不解析 PDBQT，也不携带键级；姿态经 Meeko 转成 SDF 后再显示。</p></article>
         </div>
 
         <div class="docs-grid" style="margin-top:14px">
-          <a class="card doc-card" href="../structure.html"><h3>结构图谱</h3><p>树状代码结构、运行结构、对接路径和 Catalog 关系。</p><span>OPEN HTML MAP →</span></a>
-          <a class="card doc-card" href="../ARCHITECTURE.zh-CN.md"><h3>架构与约束</h3><p>四层边界、本地 HTTP、spawn 子进程和 PDBQT 渲染原则。</p><span>READ ARCHITECTURE →</span></a>
-          <a class="card doc-card" href="../USER_GUIDE.zh-CN.md"><h3>用户手册</h3><p>从安装、准备、盒子到对接、复盘和导出的完整操作路径。</p><span>OPEN USER GUIDE →</span></a>
-          <a class="card doc-card" href="../ACADEMIC_VALIDATION.zh-CN.md"><h3>学术验证</h3><p>1IEP 控制、开放集结果、失败记录、限制和参考文献。</p><span>READ VALIDATION →</span></a>
-          <a class="card doc-card" href="../MOLECULE_CATALOG.zh-CN.md"><h3>Catalog 设计</h3><p>分子身份、文件、Study、集合、筛选库和迁移边界。</p><span>READ CATALOG →</span></a>
-          <a class="card doc-card" href="https://github.com/hubehero/VinaStudio"><h3>GitHub</h3><p>源码、Issues、Release 和可复现验证记录。</p><span>VIEW REPOSITORY →</span></a>
+          <a class="card doc-card" href="../structure.html"><h3>结构图谱</h3><p>树状代码结构、运行结构、对接路径和 Catalog 关系。</p><span>打开结构图谱</span></a>
+          <a class="card doc-card" href="../ARCHITECTURE.zh-CN.md"><h3>架构与约束</h3><p>四层边界、本地 HTTP、spawn 子进程和 PDBQT 渲染原则。</p><span>阅读架构</span></a>
+          <a class="card doc-card" href="../USER_GUIDE.zh-CN.md"><h3>用户手册</h3><p>从安装、准备、盒子到对接、复盘和导出的完整操作路径。</p><span>打开用户手册</span></a>
+          <a class="card doc-card" href="../ACADEMIC_VALIDATION.zh-CN.md"><h3>学术验证</h3><p>1IEP 控制、开放集结果、失败记录、限制和参考文献。</p><span>阅读验证</span></a>
+          <a class="card doc-card" href="../MOLECULE_CATALOG.zh-CN.md"><h3>Catalog 设计</h3><p>分子身份、文件、Study、集合、筛选库和迁移边界。</p><span>阅读 Catalog</span></a>
+          <a class="card doc-card" href="https://github.com/hubehero/VinaStudio"><h3>GitHub</h3><p>源码、Issues、Release 和可复现验证记录。</p><span>打开仓库</span></a>
         </div>
       </section>
 

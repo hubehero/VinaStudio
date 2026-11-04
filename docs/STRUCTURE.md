@@ -2,7 +2,7 @@
 
 **English** · [简体中文](STRUCTURE.zh-CN.md) · [Home](../README.en.md)
 
-**Visual version:** [structure.html](structure.html) — a full tree page; open it in a browser. GitHub shows the HTML source rather than rendering this file.
+**Visual version:** [structure.html](structure.html), a full tree page. Open it in a browser; GitHub shows the HTML source rather than rendering this file.
 
 This page uses text trees, tables and ordered steps. Start with the runtime shape, follow one docking job, then use the code tree and the Catalog relationships.
 

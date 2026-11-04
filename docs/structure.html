@@ -159,7 +159,7 @@
 <div class="wrap hero">
   <p class="eyebrow">VinaStudio · structure map</p>
   <h1>项目结构图谱</h1>
-  <p class="lede">一张按层级展开的树，不把系统、目录和数据模型塞进同一张图。先看代码放在哪里，再看运行时谁和谁说话。</p>
+  <p class="lede">这页把代码、运行时和数据模型分开画。先看文件在哪里，再看进程之间如何通信。</p>
   <div class="meta">
     <span><i class="dot teal"></i>界面</span>
     <span><i class="dot blue"></i>服务</span>
@@ -276,7 +276,7 @@
     <section class="card" id="runtime">
       <div class="card-head">
         <h2>运行结构</h2>
-        <p>关注进程和线程边界，而不是文件树。对接 worker 是单独 spawn 出来的。</p>
+        <p>这里只看进程和线程边界；文件树在上一节。对接 worker 是单独 spawn 出来的。</p>
       </div>
       <div class="card-body">
         <div class="tree">
@@ -305,7 +305,7 @@
               </details>
             </li>
             <li><details open>
-              <summary><span class="path">spawn 子进程</span><span class="badge core">per task</span><span class="desc">可以真正终止</span></summary>
+              <summary><span class="path">spawn 子进程</span><span class="badge core">per task</span><span class="desc">可以终止</span></summary>
               <ul>
                 <li><div class="leaf"><span class="path">worker.py</span><span class="desc">stdout 解析、Pipe 事件</span></div></li>
                 <li><div class="leaf"><span class="path">Vina / Meeko / RDKit</span><span class="desc">对接与结构处理</span></div></li>
@@ -327,7 +327,7 @@
     <section class="card" id="flow">
       <div class="card-head">
         <h2>一次对接经过什么</h2>
-        <p>这是顺序，不是目录树；它解释为什么界面不会被 Vina 阻塞。</p>
+        <p>这是一条执行顺序，不是目录树。它说明界面为什么不会被 Vina 阻塞。</p>
       </div>
       <div class="card-body">
         <ol class="steps">
@@ -378,7 +378,7 @@
           <div><b>领域核心</b><span>不依赖 Qt 或 FastAPI</span></div>
           <div><b>数据与证据</b><span>工作区、测试与验证记录</span></div>
         </div>
-        <p class="note">目录只表示“代码在哪里”；运行结构才表示“谁在运行”。不要把两棵树混在一起读。</p>
+        <p class="note">目录表示代码位置，运行结构表示进程关系；两棵树分开读。</p>
       </div>
     </section>
 

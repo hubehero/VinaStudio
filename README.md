@@ -28,7 +28,7 @@
 ## 目录
 
 - [项目简介](#项目简介)
-- [一眼看懂](#一眼看懂)
+- [项目概览](#项目概览)
 - [功能](#功能)
 - [界面](#界面)
 - [安装](#安装)
@@ -60,7 +60,7 @@ VinaStudio 是 [AutoDock Vina](https://github.com/ccsb-scripps/AutoDock-Vina) �
 > [!NOTE]
 > VinaStudio 不实现新的打分函数，也不把对接分数解释成实验结合自由能。不同打分函数的能量不能直接比较；界面和报告会保留这个边界。
 
-## 一眼看懂
+## 项目概览
 
 | | |
 |---|---|
@@ -113,9 +113,9 @@ VinaStudio 是 [AutoDock Vina](https://github.com/ccsb-scripps/AutoDock-Vina) �
 
 <p align="center"><sub>左上：对接结果 · 右上：工作台 · 左下：分子目录 · 右下：结果汇报</sub></p>
 
-交互式导览把准备、盒子、对接生命周期、Catalog 和验证记录串成一条可以点击的路径：
+交互式导览覆盖准备、盒子、对接生命周期、Catalog 和验证记录：
 
-**[打开 Interactive Field Guide →](https://hubehero.github.io/VinaStudio/experience/)**
+[打开交互式导览](https://hubehero.github.io/VinaStudio/experience/)
 
 ## 安装
 
@@ -330,11 +330,9 @@ VinaStudio 完全在本机运行：Qt 窗口、回环 FastAPI 和 spawn 子进�
 
 VinaStudio 建立在以下开源项目之上：
 
-- [AutoDock Vina](https://github.com/ccsb-scripps/AutoDock-Vina) — 对接引擎
-- [Meeko](https://github.com/forlilab/Meeko) — PDBQT 参数化与姿态转换
-- [RDKit](https://www.rdkit.org/) — 分子读取、构象和化学工具
-- [3Dmol.js](https://3dmol.csb.pitt.edu/) — 分子可视化
-- [Vue 3](https://vuejs.org/) 与 [Element Plus](https://element-plus.org/) — 界面
-- [PySide6](https://doc.qt.io/qtforpython/) — 桌面外壳
-
-如果这个项目对你有帮助，欢迎 Star、提交 issue，或从[文档索引](docs/README.md)开始补充你需要的部分。
+- [AutoDock Vina](https://github.com/ccsb-scripps/AutoDock-Vina)：对接引擎
+- [Meeko](https://github.com/forlilab/Meeko)：PDBQT 参数化与姿态转换
+- [RDKit](https://www.rdkit.org/)：分子读取、构象和化学工具
+- [3Dmol.js](https://3dmol.csb.pitt.edu/)：分子可视化
+- [Vue 3](https://vuejs.org/) 与 [Element Plus](https://element-plus.org/)：界面
+- [PySide6](https://doc.qt.io/qtforpython/)：桌面外壳

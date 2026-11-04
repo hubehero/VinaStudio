@@ -22,7 +22,7 @@
     dock: {
       title: '运行对接',
       label: '03 / DOCK',
-      body: 'Vina 在 spawn 子进程中运行，界面通过 WebSocket 接收阶段和日志。取消不是给 Vina 发命令，而是终止该 job 的所有 worker，所以按钮可以真正停下计算。',
+      body: 'Vina 在 spawn 子进程中运行，界面通过 WebSocket 接收阶段和日志。取消会终止该 job 的所有 worker；Vina 没有接收取消命令的接口。',
       path: 'server/job_manager.py · core/worker.py'
     },
     review: {

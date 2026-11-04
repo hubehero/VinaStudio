@@ -33,7 +33,7 @@ For methodology validation, reproducibility and references, see
 |---|---|---|
 | Desktop shell | `vinastudio/desktop/` | PySide6, `config`, `logging_setup` |
 | API server | `vinastudio/server/` | FastAPI, `core`, `schemas` |
-| Domain core | `vinastudio/core/` | vina, meeko, rdkit, numpy — **never** Qt or FastAPI |
+| Domain core | `vinastudio/core/` | vina, meeko, rdkit, numpy; **never** Qt or FastAPI |
 | Interface | `web/` | nothing Python; talks HTTP + WebSocket |
 
 `core` has no framework imports, which is what makes the science testable
@@ -41,7 +41,7 @@ without a display or an event loop.
 
 ---
 
-## Constraint 1 — the interface is served over local HTTP, never `file://`
+## Constraint 1: the interface is served over local HTTP, never `file://`
 
 A Vite bundle is ES modules. Chromium refuses to load ES modules from `file://`
 because the scheme has no origin, so `QWebEngineView.load(QUrl.fromLocalFile(…))`
@@ -61,9 +61,9 @@ Consequences worth knowing:
 - **SSRF surface is eliminated by construction**: the socket is bound to
   loopback, never `0.0.0.0`.
 - `web/vite.config.ts` uses **hash history** routing, so deep links work whether
-  the page came from `StaticFiles` or from Vite — no SPA fallback route needed.
+  the page came from `StaticFiles` or from Vite; no SPA fallback route is needed.
 
-## Constraint 2 — docking runs in spawned child processes
+## Constraint 2: docking runs in spawned child processes
 
 Two separate reasons force process isolation:
 
@@ -73,7 +73,7 @@ Two separate reasons force process isolation:
    process with the UI.
 2. **`fork` is unsafe here.** The parent holds a live Qt event loop and an
    asyncio loop. `fork` copies both, and a child that touches either can
-   deadlock. `multiprocessing.get_context("spawn")` is mandatory — on Linux the
+   deadlock. `multiprocessing.get_context("spawn")` is mandatory; on Linux the
    default start method is `fork`.
 
 Progress is recovered from Vina's own stdout. The C++ layer prints
@@ -95,7 +95,7 @@ own maps, which is why they reject scoring functions that cannot do that (`ad4`
 needs externally generated AutoGrid4 maps). Anything longer belongs in
 `/docking/start`.
 
-## Constraint 3 — PDBQT is never rendered directly
+## Constraint 3: PDBQT is never rendered directly
 
 3Dmol.js `addModel(data, format)` accepts `pdb`, `sdf`, `xyz`, `pqr`, `mol2`,
 `cif`, `mmtf`, `gro`, `prmtop` and `cube`. **PDBQT is not among them.** Stripping
@@ -146,8 +146,7 @@ explicitly out of scope.
    reactive store update → 3Dmol re-render
 ```
 
-Native capabilities that HTTP cannot provide — file dialogs, saving a PNG to a
-chosen path, revealing a folder — go over **QWebChannel** instead. The bridge
+Native capabilities that HTTP cannot provide, such as file dialogs, saving a PNG to a chosen path and revealing a folder, go over **QWebChannel** instead. The bridge
 object is published as `bridge` and reached from `web/src/api/bridge.ts`, which
 resolves to `null` in a plain browser so the interface degrades instead of
 breaking.
@@ -201,11 +200,11 @@ with a single file-cabinet-style layout.
 ### Stores and data flow
 
 `useMoleculeStore` (`web/src/stores/molecules.ts`) manages all molecules:
-- `molecules: MoleculeItem[]` — the central list
-- `activeId` — currently selected molecule
-- `receptors / ligands / unknowns` — computed by `getEffectiveType()`
-- `receptorPath / ligandPath` — first prepared/inspected of each type
-- `filters / samples` — loaded from backend on mount
+- `molecules: MoleculeItem[]`: the central list
+- `activeId`: currently selected molecule
+- `receptors / ligands / unknowns`: computed by `getEffectiveType()`
+- `receptorPath / ligandPath`: first prepared/inspected of each type
+- `filters / samples`: loaded from backend on mount
 
 Each `MoleculeItem` tracks its own state machine:
 ```
@@ -278,7 +277,7 @@ Full design and current limits: `docs/MOLECULE_CATALOG.md`.
 | Search box | Twelve edges drawn as lines with Vina's semantics (centre + edge lengths) |
 | Box preflight | A box that contains no receptor atom is rejected before docking; Vina would otherwise return zero-energy poses that look successful |
 | Interactions | Computed geometrically in Python (distances and angles), drawn as dashed cylinders |
-| Electrostatic potential | Coulomb sum over PDBQT partial charges onto a grid, written as a Gaussian cube — **labelled as a point-charge approximation, never as a QM ESP** |
+| Electrostatic potential | Coulomb sum over PDBQT partial charges onto a grid, written as a Gaussian cube, **labelled as a point-charge approximation, never as a QM ESP** |
 
 Docking is not a coordinate transform: Vina receives the receptor and box in
 the same frame, and `poses_to_sdf()` copies the docked coordinates into SDF
@@ -291,7 +290,7 @@ screening and the interactive score/optimize/randomize paths.
 Anything the application cannot do correctly is stated in the UI rather than
 approximated silently. The clearest example is AutoDock4 scoring: it needs
 affinity maps produced by AutoGrid4, which is not bundled, so the capability
-matrix marks `ad4` as `nativeMaps: false` and neither docking form offers it —
+matrix marks `ad4` as `nativeMaps: false` and neither docking form offers it:
 there is no way to supply maps yet, and an option that can only fail is worse
 than an absent one. `/docking/score`, `/optimize` and `/randomize` refuse it for
 the same reason.
@@ -377,8 +376,8 @@ it cannot reach anything the application did not write.
 contiguous. The official 1iep reference has a single `HB2` of `SER A 438` on its
 second line and the rest of that residue near the end, which makes Meeko 0.8
 reject the whole structure with "interrupted residues". `normalise_pdb_atom_order`
-regroups each residue around its largest contiguous block — a chemical no-op that
-preserves residue order — and the result then matches upstream's own PDBQT atom
+regroups each residue around its largest contiguous block (a chemical no-op that
+preserves residue order), and the result then matches upstream's own PDBQT atom
 for atom.
 
 **Points of departure from upstream.** Our receptor is not byte-identical to the
@@ -392,11 +391,11 @@ task.
 
 ## Dependencies worth pinning deliberately
 
-- **`meeko >= 0.7.1`** — 0.5/0.6 declare `requires_python <3.12`, so they cannot
+- **`meeko >= 0.7.1`**: 0.5/0.6 declare `requires_python <3.12`, so they cannot
   be installed on this project's Python 3.12.
-- **`gemmi`** — Meeko 0.8.0 imports `gemmi` from `chemtempgen` but its PyPI
+- **`gemmi`**: Meeko 0.8.0 imports `gemmi` from `chemtempgen` but its PyPI
   metadata declares no dependencies at all, so it must be listed explicitly or
   `import meeko` fails.
-- **`typescript` 5.x in `web/`** — TypeScript 7 no longer ships `lib/tsc`, which
+- **`typescript` 5.x in `web/`**: TypeScript 7 no longer ships `lib/tsc`, which
   `vue-tsc` requires. TypeScript is only used for type checking; Vite strips
   types itself, so pinning to 5.x costs nothing.
