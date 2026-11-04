@@ -8,12 +8,12 @@ the artifacts of every version. Releases are cut from a tag and built by CI.
 ## The two rules that are easy to get wrong
 
 - **The version is the next one in sequence** after the latest release. A release
-  number describes *the release*, not the amount of work inside it — never skip a
+  number describes *the release*, not the amount of work inside it. Never skip a
   number, and never renumber to match an internal milestone.
 - **Release notes are written by a human** in [`CHANGELOG.md`](CHANGELOG.md).
   The release body is extracted from that file; nothing is generated from commit
   titles. Keep entries about the product (what a user can now do, what changed,
-  what was fixed) — not about the process.
+  what was fixed), not about the process.
 
 ## Steps
 
@@ -28,12 +28,12 @@ One script keeps every file in step (`pyproject.toml`, the package, the frontend
 the Debian control file, `uv.lock`):
 
 ```bash
-python packaging/ci/bump-version.py --version 0.4.0
+python packaging/ci/bump-version.py --version 0.6.9
 ```
 
 ### 2. Write the changelog section
 
-Move the entries under `## [Unreleased]` into a new `## [0.4.0] - YYYY-MM-DD`
+Move the entries under `## [Unreleased]` into a new `## [0.6.9] - YYYY-MM-DD`
 section (Keep a Changelog's flow), leaving `[Unreleased]` empty behind them, and
 add anything the section is still missing. Use the usual
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) headings: `Added`,
@@ -49,7 +49,7 @@ python packaging/ci/release-preflight.py
 
 It lists the published releases, then checks the version sequence, the changelog
 section, the public wording, the tracked tree, the release metadata, the commit
-identity, the workflow, and the open security alerts. Fix everything it reports —
+identity, the workflow, and the open security alerts. Fix everything it reports;
 **do not tag** while it fails.
 
 The release tree does not ship `tests/`, so the unit suite cannot run here. Before
@@ -88,8 +88,8 @@ attaches it automatically. To test the installer alone, dispatch
 An annotated tag, so the tag carries an author and a message:
 
 ```bash
-git tag -a v0.4.0 -m "VinaStudio 0.4.0"
-git push origin v0.4.0
+git tag -a v0.6.9 -m "VinaStudio 0.6.9"
+git push origin v0.6.9
 ```
 
 ### 6. Verify what was published
@@ -102,7 +102,7 @@ git push origin v0.4.0
 
 The repository is scanned by Dependabot and CodeQL. The pre-flight refuses to
 release while a high or critical alert is open, and "handle it" means one of two
-things — never switching the scanner off:
+things. Never switch the scanner off:
 
 - **Fix it.** CodeQL re-scans on push, so a fix is confirmed by the next run and
   the alert closes itself.

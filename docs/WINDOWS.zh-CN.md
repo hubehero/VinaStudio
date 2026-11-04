@@ -2,8 +2,9 @@
 
 **简体中文** · [English](WINDOWS.md) · [主页](../README.md)
 
-> **状态（2026-10-20）**：Windows 桌面版已在一台真实 Windows 机器上完成走查，
-> 安装包由 CI 构建。正式对外随 **0.4.0** 发布；0.3.0 及更早版本没有 Windows 资产。
+> **状态（2026-11-03）**：Windows 从 **0.4.0** 起支持。当前 **0.6.8** 安装包由
+> CI 构建；2026-10-20 的真机走查验证的是 0.3.0 开发包，0.6.8 没有新增真机走查。
+> 因此本页把“真机证据”和“CI 构建”分开写。
 >
 > 本文说明支持范围、能做什么、已知边界和排障方法。科学方法学与格式限制
 > （能量不可跨打分函数比较、PDBQT 无键级等）与 Linux 版完全相同，见
@@ -22,7 +23,7 @@
 | 安装包体积 | 约 230 MB |
 | 显卡 | 支持 Direct3D 11 的 GPU（Intel / NVIDIA / AMD 均可）；WebGL 经 ANGLE 走 D3D11 |
 | 对接后端 | 随包的 **AutoDock Vina 1.2.7 命令行二进制**（Apache-2.0） |
-| 发布状态 | **0.4.0 起**；当前开发树产出的安装包已通过真机走查 |
+| 发布状态 | **0.4.0 起**；0.6.8 为当前发布安装包，由 CI 构建；真机走查覆盖的是 0.3.0 开发包 |
 | 代码签名 | **未签名**（首次运行会触发 SmartScreen 提示，见 §2） |
 
 安装包内已经包含 Python 运行时、科学计算栈和 Vina 引擎，**用户不需要安装
@@ -32,7 +33,7 @@ Python、uv、Node.js 或 pnpm**。
 
 ## 2. 安装
 
-1. 从发布页下载 `vinastudio-<版本>-setup.exe`，并核对页面给出的 SHA-256。
+1. 从发布页下载 `vinastudio-<版本>-setup.exe` 与 `SHA256SUMS`，运行前核对 SHA-256。
 2. 双击运行。因为安装包未做代码签名，Windows SmartScreen 可能提示
    “Windows 已保护你的电脑”，选择“更多信息 → 仍要运行”。
 3. 安装器会检查 VC++ 2015–2022 x64 运行时；检测不到时会给出微软官方下载地址。
@@ -44,7 +45,7 @@ Python、uv、Node.js 或 pnpm**。
 静默安装（部署脚本用）：
 
 ```powershell
-vinastudio-0.4.0-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+vinastudio-<版本>-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
 ```
 
 ---
@@ -165,17 +166,21 @@ powershell -ExecutionPolicy Bypass -File .\vinastudio-diagnostics.ps1
   准备、对接、分析、持久化、中文路径、渲染器诊断均正常。
 - 走查用的开发树安装包：`vinastudio-0.3.0-setup.exe`，229,564,630 B，
   SHA-256 `ec51d3d5e8448b2ab65b4a8a02dc88c25175e86aac80dac1ae81f2c9370bbb66`。
-- **0.6.2 正式安装包（当前）**：`vinastudio-0.6.2-setup.exe`，232,152,460 B，
+- **0.6.8 正式安装包（当前）**：`vinastudio-0.6.8-setup.exe`，232,271,727 B，
+  SHA-256 `6adfb3298ee713fcfe79a808497df4c6a998e13ea1a80faa6d9c21ae5ed19413`，
+  由 tag `v0.6.8`（`1292125`）构建（run `41647837199`）。这是 CI 构建；上面的
+  真机走查仍是 0.3.0 的证据。
+- **0.6.2 历史安装包**：`vinastudio-0.6.2-setup.exe`，232,152,460 B，
   SHA-256 `1147bdaae7e5bf8f6a6dafd2702e424e70dc3127184f3aaa2292d197f764938b`，
-  由 tag `v0.6.2`（`3778e97`）构建（run `40525620815`）；0.6.1 安装包已被取代。
+  由 tag `v0.6.2`（`3778e97`）构建（run `40525620815`）。
 - 构建内自动冒烟：每个 Windows 构建都会在冻结包里真跑一次 1iep 对接
-  （穷举度 1），断言完成、至少一个构象、亲和力为负；0.6.2 构建结果
-  `-8.593 kcal/mol`、1 个构象、16.359 s（run `40525620815`），同时通过
-  打包后 CLI 后端检查。这覆盖了进程 spawn、stdout 重定向、CLI 后端与
-  随包 Vina 二进制。
-- Linux 资产：0.6.2 由 run `40525620815` 构建：tar.gz 396,903,392 B
-  （`19f7427a3abec6502fae5a2416b02d1e111d4ec1baf990dcfa1d9e5c630823b4`），deb
-  301,830,306 B（`0e5b35717ce375cd3f0f4b9bf88fa5dd83a7fd131f6fe3b59adeca34a1854257`）。
+  （穷举度 1），断言完成、至少一个构象、亲和力为负。0.6.2 历史构建测得
+  `-8.593 kcal/mol`、1 个构象、16.359 s（run `40525620815`），并通过打包后
+  CLI 后端检查；0.6.8 的 CI 构建通过同一个 engine job，具体数值在 workflow
+  日志中，本硬件记录不重复声称。
+- Linux 资产：0.6.8 由 run `41647837199` 构建：tar.gz 397,184,769 B
+  （`e8ad22effd5c24f8a07de444d5c65afc2c322f20f065ff7edbb1a4ecd1a18788`），deb
+  302,004,832 B（`00b0ab0888d884e55a34ea1151018940f2541fd98bb45238c5add613be887092`）。
 
 ---
 

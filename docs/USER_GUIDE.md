@@ -2,6 +2,10 @@
 
 **English** · [简体中文](USER_GUIDE.zh-CN.md) · [Home](../README.en.md)
 
+> This is the concise English guide. The Chinese guide also contains a longer
+> source-install and troubleshooting section for Python, uv, Node.js and pnpm;
+> the application workflow is the same.
+
 This guide takes you from a fresh installation to a docked pose you can trust:
 prepare a receptor and a ligand, choose the search box, run AutoDock Vina, read
 the result, and export it. It assumes no command-line experience.
@@ -61,9 +65,9 @@ package manager.
 To run the development tree instead:
 
 ```bash
-uv sync --extra dev
 pnpm -C web install
 pnpm -C web build
+uv sync --extra dev
 uv run python -m vinastudio
 ```
 
