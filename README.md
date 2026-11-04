@@ -70,12 +70,28 @@ VinaStudio 是 [AutoDock Vina](https://github.com/ccsb-scripps/AutoDock-Vina) �
 ## 界面预览
 
 <p align="center">
-  <a href="https://hubehero.github.io/VinaStudio/experience/">
-    <img src="https://github.com/user-attachments/assets/52492a9f-e995-40f5-bf5b-4ff35f6c4bc9" alt="VinaStudio 界面总览" width="900">
-  </a>
+  <img src="https://hubehero.github.io/VinaStudio/images/docking.png" alt="对接结果：姿态、能量分解和相互作用" width="900">
 </p>
 
-<p align="center"><sub>左上：对接结果 · 右上：工作台 · 左下：分子目录 · 右下：结果汇报</sub></p>
+<p align="center"><sub>对接结果：姿态、能量分解和相互作用</sub></p>
+
+<p align="center">
+  <img src="https://hubehero.github.io/VinaStudio/images/workbench.png" alt="工作台：准备、盒子和对接步骤" width="900">
+</p>
+
+<p align="center"><sub>工作台：准备、盒子和对接步骤</sub></p>
+
+<p align="center">
+  <img src="https://hubehero.github.io/VinaStudio/images/molecules.png" alt="分子目录：分子、Study、集合和筛选库" width="900">
+</p>
+
+<p align="center"><sub>分子目录：分子、Study、集合和筛选库</sub></p>
+
+<p align="center">
+  <img src="https://hubehero.github.io/VinaStudio/images/report.png" alt="结果汇报：参数、图表和历史任务" width="900">
+</p>
+
+<p align="center"><sub>结果汇报：参数、图表和历史任务</sub></p>
 
 交互式导览覆盖准备、盒子、对接生命周期、Catalog 和验证记录：[打开交互式导览](https://hubehero.github.io/VinaStudio/experience/)。
 

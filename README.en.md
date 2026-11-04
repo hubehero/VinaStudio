@@ -70,12 +70,28 @@ It is for people who repeat the same workflow, compare several ligands, or would
 ## Interface preview
 
 <p align="center">
-  <a href="https://hubehero.github.io/VinaStudio/experience/">
-    <img src="https://github.com/user-attachments/assets/52492a9f-e995-40f5-bf5b-4ff35f6c4bc9" alt="VinaStudio interface overview" width="900">
-  </a>
+  <img src="https://hubehero.github.io/VinaStudio/images/docking.png" alt="Docking result: poses, energy breakdown and interactions" width="900">
 </p>
 
-<p align="center"><sub>Top left: docking result · top right: workbench · bottom left: molecule catalog · bottom right: results report</sub></p>
+<p align="center"><sub>Docking result: poses, energy breakdown and interactions</sub></p>
+
+<p align="center">
+  <img src="https://hubehero.github.io/VinaStudio/images/workbench.png" alt="Workbench: preparation, box and docking steps" width="900">
+</p>
+
+<p align="center"><sub>Workbench: preparation, box and docking steps</sub></p>
+
+<p align="center">
+  <img src="https://hubehero.github.io/VinaStudio/images/molecules.png" alt="Molecule catalog: molecules, Studies, collections and libraries" width="900">
+</p>
+
+<p align="center"><sub>Molecule catalog: molecules, Studies, collections and libraries</sub></p>
+
+<p align="center">
+  <img src="https://hubehero.github.io/VinaStudio/images/report.png" alt="Results report: parameters, charts and job history" width="900">
+</p>
+
+<p align="center"><sub>Results report: parameters, charts and job history</sub></p>
 
 The interactive field guide covers preparation, the box, job lifecycle, Catalog and validation: [open the interactive field guide](https://hubehero.github.io/VinaStudio/experience/).
 
