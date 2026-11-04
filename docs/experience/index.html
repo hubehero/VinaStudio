@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="VinaStudio 交互式体验文档：从 AutoDock Vina 原理、分子准备、盒子、对接生命周期到结果验证。">
+  <title>VinaStudio · Interactive Field Guide</title>
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="experience.css">
+  <noscript><style>.reveal,.stagger > *{opacity:1!important;transform:none!important}</style></noscript>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到正文</a>
+  <div id="progress" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <a class="brand" href="#top" aria-label="VinaStudio 交互文档首页">
+      <span class="brand-mark" aria-hidden="true">VS</span>
+      <span class="brand-copy">
+        <span class="brand-name">VinaStudio</span>
+        <span class="brand-sub">interactive field guide</span>
+      </span>
+    </a>
+    <nav class="topnav" aria-label="主导航">
+      <a href="#model">模型</a>
+      <a href="#architecture">架构</a>
+      <a href="#prepare">准备</a>
+      <a href="#docking">对接</a>
+      <a href="#lifecycle">生命周期</a>
+      <a href="#catalog">Catalog</a>
+      <a href="#validation">验证</a>
+    </nav>
+    <div class="top-actions">
+      <button class="ghost-btn" type="button" data-palette aria-label="打开搜索面板">
+        <span aria-hidden="true">⌘K</span><span>搜索</span>
+      </button>
+      <button class="ghost-btn" type="button" data-calm aria-pressed="false" aria-label="切换静默模式">
+        <span data-calm-label>静默</span>
+      </button>
+      <button class="icon-btn menu-btn" type="button" data-menu aria-label="打开目录" aria-expanded="false">目录</button>
+    </div>
+  </header>
+
+  <div class="mobile-nav" id="mobileNav">
+    <a href="#model">01 / 模型</a>
+    <a href="#architecture">02 / 架构</a>
+    <a href="#prepare">03 / 准备</a>
+    <a href="#docking">04 / 对接</a>
+    <a href="#lifecycle">05 / 生命周期</a>
+    <a href="#catalog">06 / Catalog</a>
+    <a href="#validation">07 / 验证</a>
+    <a href="#limits">08 / 边界</a>
+  </div>
+
+  <div class="shell">
+    <aside class="rail" aria-label="章节导航">
+      <p class="rail-title">Field notes / 08</p>
+      <ol class="rail-list">
+        <li><a class="rail-link" href="#model"><span>01</span><span>模型的边界</span></a></li>
+        <li><a class="rail-link" href="#architecture"><span>02</span><span>运行结构</span></a></li>
+        <li><a class="rail-link" href="#prepare"><span>03</span><span>准备实验室</span></a></li>
+        <li><a class="rail-link" href="#docking"><span>04</span><span>对接控制台</span></a></li>
+        <li><a class="rail-link" href="#lifecycle"><span>05</span><span>任务生命周期</span></a></li>
+        <li><a class="rail-link" href="#catalog"><span>06</span><span>Catalog 图谱</span></a></li>
+        <li><a class="rail-link" href="#validation"><span>07</span><span>验证与边界</span></a></li>
+        <li><a class="rail-link" href="#limits"><span>08</span><span>限制与文档</span></a></li>
+      </ol>
+      <div class="rail-foot">
+        <div>LOCAL / LOOPBACK</div>
+        <div>VINA 1.2.7</div>
+        <div>MEeko / RDKit</div>
+      </div>
+    </aside>
+
+    <main id="main">
+      <section class="hero" id="top" aria-labelledby="hero-title">
+        <canvas id="field" aria-hidden="true"></canvas>
+        <div class="hero-grid">
+          <div class="hero-copy">
+            <p class="eyebrow"><span class="live-dot" aria-hidden="true"></span>INTERACTIVE FIELD GUIDE / 0.6.8</p>
+            <h1 id="hero-title">把对接流程<br><span class="shimmer">放进工作台。</span></h1>
+            <p class="lead">VinaStudio 把准备、盒子、任务、日志和结果留在同一条记录里。下面按实际流程逐段展开。</p>
+            <div class="hero-actions">
+              <a class="btn primary" href="#model">进入系统 <span aria-hidden="true">↓</span></a>
+              <a class="btn" href="../structure.html">结构图谱 <span aria-hidden="true">↗</span></a>
+            </div>
+            <dl class="hero-stats" aria-label="项目概览">
+              <div><dt>4</dt><dd>层边界</dd></div>
+              <div><dt>1</dt><dd>桌面进程</dd></div>
+              <div><dt>spawn</dt><dd>隔离计算</dd></div>
+              <div><dt>1IEP</dt><dd>控制样例</dd></div>
+            </dl>
+          </div>
+
+          <div class="hero-console" aria-label="界面预览，不是实时作业">
+            <div class="console">
+              <div class="console-head">
+                <span class="console-title">VINASTUDIO / LOCAL SESSION</span>
+                <span class="console-lights" aria-hidden="true"><i></i><i></i><i></i></span>
+              </div>
+              <div class="console-body">
+                <div class="console-line"><span class="prompt">›</span> receptor.pdb <span class="ok">INSPECTED</span></div>
+                <div class="console-line"><span class="prompt">›</span> ligand.sdf <span class="ok">PREPARED</span></div>
+                <div class="console-line"><span class="prompt">›</span> box / 15.190, 53.903, 16.917 <span class="amber">16.7 × 24.7 × 21.5 Å</span></div>
+                <div class="console-line"><span class="prompt">›</span> engine <span class="ok">VINA 1.2.7</span></div>
+                <div class="console-spark" aria-hidden="true">
+                  <i style="height:28%"></i><i style="height:44%"></i><i style="height:36%"></i><i style="height:62%"></i><i style="height:49%"></i><i style="height:77%"></i><i style="height:58%"></i><i style="height:69%"></i><i style="height:90%"></i><i style="height:72%"></i><i style="height:84%"></i><i style="height:66%"></i><i style="height:95%"></i><i style="height:74%"></i><i style="height:88%"></i><i style="height:64%"></i>
+                </div>
+                <div class="console-foot"><span>WORKSPACE / 1IEP</span><span>PREVIEW ONLY</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="scroll-cue" aria-hidden="true">scroll / sections</div>
+      </section>
+
+      <section class="section" id="model" aria-labelledby="model-title">
+        <header class="section-head reveal">
+          <p class="kicker">01 / the model</p>
+          <h2 id="model-title">Vina 计算，<span class="dim">VinaStudio 保存每一步。</span></h2>
+          <p class="section-lede">Vina 的 Python API 是一组阻塞调用；命令行能完成一次对接，却不会替你管理结构、盒子、协议和失败原因。VinaStudio 把这套流程做成一个本地工作台，同时保持每一层的职责清楚。</p>
+        </header>
+
+        <div class="model-grid">
+          <div class="model-copy reveal">
+            <p><strong>对接分数不是实验自由能。</strong> Vina、Vinardo 和 AutoDock4 都是在简化模型上打分；不同打分函数的数值不能直接比较。VinaStudio 把这一点写进界面和报告，而不是把它包装成一个确定结论。</p>
+            <p><strong>结构转换会改变原子和氢的表示。</strong> PDBQT 只保留重原子和极性氢，丢弃非极性氢是格式本身的行为。准备阶段会报告补了多少氢、是否生成了 3D 构象，以及检出多少可旋转键。</p>
+            <p><strong>结果必须能回到协议。</strong> 作业保存实际使用的参数、输入哈希、引擎版本、种子和日志；关闭应用再打开，仍能解释“这个数是怎么来的”。</p>
+            <blockquote class="quote">这些边界会直接写进界面：<span>盒子空了会被拒绝，PDBQT 不会伪装成 PDB 渲染，外部地图缺失会直接说明。</span></blockquote>
+          </div>
+
+          <div class="card flow-card reveal">
+            <div class="card-kicker"><span>PIPELINE / EXPLORABLE</span><span class="pill teal">click a stage</span></div>
+            <div class="flow-diagram" role="tablist" aria-label="工作流阶段">
+              <button class="flow-node is-active" type="button" role="tab" aria-selected="true" data-stage="prepare">
+                <span class="node-dot">01</span><span class="node-label">准备</span>
+              </button>
+              <button class="flow-node" type="button" role="tab" aria-selected="false" data-stage="box">
+                <span class="node-dot">02</span><span class="node-label">盒子</span>
+              </button>
+              <button class="flow-node" type="button" role="tab" aria-selected="false" data-stage="dock">
+                <span class="node-dot">03</span><span class="node-label">对接</span>
+              </button>
+              <button class="flow-node" type="button" role="tab" aria-selected="false" data-stage="review">
+                <span class="node-dot">04</span><span class="node-label">复盘</span>
+              </button>
+            </div>
+            <div class="flow-detail" id="flowDetail" role="tabpanel">
+              <div class="flow-detail-top"><h3>准备分子</h3><span class="pill teal">01 / PREPARE</span></div>
+              <p>受体从 PDB/mmCIF 进入 Meeko 的 Polymer 路径；配体从 MOL/SDF/MOL2/SMILES 进入 RDKit 与 Meeko。两者最后都变成 PDBQT，但转换内容和失败模式并不相同。</p>
+              <span class="path">core/chem/ligand_prep.py · core/chem/receptor_prep.py</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="architecture" aria-labelledby="arch-title">
+        <header class="section-head reveal">
+          <p class="kicker">02 / runtime shape</p>
+          <h2 id="arch-title">四层边界，<span class="dim">一条本地回环。</span></h2>
+          <p class="section-lede">Qt 主线程和 FastAPI 后台线程在同一个桌面进程里；对接跑到单独的 spawn 子进程。点击任意一层，看看它允许依赖什么、为什么这样切。</p>
+        </header>
+
+        <div class="arch-grid">
+          <div class="layer-list stagger reveal" role="list">
+            <button class="layer-btn is-active" type="button" data-layer="desktop" aria-pressed="true">
+              <span class="layer-num">01</span>
+              <span class="layer-name">桌面外壳 <small>desktop/</small></span>
+              <span class="layer-tag">QT</span>
+            </button>
+            <button class="layer-btn" type="button" data-layer="server" aria-pressed="false">
+              <span class="layer-num">02</span>
+              <span class="layer-name">API 服务 <small>server/</small></span>
+              <span class="layer-tag">LOCAL</span>
+            </button>
+            <button class="layer-btn" type="button" data-layer="core" aria-pressed="false">
+              <span class="layer-num">03</span>
+              <span class="layer-name">领域核心 <small>core/</small></span>
+              <span class="layer-tag">SCIENCE</span>
+            </button>
+            <button class="layer-btn" type="button" data-layer="web" aria-pressed="false">
+              <span class="layer-num">04</span>
+              <span class="layer-name">界面 <small>web/</small></span>
+              <span class="layer-tag">SPA</span>
+            </button>
+          </div>
+
+          <article class="card layer-detail reveal" id="layerDetail" aria-live="polite">
+            <div class="layer-detail-top">
+              <div><p class="mono-label">LAYER / 01</p><h3>桌面外壳</h3><div class="layer-code">vinastudio/desktop/</div></div>
+              <span class="pill teal">Qt main thread</span>
+            </div>
+            <p>负责窗口、原生菜单、QWebChannel 文件和目录能力，同时启动 Uvicorn 后台线程。它不实现对接算法，只负责把桌面能力接给界面。</p>
+            <ul>
+              <li>允许导入 PySide6、config、logging_setup。</li>
+              <li>QMainWindow · 原生菜单 · QWebChannel 桥。</li>
+              <li>server_thread.py 启动 Uvicorn，并通过端口钩子回传实际端口。</li>
+            </ul>
+          </article>
+        </div>
+
+        <div class="process-strip reveal" aria-label="进程与线程结构">
+          <div><span>PROCESS / 01</span><strong>Qt main thread</strong><small>窗口 · 菜单 · QWebChannel</small></div>
+          <div><span>THREAD / 02</span><strong>FastAPI + JobManager</strong><small>REST · WebSocket · 事件</small></div>
+          <div><span>PROCESS / 03</span><strong>spawn worker</strong><small>Vina · Meeko · 可终止</small></div>
+          <div><span>DISK / 04</span><strong>workspace</strong><small>jobs · projects · catalog</small></div>
+        </div>
+      </section>
+
+      <section class="section" id="prepare" aria-labelledby="prep-title">
+        <header class="section-head reveal">
+          <p class="kicker">03 / preparation lab</p>
+          <h2 id="prep-title">输入如何变成<span class="dim">可对接的 PDBQT。</span></h2>
+          <p class="section-lede">受体和配体走的是两条不同的准备路径。切换查看实际发生的转换，以及报告里为什么会出现“原子数变少”。</p>
+        </header>
+
+        <div class="prep-grid">
+          <div class="card prep-card reveal">
+            <div class="card-kicker"><span>PREP / INPUT</span><span class="segmented" role="tablist" aria-label="选择分子类型">
+              <button class="is-active" type="button" role="tab" aria-selected="true" data-prep="ligand">配体</button>
+              <button type="button" role="tab" aria-selected="false" data-prep="receptor">受体</button>
+            </span></div>
+            <ol class="prep-steps" id="prepSteps">
+              <li class="prep-step"><span class="prep-step-index">01</span><div><h4>读取与检查</h4><p>RDKit 读入 MOL/SDF/MOL2/PDB，检查显式氢、隐式氢、3D 坐标和可旋转键。</p></div></li>
+              <li class="prep-step"><span class="prep-step-index">02</span><div><h4>补氢</h4><p><code>Chem.AddHs</code> 补真实氢；Meeko 不接受只有隐式氢的分子。</p></div></li>
+              <li class="prep-step"><span class="prep-step-index">03</span><div><h4>没有 3D 时生成构象</h4><p>ETKDG 嵌入，再用 MMFF94 优化。2D 输入不会直接进入对接。</p></div></li>
+              <li class="prep-step"><span class="prep-step-index">04</span><div><h4>参数化与写出</h4><p><code>MoleculePreparation()(mol)</code> 返回列表，取第一个 setup；<code>PDBQTWriterLegacy.write_string()</code> 返回三元组。</p></div></li>
+            </ol>
+          </div>
+
+          <aside class="card prep-report reveal" aria-live="polite">
+            <div class="report-title"><span>REPORT / WHAT CHANGED</span><span id="prepBadge">ligand</span></div>
+            <div class="report-rows" id="prepReport">
+              <div class="report-row"><span>路径</span><b>RDKit → Meeko</b></div>
+              <div class="report-row"><span>补氢</span><b>real H atoms</b></div>
+              <div class="report-row"><span>3D</span><b>only if needed</b></div>
+              <div class="report-row"><span>输出</span><b>PDBQT</b></div>
+              <div class="report-row"><span>检查</span><b>rotatable bonds</b></div>
+            </div>
+            <div class="note" style="margin-top:18px">PDBQT 只保留重原子和极性氢。原子数相比 SDF 下降是正常的，不是数据丢失；报告会告诉你补了什么、丢的是什么。</div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="section" id="docking" aria-labelledby="dock-title">
+        <header class="section-head reveal">
+          <p class="kicker">04 / docking console</p>
+          <h2 id="dock-title">参数会改变<span class="dim">搜索和结果。</span></h2>
+          <p class="section-lede">选择打分函数并调整搜索参数。这里生成的是可复制的协议摘要，不会伪造一次对接结果。</p>
+        </header>
+
+        <div class="dock-grid">
+          <div class="card card-pad reveal">
+            <div class="card-kicker"><span>SCORING FUNCTION</span><span class="pill violet">engine choice</span></div>
+            <div class="score-list" role="list">
+              <button class="score-btn is-active" type="button" data-score="vina" aria-pressed="true"><span><strong>Vina</strong><small>默认；7 个可覆盖权重</small></span><span class="score-state">DEFAULT</span></button>
+              <button class="score-btn" type="button" data-score="vinardo" aria-pressed="false"><span><strong>Vinardo</strong><small>另一套打分与权重；6 个权重</small></span><span class="score-state">ALTERNATE</span></button>
+              <button class="score-btn" type="button" data-score="ad4" aria-pressed="false"><span><strong>AutoDock4</strong><small>需要外部 AutoGrid4 亲和力地图</small></span><span class="score-state">EXTERNAL</span></button>
+            </div>
+            <div class="note warn" id="scoreNote" style="margin-top:17px">Vina 是默认路径；默认 seed 是 42，显式设为 0 才会随机。不同打分函数的能量不能直接比较。</div>
+            <div class="controls">
+              <label class="control"><span class="control-top"><span>exhaustiveness</span><output id="exhValue">8</output></span><input id="exhaustiveness" type="range" min="1" max="64" value="8"></label>
+              <label class="control"><span class="control-top"><span>poses</span><output id="posesValue">20</output></span><input id="poses" type="range" min="1" max="50" value="20"></label>
+              <label class="control"><span class="control-top"><span>random seed</span><span class="mono">0 = random</span></span><input id="seed" type="number" min="0" max="999999" value="42"></label>
+            </div>
+          </div>
+
+          <div class="card protocol reveal">
+            <div class="card-kicker"><span>PROTOCOL / PREVIEW</span><span class="pill teal">copyable</span></div>
+            <pre id="protocolPreview" aria-live="polite">engine       : vina
+exhaustiveness: 8
+poses         : 20
+seed          : 42
+box           : 15.190, 53.903, 16.917
+size          : 16.664 × 24.739 × 21.526 Å
+note          : resumable local job</pre>
+            <div class="protocol-actions">
+              <button class="btn small" type="button" id="copyProtocol">复制协议</button>
+              <span class="mono-label" id="copyStatus" aria-live="polite">ready</span>
+            </div>
+            <div class="note" style="margin-top:18px">点击开始不会在文档里启动真实计算；实际路径是 <code>POST /api/docking/start</code>，由桌面应用创建 spawn worker。</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="lifecycle" aria-labelledby="life-title">
+        <header class="section-head reveal">
+          <p class="kicker">05 / job lifecycle</p>
+          <h2 id="life-title">界面不等待 Vina，<span class="dim">它订阅事件。</span></h2>
+          <p class="section-lede">一次对接从 HTTP 请求变成子进程，再变成 WebSocket 事件。播放这条路径，看看“取消”为什么真的能停下计算。</p>
+        </header>
+
+        <div class="lifecycle">
+          <ol class="timeline" id="timeline">
+            <li class="timeline-step is-active" data-life="request"><span class="timeline-index">01</span><div><h4>提交请求</h4><p>Vue 调 <code>POST /api/docking/start</code>，后端立即返回 job id。</p></div><span class="timeline-time">HTTP</span></li>
+            <li class="timeline-step" data-life="spawn"><span class="timeline-index">02</span><div><h4>启动 worker</h4><p>JobManager 用 spawn 上下文创建子进程，并分配独立事件 Pipe。</p></div><span class="timeline-time">PROCESS</span></li>
+            <li class="timeline-step" data-life="compute"><span class="timeline-index">03</span><div><h4>执行计算</h4><p>worker 调 Vina/Meeko；stdout 重定向到作业日志。</p></div><span class="timeline-time">VINA</span></li>
+            <li class="timeline-step" data-life="stream"><span class="timeline-index">04</span><div><h4>回传事件</h4><p>结构化事件经 Pipe → EventHub → WebSocket 回到界面。</p></div><span class="timeline-time">WS</span></li>
+            <li class="timeline-step" data-life="settle"><span class="timeline-index">05</span><div><h4>完成或取消</h4><p>完成写 job.json 和工件；取消终止该 job 的所有 worker。</p></div><span class="timeline-time">STATE</span></li>
+          </ol>
+
+          <aside class="card lifecycle-panel reveal" aria-live="polite">
+            <div class="status-line">EVENT STREAM / ACTIVE</div>
+            <p class="mono-label" style="margin-top:17px">JOB / INTERFACE PREVIEW</p>
+            <div class="job-id">job_1iep_demo / local / seed 42</div>
+            <h3 id="lifeTitle">提交请求</h3>
+            <p id="lifeBody">Vue 不等待计算完成。请求只负责创建 job，后续状态由 WebSocket 事件推进；这使取消、日志和重启恢复变得可能。</p>
+            <div class="lifecycle-actions">
+              <button class="btn small" type="button" id="playLifecycle">播放路径</button>
+              <a class="btn small text" href="../ARCHITECTURE.zh-CN.md">读架构</a>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="section" id="catalog" aria-labelledby="cat-title">
+        <header class="section-head reveal">
+          <p class="kicker">06 / catalog graph</p>
+          <h2 id="cat-title">分子是中心，<span class="dim">Study 和集合是不同问题。</span></h2>
+          <p class="section-lede">Catalog 把分子、文件、别名、标签、来源、Study、集合和筛选库分开存。点击任意实体，看看它在数据库里解决什么。</p>
+        </header>
+
+        <div class="catalog-layout">
+          <div class="card catalog-map reveal">
+            <div class="card-kicker"><span>CATALOG / RELATION MAP</span><span class="pill teal">click nodes</span></div>
+            <div class="catalog-core"><strong>molecules</strong><span>identity_key</span></div>
+            <button class="catalog-entity entity-files is-active" type="button" data-entity="files" aria-pressed="true"><strong>molecule_files</strong><small>原始 / 准备文件</small></button>
+            <button class="catalog-entity entity-studies" type="button" data-entity="studies" aria-pressed="false"><strong>studies</strong><small>受体 + 配体</small></button>
+            <button class="catalog-entity entity-collections" type="button" data-entity="collections" aria-pressed="false"><strong>collections</strong><small>可嵌套组织树</small></button>
+            <button class="catalog-entity entity-libraries" type="button" data-entity="libraries" aria-pressed="false"><strong>libraries</strong><small>筛选输入</small></button>
+            <i class="map-line line-a" aria-hidden="true"></i><i class="map-line line-b" aria-hidden="true"></i><i class="map-line line-c" aria-hidden="true"></i><i class="map-line line-d" aria-hidden="true"></i>
+          </div>
+
+          <aside class="card entity-detail reveal" aria-live="polite">
+            <p class="mono-label">ENTITY / FILES</p>
+            <h3 id="entityTitle">molecule_files</h3>
+            <p id="entityBody">同一个分子可以有原始结构和多个准备产物。文件是分子的附件，不是身份；路径相同也不代表分子相同。</p>
+            <div class="report-rows" id="entityRows">
+              <div class="report-row"><span>关联</span><b>molecule_id</b></div>
+              <div class="report-row"><span>字段</span><b>kind · path · sha256</b></div>
+              <div class="report-row"><span>身份</span><b>不是 path</b></div>
+            </div>
+            <div class="note" style="margin-top:18px">分子身份由 <code>identity_key</code> 决定；Study 成员另带 <code>role</code> 和 <code>is_primary</code>。</div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="section" id="validation" aria-labelledby="val-title">
+        <header class="section-head reveal">
+          <p class="kicker">07 / evidence</p>
+          <h2 id="val-title">验证记录，<span class="dim">来自实际运行。</span></h2>
+          <p class="section-lede">这些数字只对应预注册的开放集合和公开协议。它们说明软件在特定条件下能做什么，不是通用准确率、富集能力或实验自由能。</p>
+        </header>
+
+        <div class="metric-grid stagger reveal">
+          <article class="card metric"><span class="metric-label">1IEP CONTROL</span><div class="metric-value" data-count="0.353">0.353 <small>Å</small></div><p class="metric-note">top pose RMSD · best −13.286 kcal/mol</p></article>
+          <article class="card metric"><span class="metric-label">12 TARGETS × 5 SEEDS</span><div class="metric-value" data-count="60">60<small>/60</small></div><p class="metric-note">pre-registered open set · RMSD threshold 2.0 Å</p></article>
+          <article class="card metric"><span class="metric-label">MEAN TOP-1 RMSD</span><div class="metric-value" data-count="0.5343">0.5343 <small>Å</small></div><p class="metric-note">bootstrap 95% CI 0.4710–0.6020 Å</p></article>
+          <article class="card metric"><span class="metric-label">POSEBUSTERS / REDOCK</span><div class="metric-value" data-count="7">7<small>/60</small></div><p class="metric-note">all poses · top pose 60/60 · 0 errors</p></article>
+        </div>
+
+        <div class="card ci-card reveal" id="ciCard">
+          <div class="ci-top"><h3>Mean top-1 RMSD / bootstrap interval</h3><span>0.5343 Å</span></div>
+          <div class="ci-track" aria-label="95% confidence interval 0.4710 to 0.6020 Å"><div class="ci-range"></div></div>
+          <div class="ci-labels"><span>0.4710 Å</span><span>0.6020 Å</span></div>
+        </div>
+
+        <div class="validation-notes">
+          <article class="card validator">
+            <h3>官方 PoseBusters 与项目几何检查不同</h3>
+            <p>PoseBusters 0.6.5 的 redock 结果：top pose 60/60，全部 pose 7/60。项目自己的六类几何检查是另一套口径，不能混写。</p>
+            <a href="../ACADEMIC_VALIDATION.zh-CN.md">打开学术验证 →</a>
+          </article>
+          <article class="card validator">
+            <h3>PDBbind / CASF 不在这里</h3>
+            <p>这些数据集有独立的许可和获取条件，不能随仓库再分发。开放集结论不能外推成它们的结果。</p>
+            <a href="https://github.com/hubehero/VinaStudio/blob/main/validation/benchmark/README.md">查看基准索引 →</a>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="limits" aria-labelledby="limits-title">
+        <header class="section-head reveal">
+          <p class="kicker">08 / boundaries</p>
+          <h2 id="limits-title">先看限制，<span class="dim">再看结果。</span></h2>
+          <p class="section-lede">这些限制决定哪些结果不能外推，也决定哪些工作流需要换引擎。</p>
+        </header>
+
+        <div class="limits stagger reveal">
+          <article class="card limit"><span class="pill amber">AD4</span><h3>AutoDock4 需要外部地图</h3><p>AutoDock4 需要 AutoGrid4 生成的亲和力地图；应用不捆绑 AutoGrid4，也不会假装现场生成。</p></article>
+          <article class="card limit"><span class="pill violet">PROGRESS</span><h3>Vina 没有可靠的实时百分比</h3><p>单次作业用阶段文本和活动条；只有批量/筛选的计数是真实进度。不要用定时器伪造百分比。</p></article>
+          <article class="card limit"><span class="pill teal">RENDER</span><h3>PDBQT 不直接渲染</h3><p>3Dmol 不解析 PDBQT，也不携带键级；姿态经 Meeko 转成 SDF 后再显示。</p></article>
+        </div>
+
+        <div class="docs-grid" style="margin-top:14px">
+          <a class="card doc-card" href="../structure.html"><h3>结构图谱</h3><p>树状代码结构、运行结构、对接路径和 Catalog 关系。</p><span>打开结构图谱</span></a>
+          <a class="card doc-card" href="../ARCHITECTURE.zh-CN.md"><h3>架构与约束</h3><p>四层边界、本地 HTTP、spawn 子进程和 PDBQT 渲染原则。</p><span>阅读架构</span></a>
+          <a class="card doc-card" href="../USER_GUIDE.zh-CN.md"><h3>用户手册</h3><p>从安装、准备、盒子到对接、复盘和导出的完整操作路径。</p><span>打开用户手册</span></a>
+          <a class="card doc-card" href="../ACADEMIC_VALIDATION.zh-CN.md"><h3>学术验证</h3><p>1IEP 控制、开放集结果、失败记录、限制和参考文献。</p><span>阅读验证</span></a>
+          <a class="card doc-card" href="../MOLECULE_CATALOG.zh-CN.md"><h3>Catalog 设计</h3><p>分子身份、文件、Study、集合、筛选库和迁移边界。</p><span>阅读 Catalog</span></a>
+          <a class="card doc-card" href="https://github.com/hubehero/VinaStudio"><h3>GitHub</h3><p>源码、Issues、Release 和可复现验证记录。</p><span>打开仓库</span></a>
+        </div>
+      </section>
+
+      <footer>
+        <div class="footer-inner">
+          <span>VinaStudio · interactive field guide · 0.6.8</span>
+          <span><a href="https://github.com/hubehero/VinaStudio">GitHub</a> · <a href="https://github.com/hubehero/VinaStudio/blob/main/README.en.md">English</a> · <a href="#top">BACK TO TOP ↑</a></span>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <div class="palette" id="palette" hidden>
+    <div class="palette-panel" role="dialog" aria-modal="true" aria-labelledby="paletteTitle">
+      <h2 id="paletteTitle" class="mono-label" style="padding:14px 20px 0">SEARCH / JUMP</h2>
+      <input class="palette-input" id="paletteInput" type="search" autocomplete="off" aria-label="搜索章节、概念或路径">
+      <ul class="palette-results" id="paletteResults" role="listbox" aria-label="搜索结果"></ul>
+      <div class="palette-foot"><span>↑↓ 选择</span><span>Enter 打开</span><span>Esc 关闭</span></div>
+    </div>
+  </div>
+
+  <script src="experience.js"></script>
+</body>
+</html>

@@ -42,8 +42,8 @@ not upload a file you are not allowed to share.
 ## Feature requests
 
 Open an issue and describe the problem you are trying to solve, not only the
-solution you have in mind. A concrete workflow — “I want to compare ten ligands
-against the same receptor and export one table” — is easier to act on than an
+solution you have in mind. A concrete workflow (“I want to compare ten ligands
+against the same receptor and export one table”) is easier to act on than an
 abstract feature name.
 
 ## Pull requests

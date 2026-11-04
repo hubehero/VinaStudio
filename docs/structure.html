@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VinaStudio 项目结构图谱</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f4f7f8;
+    --surface: #ffffff;
+    --surface-2: #edf2f4;
+    --text: #17252c;
+    --muted: #5c6b73;
+    --line: #d4dfe4;
+    --line-strong: #afc0c8;
+    --teal: #2f6f6a;
+    --teal-soft: #e4f3ef;
+    --blue: #315f8a;
+    --blue-soft: #e8f0fa;
+    --amber: #8a5a1f;
+    --amber-soft: #fff0d5;
+    --gray: #67747c;
+    --gray-soft: #eef2f4;
+    --shadow: 0 12px 30px rgba(20, 40, 50, .07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #11181d;
+      --surface: #182229;
+      --surface-2: #202c33;
+      --text: #e7eef1;
+      --muted: #a9b7bd;
+      --line: #31424a;
+      --line-strong: #4b616a;
+      --teal-soft: #203c39;
+      --blue-soft: #203447;
+      --amber-soft: #3f321e;
+      --gray-soft: #263239;
+      --shadow: 0 14px 36px rgba(0, 0, 0, .28);
+    }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.65 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  code, .path { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .wrap { width: min(1180px, calc(100% - 32px)); margin: 0 auto; }
+  .hero { padding: 52px 0 26px; }
+  .eyebrow {
+    margin: 0 0 10px; color: var(--teal); font-size: 12px; font-weight: 700;
+    letter-spacing: .12em; text-transform: uppercase;
+  }
+  h1 { margin: 0; font-size: clamp(30px, 5vw, 54px); line-height: 1.08; letter-spacing: -.03em; }
+  .lede { max-width: 760px; margin: 16px 0 0; color: var(--muted); font-size: 17px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 20px; color: var(--muted); font-size: 13px; }
+  .meta span { display: inline-flex; align-items: center; gap: 7px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .dot.teal { background: var(--teal); }
+  .dot.blue { background: var(--blue); }
+  .dot.amber { background: var(--amber); }
+  .dot.gray { background: var(--gray); }
+  .jump { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+  .jump a {
+    color: var(--muted); text-decoration: none; border: 1px solid var(--line);
+    background: var(--surface); border-radius: 999px; padding: 5px 10px;
+    font-size: 12px; transition: border-color .15s ease, color .15s ease;
+  }
+  .jump a:hover, .jump a:focus-visible { color: var(--teal); border-color: var(--teal); outline: none; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(250px, .7fr); gap: 22px; align-items: start; padding-bottom: 52px; }
+  @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } .hero { padding-top: 34px; } .jump { margin-top: 18px; } }
+  aside { position: sticky; top: 22px; }
+  @media (max-width: 820px) { aside { position: static; } }
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 18px;
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  .card + .card { margin-top: 18px; }
+  .card-head { padding: 22px 24px 0; }
+  .card-head h2 { display: flex; align-items: center; gap: 9px; margin: 0; font-size: 20px; letter-spacing: -.01em; }
+  .card-head h2::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 4px var(--teal-soft); }
+  #runtime .card-head h2::before { background: var(--blue); box-shadow: 0 0 0 4px var(--blue-soft); }
+  #flow .card-head h2::before { background: var(--amber); box-shadow: 0 0 0 4px var(--amber-soft); }
+  #catalog .card-head h2::before { background: var(--gray); box-shadow: 0 0 0 4px var(--gray-soft); }
+  .card-head p { margin: 7px 0 0; color: var(--muted); font-size: 14px; }
+  .tree-tools { display: flex; gap: 7px; margin-top: 11px; }
+  .tree-tools button {
+    appearance: none; border: 1px solid var(--line); background: var(--surface-2);
+    color: var(--muted); border-radius: 7px; padding: 4px 9px; font: inherit;
+    font-size: 12px; cursor: pointer;
+  }
+  .tree-tools button:hover, .tree-tools button:focus-visible { color: var(--text); border-color: var(--line-strong); outline: none; }
+  .card-body { padding: 12px 22px 24px; }
+  .legend { display: grid; gap: 9px; margin-top: 15px; }
+  .legend div { display: flex; gap: 9px; align-items: baseline; color: var(--muted); font-size: 13px; }
+  .legend b { color: var(--text); font-weight: 600; }
+  .note { margin: 16px 0 0; padding: 12px 14px; border-left: 3px solid var(--teal); background: var(--teal-soft); color: var(--muted); font-size: 13px; border-radius: 0 8px 8px 0; }
+  .tree { margin: 0; padding: 0; }
+  .tree ul { list-style: none; margin: 0; padding: 0 0 0 20px; border-left: 1px solid var(--line); }
+  .tree > ul { border-left: 0; padding-left: 0; }
+  .tree li { position: relative; padding: 3px 0 3px 20px; }
+  .tree li::before {
+    content: ""; position: absolute; left: -1px; top: 13px; width: 14px; height: 12px;
+    border-left: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    border-radius: 0 0 0 7px;
+  }
+  .tree > ul > li { padding-left: 0; }
+  .tree > ul > li::before { display: none; }
+  details { margin: 0; }
+  summary {
+    list-style: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 9px;
+    cursor: pointer; border-radius: 8px; padding: 4px 7px; margin-left: -7px;
+    transition: background .15s ease;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::before {
+    content: "▸"; width: 1em; color: var(--line-strong); font-size: 12px;
+    transition: transform .15s ease; display: inline-block;
+  }
+  details[open] > summary::before { transform: rotate(90deg); }
+  summary:hover, summary:focus-visible { background: var(--surface-2); outline: none; }
+  .leaf { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 9px; padding: 4px 7px; margin-left: -7px; border-radius: 8px; transition: background .15s ease; }
+  .leaf:hover { background: var(--surface-2); }
+  .leaf::before { content: ""; width: 1em; display: inline-block; }
+  .path { font-weight: 650; color: var(--text); }
+  .desc { color: var(--muted); font-size: 13px; }
+  .badge { font-size: 10px; font-weight: 700; letter-spacing: .03em; padding: 2px 6px; border-radius: 999px; white-space: nowrap; }
+  .badge.ui { color: var(--teal); background: var(--teal-soft); }
+  .badge.api { color: var(--blue); background: var(--blue-soft); }
+  .badge.core { color: var(--amber); background: var(--amber-soft); }
+  .badge.data { color: var(--gray); background: var(--gray-soft); }
+  .steps { margin: 0; padding: 0; list-style: none; counter-reset: step; display: grid; gap: 10px; }
+  .steps li { position: relative; padding: 10px 12px 10px 42px; border: 1px solid var(--line); border-radius: 10px; color: var(--muted); font-size: 13px; }
+  .steps li::before {
+    counter-increment: step; content: counter(step);
+    position: absolute; left: 12px; top: 10px; width: 20px; height: 20px;
+    display: grid; place-items: center; border-radius: 50%;
+    background: var(--surface-2); color: var(--text); font-size: 11px; font-weight: 700;
+  }
+  .steps strong { color: var(--text); }
+  .doc-links { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .doc-links a { color: var(--blue); text-decoration: none; }
+  .doc-links a:hover { text-decoration: underline; }
+  footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; padding: 22px 0 40px; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 18px; justify-content: space-between; }
+  @media print {
+    :root { --bg: #fff; --surface: #fff; --text: #000; --muted: #444; --line: #ddd; }
+    .card { box-shadow: none; break-inside: avoid; }
+    .hero { padding: 10px 0; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap hero">
+  <p class="eyebrow">VinaStudio · structure map</p>
+  <h1>项目结构图谱</h1>
+  <p class="lede">这页把代码、运行时和数据模型分开画。先看文件在哪里，再看进程之间如何通信。</p>
+  <div class="meta">
+    <span><i class="dot teal"></i>界面</span>
+    <span><i class="dot blue"></i>服务</span>
+    <span><i class="dot amber"></i>领域核心</span>
+    <span><i class="dot gray"></i>数据与证据</span>
+  </div>
+  <nav class="jump" aria-label="页内导航">
+    <a href="#code">代码结构</a>
+    <a href="#runtime">运行结构</a>
+    <a href="#flow">一次对接</a>
+    <a href="#catalog">Catalog</a>
+  </nav>
+</div>
+
+<div class="wrap grid">
+  <main>
+    <section class="card" id="code">
+      <div class="card-head">
+        <h2>代码结构</h2>
+        <p>按职责分组；路径是实际目录或文件。点击目录展开。</p>
+        <div class="tree-tools">
+          <button type="button" data-expand="#code-tree">展开全部</button>
+          <button type="button" data-collapse="#code-tree">收起全部</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="tree" id="code-tree">
+          <ul>
+            <li>
+              <details open>
+                <summary><span class="path">vinastudio/</span><span class="badge core">Python</span><span class="desc">应用的下三层</span></summary>
+                <ul>
+                  <li><details>
+                    <summary><span class="path">desktop/</span><span class="badge ui">Qt</span><span class="desc">窗口、原生菜单、QWebChannel</span></summary>
+                    <ul>
+                      <li><div class="leaf"><span class="path">main_window.py</span><span class="desc">主窗口与菜单命令</span></div></li>
+                      <li><div class="leaf"><span class="path">server_thread.py</span><span class="desc">后台 Uvicorn 与端口回传</span></div></li>
+                      <li><div class="leaf"><span class="path">bridge.py</span><span class="desc">原生文件能力桥</span></div></li>
+                    </ul>
+                  </details></li>
+                  <li><details>
+                    <summary><span class="path">server/</span><span class="badge api">API</span><span class="desc">FastAPI、任务、事件</span></summary>
+                    <ul>
+                      <li><div class="leaf"><span class="path">app.py</span><span class="desc">应用装配、静态 SPA、错误映射</span></div></li>
+                      <li><div class="leaf"><span class="path">job_manager.py</span><span class="desc">spawn、Pipe、取消、作业恢复</span></div></li>
+                      <li><div class="leaf"><span class="path">ws.py</span><span class="desc">EventHub 与 /ws 广播</span></div></li>
+                      <li><div class="leaf"><span class="path">routers/</span><span class="desc">system、files、catalog、docking、screening…</span></div></li>
+                    </ul>
+                  </details></li>
+                  <li><details>
+                    <summary><span class="path">core/</span><span class="badge core">domain</span><span class="desc">不依赖 Qt / FastAPI</span></summary>
+                    <ul>
+                      <li><div class="leaf"><span class="path">chem/</span><span class="desc">准备、PDBQT、导出、相互作用、画板</span></div></li>
+                      <li><div class="leaf"><span class="path">catalog/</span><span class="desc">SQLite Catalog、检索、迁移、种子</span></div></li>
+                      <li><div class="leaf"><span class="path">engines/</span><span class="desc">Vina CLI 适配</span></div></li>
+                      <li><div class="leaf"><span class="path">worker.py</span><span class="desc">spawn 子进程入口、stdout 解析</span></div></li>
+                      <li><div class="leaf"><span class="path">box.py · docking.py</span><span class="desc">盒子与对接领域逻辑</span></div></li>
+                      <li><div class="leaf"><span class="path">workspace.py · paths.py · results_db.py</span><span class="desc">工作区、路径、结果索引</span></div></li>
+                    </ul>
+                  </details></li>
+                  <li><details>
+                    <summary><span class="path">schemas/</span><span class="badge api">contract</span><span class="desc">Pydantic 请求/响应模型</span></summary>
+                    <ul>
+                      <li><div class="leaf"><span class="path">docking.py · catalog.py · project.py …</span><span class="desc">API 契约</span></div></li>
+                    </ul>
+                  </details></li>
+                  <li><div class="leaf"><span class="path">resources/</span><span class="badge data">bundled</span><span class="desc">内置 1IEP 样本与验证资源</span></div></li>
+                </ul>
+              </details>
+            </li>
+
+            <li>
+              <details open>
+                <summary><span class="path">web/</span><span class="badge ui">Vue 3</span><span class="desc">由 QWebEngineView 承载的 SPA</span></summary>
+                <ul>
+                  <li><div class="leaf"><span class="path">src/views/</span><span class="desc">工作台、分子目录、盒子、对接、结果</span></div></li>
+                  <li><div class="leaf"><span class="path">src/stores/</span><span class="desc">Pinia 状态与表单</span></div></li>
+                  <li><div class="leaf"><span class="path">src/components/</span><span class="desc">面板、3D 视口、对话框、画板</span></div></li>
+                  <li><div class="leaf"><span class="path">src/api/</span><span class="desc">HTTP、WebSocket、QWebChannel</span></div></li>
+                  <li><div class="leaf"><span class="path">src/types/api.ts</span><span class="desc">后端接口的 TypeScript 镜像</span></div></li>
+                </ul>
+              </details>
+            </li>
+
+            <li><details>
+              <summary><span class="path">docs/</span><span class="badge data">docs</span><span class="desc">用户指南、架构、验证、结构图谱</span></summary>
+              <ul>
+                <li><div class="leaf"><span class="path">ARCHITECTURE.md</span><span class="desc">四层边界与三条约束</span></div></li>
+                <li><div class="leaf"><span class="path">USER_GUIDE.md</span><span class="desc">从安装到导出</span></div></li>
+                <li><div class="leaf"><span class="path">STRUCTURE.md</span><span class="desc">本图谱的文字说明</span></div></li>
+              </ul>
+            </details></li>
+            <li><details>
+              <summary><span class="path">validation/</span><span class="badge data">evidence</span><span class="desc">可复现的验证与基准记录</span></summary>
+              <ul>
+                <li><div class="leaf"><span class="path">functional/</span><span class="desc">1IEP 对照、功能矩阵、UI 证据</span></div></li>
+                <li><div class="leaf"><span class="path">benchmark/</span><span class="desc">开放集协议、清单、PoseBusters 记录</span></div></li>
+              </ul>
+            </details></li>
+            <li><details>
+              <summary><span class="path">scripts/</span><span class="badge data">tools</span><span class="desc">构建、开发、采样、验证</span></summary>
+              <ul>
+                <li><div class="leaf"><span class="path">build_web.py</span><span class="desc">构建 SPA 到静态目录</span></div></li>
+                <li><div class="leaf"><span class="path">dev.py</span><span class="desc">API + Vite + Qt 热重载</span></div></li>
+                <li><div class="leaf"><span class="path">fetch_samples.py</span><span class="desc">校验并获取 1IEP 金标准</span></div></li>
+              </ul>
+            </details></li>
+            <li><div class="leaf"><span class="path">sample/</span><span class="badge data">samples</span><span class="desc">额外样本；原始数据按需获取</span></div></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="runtime">
+      <div class="card-head">
+        <h2>运行结构</h2>
+        <p>这里只看进程和线程边界；文件树在上一节。对接 worker 是单独 spawn 出来的。</p>
+      </div>
+      <div class="card-body">
+        <div class="tree">
+          <ul>
+            <li>
+              <details open>
+                <summary><span class="path">桌面进程</span><span class="badge ui">one Python process</span></summary>
+                <ul>
+                  <li><details open>
+                    <summary><span class="path">Qt 主线程</span><span class="desc">窗口与界面</span></summary>
+                    <ul>
+                      <li><div class="leaf"><span class="path">PySide6 外壳</span><span class="desc">主窗口、原生菜单</span></div></li>
+                      <li><div class="leaf"><span class="path">QWebEngineView</span><span class="desc">Vue 3 + 3Dmol.js</span></div></li>
+                      <li><div class="leaf"><span class="path">QWebChannel</span><span class="desc">文件对话框、保存、打开目录</span></div></li>
+                    </ul>
+                  </details></li>
+                  <li><details open>
+                    <summary><span class="path">后台线程</span><span class="desc">本地 API</span></summary>
+                    <ul>
+                      <li><div class="leaf"><span class="path">FastAPI</span><span class="desc">REST /api/* · WebSocket /ws</span></div></li>
+                      <li><div class="leaf"><span class="path">JobManager</span><span class="desc">提交、事件、取消、恢复</span></div></li>
+                      <li><div class="leaf"><span class="path">EventHub</span><span class="desc">向 SPA 广播任务事件</span></div></li>
+                    </ul>
+                  </details></li>
+                </ul>
+              </details>
+            </li>
+            <li><details open>
+              <summary><span class="path">spawn 子进程</span><span class="badge core">per task</span><span class="desc">可以终止</span></summary>
+              <ul>
+                <li><div class="leaf"><span class="path">worker.py</span><span class="desc">stdout 解析、Pipe 事件</span></div></li>
+                <li><div class="leaf"><span class="path">Vina / Meeko / RDKit</span><span class="desc">对接与结构处理</span></div></li>
+              </ul>
+            </details></li>
+            <li><details open>
+              <summary><span class="path">工作区</span><span class="badge data">persistent</span><span class="desc">唯一持久化位置</span></summary>
+              <ul>
+                <li><div class="leaf"><span class="path">jobs/</span><span class="desc">作业产物、日志、job.json</span></div></li>
+                <li><div class="leaf"><span class="path">projects/</span><span class="desc">.vinaproj 项目文件</span></div></li>
+                <li><div class="leaf"><span class="path">catalog.sqlite</span><span class="desc">分子、Study、集合、筛选库</span></div></li>
+              </ul>
+            </details></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="flow">
+      <div class="card-head">
+        <h2>一次对接经过什么</h2>
+        <p>这是一条执行顺序，不是目录树。它说明界面为什么不会被 Vina 阻塞。</p>
+      </div>
+      <div class="card-body">
+        <ol class="steps">
+          <li><strong>界面提交</strong>：Vue 调 <code>POST /api/docking/start</code>，拿到 job id。</li>
+          <li><strong>任务编排</strong>：JobManager 创建 spawn worker，分配独立 Pipe。</li>
+          <li><strong>计算</strong>：worker 调 Vina/Meeko；stdout 重定向到作业日志。</li>
+          <li><strong>事件回流</strong>：结构化事件经 Pipe → EventHub → WebSocket → 界面。</li>
+          <li><strong>取消或完成</strong>：取消终止该 job 的所有 worker；完成写入 job.json 和工件。</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="card" id="catalog">
+      <div class="card-head">
+        <h2>Catalog 关系</h2>
+        <p>分子是中心对象；Study、集合和筛选库通过成员表连接它。</p>
+      </div>
+      <div class="card-body">
+        <div class="tree">
+          <ul>
+            <li>
+              <details open>
+                <summary><span class="path">分子</span><span class="badge data">identity_key</span><span class="desc">身份由结构决定，不由路径决定</span></summary>
+                <ul>
+                  <li><div class="leaf"><span class="path">文件</span><span class="desc">kind · path · sha256；一个分子可有多个文件</span></div></li>
+                  <li><div class="leaf"><span class="path">别名 / 标签 / 来源</span><span class="desc">名称、检索标签、来源与许可</span></div></li>
+                  <li><details open>
+                    <summary><span class="path">Study 成员</span><span class="badge api">role</span><span class="desc">role：受体 / 配体 / 辅因子；is_primary</span></summary>
+                  </details></li>
+                  <li><div class="leaf"><span class="path">集合成员</span><span class="desc">集合是可嵌套的组织树，不替代 Study</span></div></li>
+                  <li><div class="leaf"><span class="path">筛选库成员</span><span class="desc">引用分子，带 entry_index；筛选输入</span></div></li>
+                </ul>
+              </details>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <aside>
+    <section class="card">
+      <div class="card-head"><h2>怎么读</h2></div>
+      <div class="card-body">
+        <div class="legend">
+          <div><b>界面</b><span>Vue 3 + 3Dmol.js，QWebEngineView</span></div>
+          <div><b>服务</b><span>FastAPI + JobManager + EventHub</span></div>
+          <div><b>领域核心</b><span>不依赖 Qt 或 FastAPI</span></div>
+          <div><b>数据与证据</b><span>工作区、测试与验证记录</span></div>
+        </div>
+        <p class="note">目录表示代码位置，运行结构表示进程关系；两棵树分开读。</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>相关文档</h2></div>
+      <div class="card-body">
+        <ul class="doc-links">
+          <li><a href="STRUCTURE.zh-CN.md">结构图谱文字版</a></li>
+          <li><a href="ARCHITECTURE.zh-CN.md">架构与三条约束</a></li>
+          <li><a href="MOLECULE_CATALOG.zh-CN.md">Catalog 设计</a></li>
+          <li><a href="USER_GUIDE.zh-CN.md">用户手册</a></li>
+          <li><a href="STRUCTURE.md">English text version</a></li>
+          <li><a href="../README.md">返回主页</a></li>
+        </ul>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<footer>
+  <div class="wrap">
+    <span>VinaStudio · structure map</span>
+    <span>静态 HTML，无外部依赖；深浅色跟随系统。</span>
+  </div>
+</footer>
+<script>
+  document.querySelectorAll('[data-expand], [data-collapse]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const selector = button.dataset.expand || button.dataset.collapse;
+      const open = Boolean(button.dataset.expand);
+      document.querySelectorAll(`${selector} details`).forEach((details) => {
+        details.open = open;
+      });
+    });
+  });
+</script>
+</body>
+</html>
