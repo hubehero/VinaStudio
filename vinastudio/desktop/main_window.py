@@ -22,6 +22,7 @@ from PySide6.QtWidgets import QFileDialog, QMainWindow, QMessageBox
 from vinastudio.config import APP_NAME, app_home
 from vinastudio.desktop.bridge import Bridge
 from vinastudio.desktop.theme import DEFAULT_LANGUAGE, Language, app_icon, t
+from vinastudio.server.auth import is_loopback_url, token_injection_script
 
 log = logging.getLogger(__name__)
 
@@ -32,9 +33,16 @@ JS_NAMESPACE = "window.vinastudio"
 class MainWindow(QMainWindow):
     """Application shell: loaded interface, menus and the QWebChannel bridge."""
 
-    def __init__(self, url: str, *, parent: Any = None) -> None:
+    def __init__(
+        self, url: str, *, api_token: str | None = None, parent: Any = None
+    ) -> None:
         super().__init__(parent)
         self._url = url
+        # A developer can point --ui-url at a remote page. Injecting the token
+        # there would hand the API to that origin, so only loopback pages get it.
+        self._api_token = api_token if api_token and is_loopback_url(url) else None
+        if api_token and self._api_token is None:
+            log.warning("API token not injected: the interface URL is not loopback")
         self._language: Language = DEFAULT_LANGUAGE
         self._settings = QSettings(
             str(app_home() / "settings.ini"), QSettings.Format.IniFormat
@@ -123,6 +131,7 @@ class MainWindow(QMainWindow):
         channel = QWebChannel(self._view.page())
         channel.registerObject("bridge", self.bridge)
         self._view.page().setWebChannel(channel)
+        self._inject_api_token()
 
         source_file = QFile(":/qtwebchannel/qwebchannel.js")
         if not source_file.open(QIODevice.OpenModeFlag.ReadOnly):
@@ -134,6 +143,24 @@ class MainWindow(QMainWindow):
         script = QWebEngineScript()
         script.setName("qwebchannel-client")
         script.setSourceCode(source)
+        script.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
+        script.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
+        script.setRunsOnSubFrames(False)
+        self._view.page().scripts().insert(script)
+
+    def _inject_api_token(self) -> None:
+        """Publish the per-process token to the trusted page before it runs.
+
+        The token lives only in this process and the page's JS heap: not in the
+        URL, not in local storage, not in the persistent profile. The injected
+        script checks ``location.origin`` first, so an external page reached by
+        a link never receives it.
+        """
+        if not self._api_token:
+            return
+        script = QWebEngineScript()
+        script.setName("vinastudio-auth")
+        script.setSourceCode(token_injection_script(self._api_token, self._url))
         script.setInjectionPoint(QWebEngineScript.InjectionPoint.DocumentCreation)
         script.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
         script.setRunsOnSubFrames(False)

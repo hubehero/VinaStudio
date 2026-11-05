@@ -17,7 +17,7 @@ from vinastudio.core.chem.formats import (
     RECEPTOR_FILTER,
     RECEPTOR_SUFFIXES,
 )
-from vinastudio.core.paths import create_workspace
+from vinastudio.core.paths import create_workspace, file_reuse_key
 from vinastudio.schemas.preparation import (
     Artifact,
     DetectionResponse,
@@ -77,7 +77,10 @@ def renderable(request: RenderableRequest) -> list[Artifact]:
     text, suffix = preview.renderable(request.path, request.kind)
 
     source = Path(request.path)
-    workspace = create_workspace(f"render-{source.stem}")
+    workspace = create_workspace(
+        f"render-{source.stem}",
+        reuse_key=file_reuse_key(source, extra=request.kind),
+    )
     target = workspace.write(f"{source.stem or 'structure'}.{suffix}", text)
     return [artifact(workspace, target, kind=suffix)]
 
@@ -97,7 +100,8 @@ async def upload(
     read in place. Files land in a workspace directory and are then treated
     exactly like a path picked through the native dialog.
 
-    This is the one endpoint whose body is not JSON, so it is the one a hostile
+    This is one of three endpoints whose body is not JSON (the result-bundle
+    import and screening-library import are the others), so it is one a hostile
     page could post to *without* a CORS preflight — which is why it also demands
     a custom header. A browser will not attach one cross-origin without asking
     permission first, and without CORS headers the preflight fails, so the
@@ -122,8 +126,6 @@ async def upload(
             detail=f"file too large: {content_length} bytes exceeds limit of {max_mb} MB",
         )
 
-    workspace = create_workspace(f"upload-{name}")
-    target = workspace.file(name)
     payload = await file.read()
 
     # Double-check after reading (Content-Length may be missing or lying)

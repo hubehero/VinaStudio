@@ -9,11 +9,17 @@ hundreds of kilobytes, which has no business travelling inside a JSON response).
 
 from __future__ import annotations
 
+import hashlib
+import logging
+import os
 import re
+import shutil
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 _workspace_provider: Callable[[], Path | None] | None = None
 
@@ -103,22 +109,88 @@ class Workspace:
         return target.relative_to(workspace_root()).as_posix()
 
 
-def create_workspace(prefix: str, *, stamp: str | None = None) -> Workspace:
-    """Create a fresh run directory, never reusing an existing one."""
-    run_id = f"{stamp or time.strftime('%Y%m%d-%H%M%S')}-{slugify(prefix)}"
-    path = workspace_root() / run_id
-    suffix = 1
-    while path.exists():
-        path = workspace_root() / f"{run_id}-{suffix}"
-        suffix += 1
+def file_reuse_key(path: str | Path, *, extra: object = None) -> str:
+    """Stable key for a source file plus its options.
+
+    mtime and size change when the user edits the file; the resolved path keeps
+    two different files with the same stem apart.
+    """
+    target = Path(path)
     try:
-        path.mkdir(parents=True)
-    except FileExistsError:
-        # TOCTOU race: another process created it between exists() and mkdir().
-        # Append another suffix and retry once.
-        path = workspace_root() / f"{run_id}-{suffix}"
-        path.mkdir(parents=True)
-    return Workspace(path=path, run_id=path.name)
+        stat = target.stat()
+        signature = f"{stat.st_mtime_ns}:{stat.st_size}"
+    except OSError:
+        signature = "missing"
+    return f"{target.resolve()}:{signature}:{extra!r}"
+
+
+def create_workspace(
+    prefix: str,
+    *,
+    stamp: str | None = None,
+    reuse_key: str | None = None,
+) -> Workspace:
+    """Create a run directory, or reuse one for the same stable key.
+
+    Preparation and rendering directories are content-addressed: repeating the
+    same source/options pair reuses its directory instead of leaving another
+    orphan under ``jobs/``. Docking jobs never pass ``reuse_key`` and keep the
+    unique timestamped directory they need.
+    """
+    if reuse_key is not None:
+        digest = hashlib.sha256(reuse_key.encode("utf-8")).hexdigest()[:12]
+        run_id = f"{slugify(prefix)}-{digest}"
+        path = workspace_root() / run_id
+        path.mkdir(parents=True, exist_ok=True)
+        # Overwriting an existing file does not update the directory mtime;
+        # without this touch the 30-day cleanup could reclaim a dir in active use.
+        os.utime(path, None)
+        return Workspace(path=path, run_id=path.name)
+
+    run_id = f"{stamp or time.strftime('%Y%m%d-%H%M%S')}-{slugify(prefix)}"
+    root = workspace_root()
+    suffix = 0
+    for _ in range(100):
+        path = root / (run_id if suffix == 0 else f"{run_id}-{suffix}")
+        try:
+            path.mkdir(parents=True)
+        except FileExistsError:
+            # A pre-existing name or a TOCTOU race with another process; try
+            # the next suffix instead of failing the request.
+            suffix += 1
+            continue
+        return Workspace(path=path, run_id=path.name)
+    raise RuntimeError(f"could not allocate a workspace directory for {prefix!r}")
+
+
+def cleanup_orphan_workspaces(
+    *, older_than_days: int = 30, root: Path | None = None
+) -> int:
+    """Remove old preparation/render directories that never became jobs.
+
+    A directory with ``job.json`` is a docking job and is never touched, even
+    if it is old. Everything else is a preparation or render artefact and is
+    reclaimable after the retention window.
+    """
+    base = root or workspace_root()
+    cutoff = time.time() - older_than_days * 86400
+    try:
+        entries = list(base.iterdir())
+    except OSError:
+        return 0
+    removed = 0
+    for entry in entries:
+        if not entry.is_dir() or (entry / JOB_STATE_FILENAME).exists():
+            continue
+        try:
+            if entry.stat().st_mtime >= cutoff:
+                continue
+            shutil.rmtree(entry)
+        except OSError:
+            log.warning("could not remove orphan workspace %s", entry, exc_info=True)
+        else:
+            removed += 1
+    return removed
 
 
 def resolve_within(root: Path, candidate: str | Path) -> Path:

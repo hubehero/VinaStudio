@@ -119,11 +119,22 @@ import type {
   WriteMapsResponse,
 } from '@/types/api'
 
+import { authHeaders } from './auth'
+
 /**
  * Relative URLs work in both modes: the bundled build is served by the same
  * FastAPI process, and the Vite dev server proxies `/api` to the desktop API.
  */
-const JSON_HEADERS: HeadersInit = { 'Content-Type': 'application/json' }
+function requestHeaders(init?: HeadersInit): Headers {
+  const headers = new Headers(init)
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json')
+  }
+  for (const [name, value] of Object.entries(authHeaders())) {
+    headers.set(name, value)
+  }
+  return headers
+}
 
 export class ApiError extends Error {
   readonly status: number
@@ -160,7 +171,7 @@ function errorMessage(detail: unknown, response: Response): string {
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   let response: Response
   try {
-    response = await fetch(path, { headers: JSON_HEADERS, ...init })
+    response = await fetch(path, { ...init, headers: requestHeaders(init.headers) })
   } catch (cause) {
     throw new ApiError(`无法连接本地服务 / Cannot reach the local service`, 0, cause)
   }
@@ -217,7 +228,7 @@ export const api = {
     // this server without a preflight, which the server never grants.
     const response = await fetch('/api/files/upload', {
       method: 'POST',
-      headers: { 'X-Requested-With': 'VinaStudio' },
+      headers: { 'X-Requested-With': 'VinaStudio', ...authHeaders() },
       body: form,
     })
     if (!response.ok) {
@@ -414,7 +425,7 @@ export const api = {
     // accepts bytes, never a filesystem path from the page.
     const response = await fetch('/api/docking/import-bundle', {
       method: 'POST',
-      headers: { 'X-Requested-With': 'VinaStudio' },
+      headers: { 'X-Requested-With': 'VinaStudio', ...authHeaders() },
       body: form,
     })
     if (!response.ok) {
@@ -586,9 +597,10 @@ export const api = {
   // -- virtual screening (TASK-13) ------------------------------------------
   screeningLibraries: () => request<LibrarySummary[]>('/api/screening/libraries'),
   screeningImport: async (form: FormData): Promise<LibraryImportResult> => {
-    // Multipart: the browser must set the boundary, so JSON_HEADERS is wrong.
+    // Multipart: the browser must set the boundary, so a JSON content type is wrong.
     const response = await fetch('/api/screening/libraries/import', {
       method: 'POST',
+      headers: { 'X-Requested-With': 'VinaStudio', ...authHeaders() },
       body: form,
     })
     if (!response.ok) {

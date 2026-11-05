@@ -14,7 +14,7 @@ from vinastudio.core.chem.ligand_prep import (
     prepare_ligand_from_smiles,
 )
 from vinastudio.core.errors import InvalidInputError
-from vinastudio.core.paths import create_workspace, slugify
+from vinastudio.core.paths import create_workspace, file_reuse_key, slugify
 from vinastudio.schemas.preparation import (
     FileRef,
     LigandFromSmilesItem,
@@ -157,7 +157,10 @@ def ligand_from_smiles(request: LigandFromSmilesRequest) -> list[LigandFromSmile
         sdf_path = _unique_sdf_path(dest_dir, slugify(name, fallback="smiles"))
         sdf_path.write_text(prep.sdf, encoding="utf-8")
 
-        run_ws = create_workspace(f"ligand-{sdf_path.stem}")
+        run_ws = create_workspace(
+            f"ligand-{sdf_path.stem}",
+            reuse_key=f"smiles:{text}:{name}:{options!r}",
+        )
         pdbqt_path = run_ws.write(f"{sdf_path.stem}.pdbqt", prep.pdbqt)
         # Second copy under jobs/ so artefact URLs stay inside workspace_root().
         run_sdf_path = run_ws.write(f"{sdf_path.stem}.sdf", prep.sdf)
@@ -194,7 +197,10 @@ def prepare(request: LigandPrepareRequest) -> LigandPreparationResponse:
     reproducible.
     """
     chosen = request.options
-    workspace = create_workspace(f"ligand-{request.path}")
+    workspace = create_workspace(
+        f"ligand-{request.path}",
+        reuse_key=file_reuse_key(request.path, extra=chosen),
+    )
 
     result = prepare_ligand(request.path, _ligand_options(chosen))
 

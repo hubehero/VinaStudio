@@ -51,7 +51,11 @@ def mmcif_to_pdb(text: str) -> str:
     if len(structure) == 0:
         raise ValueError("mmCIF structure contains no atoms")
 
-    # Convert to PDB using gemmi's built-in writer (operates on all models)
+    # Meeko's Polymer reads one model; the contract says "first model", and the
+    # sequence extractor already uses structure[0]. Keep only that model so a
+    # multi-model file cannot be handed to the receptor preparation whole.
+    if len(structure) > 1:
+        del structure[1:]
     return structure.make_pdb_string()
 
 
@@ -94,19 +98,3 @@ def scan_mmcif_residues(text: str) -> dict[str, _ResidueInfo]:
     Returns a dict keyed by chain:residue for compatibility with PDB scanning.
     """
     return _iter_mmcif_residues(text)
-
-
-def mmcif_residue_count(text: str) -> int:
-    """Count unique residues in mmCIF content."""
-    return len(_iter_mmcif_residues(text))
-
-
-def mmcif_atom_count(text: str) -> int:
-    """Count atoms in mmCIF content."""
-    return sum(r.atoms for r in _iter_mmcif_residues(text).values())
-
-
-def mmcif_chain_count(text: str) -> int:
-    """Count unique chains in mmCIF content."""
-    residues = _iter_mmcif_residues(text)
-    return len({k.split(":")[0] for k in residues})

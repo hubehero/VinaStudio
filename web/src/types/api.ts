@@ -660,7 +660,7 @@ export interface DockingJobResult {
   jobId: string
   status: 'completed'
   poses: PoseInfo[]
-  bestAffinity: number
+  bestAffinity: number | null
   posesPdbqt: string
   posesSdf: string
   nPoses: number

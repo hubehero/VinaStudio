@@ -12,6 +12,28 @@ entries about the product — no internal task ids or workflow narration.
 
 ## [Unreleased]
 
+### 修复
+
+- **安装**：`httpx` 改为运行时依赖，标准方式安装后应用可正常启动；发布预检会检查未声明的第三方导入。
+- **结果可信度**：没有产生任何构象的对接或筛选行标记为失败，不再显示为 `0.00 kcal/mol` 或排在筛选榜首；历史零姿态任务恢复后同样不显示分数。
+- **科学结果**：PDB 元素列缺失时正确识别 Fe/Zn/Cl 等元素（蛋白 `CA` 仍为碳）；`.mol2` 与 `.sdf` 使用同一 InChIKey；多模型 mmCIF 只取首个模型；`.pdbqt` 字符串路径可正常读取；硼酸不再被误报为有机金属。
+- **本地 API 安全**：新增每次启动生成的访问令牌和回环 Host 校验，覆盖 HTTP、产物读取和 WebSocket；请求体在解析前按上限拒绝；交互分析、RMSD 与 CSV 的输入路径只接受支持的格式且错误不回显路径；筛选库导入要求界面请求头。
+- **交互式对接**：网格预算同时覆盖 CLI 后端，并发交互评分、优化和随机化会被串行化。
+- **边界与提示**：2.0 Å RMSD 成功阈值统一为“≤ 2.0”；空 PDB 报告“文件为空”；网格预算按 Vina 实际格点数计算。
+- **稳定性**：任务表按最近使用保留 200 条并释放已落盘的姿态大文本；准备与渲染目录按源文件复用，启动时清理 30 天前的孤儿目录；WebSocket 每客户端使用有界队列并限制连接数；结果与分子索引的 schema 检查按数据库文件缓存。
+- **构建**：Swagger UI 固定到 5.33.0 并校验 SHA-256 与字节数；构建会清理旧的哈希资源。
+
+### Fixed
+
+- **Install**: `httpx` is a runtime dependency again, so a standard install starts; release preflight now checks undeclared third-party imports.
+- **Result trust**: runs or screening rows that produced no pose are marked failed instead of `0.00 kcal/mol` or ranking first; restored zero-pose jobs show no score either.
+- **Scientific results**: PDB records with a blank element column resolve Fe/Zn/Cl correctly (a protein `CA` stays carbon); `.mol2` and `.sdf` share one InChIKey; multi-model mmCIF uses the first model; `.pdbqt` string paths read correctly; boronic acids are no longer labelled organometallic.
+- **Local API security**: a per-launch token and loopback Host check cover HTTP, artifacts and WebSocket; oversized request bodies are rejected before parsing; interaction, RMSD and CSV input paths accept only supported formats without echoing the path; screening library import requires the UI request header.
+- **Interactive docking**: the grid budget also covers the CLI backend, and concurrent interactive scoring, optimisation and randomisation are serialised.
+- **Boundaries and messages**: the 2.0 Å RMSD success threshold is consistently “≤ 2.0”; an empty PDB reports that the file is empty; the map budget counts Vina's actual grid points.
+- **Stability**: the job table keeps 200 recently used entries and releases pose text already on disk; preparation and render directories are reused by source, with 30-day orphan cleanup on startup; WebSocket clients get a bounded queue and a connection cap; result and catalog schema checks are cached per database file.
+- **Build**: Swagger UI is pinned to 5.33.0 with SHA-256 and size checks; stale hashed assets are pruned.
+
 ## [0.6.8] - 2026-11-03
 
 ### 修复
@@ -72,31 +94,11 @@ entries about the product — no internal task ids or workflow narration.
 
 ### 新增
 
-- **可复现功能验证记录**：新增 `validation/functional/`，包含功能矩阵、环境与输入哈希、全量测试 JUnit、生产界面路由冒烟、用户流程截图和原始结果；协议、证据等级与未覆盖项在记录中明确列出。
 - **诊断与安全修复**：环境自检新增只读诊断，检查工作空间、目录、目录数据库、任务索引、对接引擎、科学计算依赖、磁盘空间和浏览器渲染器；可安全重建的目录问题可一键修复，其余问题保留原因、证据和修改建议。自动修复不会删除或覆盖分子、构象、工程、任务索引或数据库。
-
-### 修复
-
-- **历史结果隔离**：结果汇报中的历史任务不再被工作台当成当前管线结果；切换受体或配体仍会清除旧结果，历史任务仍可在对接页检视。
-- **历史相互作用**：相互作用分析优先使用任务记录的受体，避免换过当前分子后把旧 pose 与另一受体组合。
-- **窄屏 Catalog**：窄窗口下选中分子的详情、预览和准备入口改为底部整行保留，不再消失。
-- **软件渲染**：显式软件渲染模式使用 ANGLE SwiftShader 创建 WebGL 上下文，嵌入界面的 3D 视口不再因空上下文启动失败。
-- **筛选进度**：历史取消任务的越界进度值在界面夹紧为 0–100%，不修改原始历史记录。
-- **地图错误边界**：奇数量体且未启用 `forceEvenVoxels` 的亲和力图请求返回可解释的 422，而不是泄露 Vina 的 500。
 
 ### Added
 
-- **Reproducible functional validation record**: add `validation/functional/` with a feature matrix, environment and input hashes, full test JUnit, production UI route smoke, user-flow screenshots and raw results; the protocol, evidence levels and unverified items are explicit.
 - **Diagnostics and safe repair**: the environment check now runs read-only checks for the workspace, directories, catalog database, job indexes, docking engine, scientific dependencies, disk space and browser renderer. Safe directory findings can be repaired in one action; other findings retain the reason, evidence and recommended action. Repair never deletes or overwrites molecules, poses, projects, job indexes or databases.
-
-### Fixed
-
-- **Historical result isolation**: a result loaded from the report/history view is no longer presented by the workbench as the current pipeline result; changing receptor or ligand still clears stale results, while history remains inspectable in the docking view.
-- **Historical interaction analysis**: contacts now use the receptor recorded by the job, instead of combining an old pose with a different current receptor.
-- **Narrow Catalog layout**: the selected molecule's detail, preview and preparation entry remain available as a full-width bottom row at narrow widths.
-- **Software rendering**: the explicit software-render mode asks ANGLE for SwiftShader, so the embedded 3D viewport no longer fails to create a WebGL context.
-- **Screening progress**: out-of-range progress from a historical cancelled run is clamped to 0–100 in the interface without rewriting the stored record.
-- **Map error boundary**: an affinity-map request with odd voxels and `forceEvenVoxels` disabled returns an actionable 422 instead of leaking a Vina 500.
 
 ## [0.6.4] - 2026-10-29
 

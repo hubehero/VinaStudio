@@ -16,7 +16,7 @@ from pathlib import Path
 from rdkit import Chem
 from rdkit.Chem import Descriptors
 
-from vinastudio.core.chem.pdbqt import _SMILES_RE
+from vinastudio.core.chem.pdbqt import SMILES_REMARK
 from vinastudio.core.chem.rdkit_io import mol_from_file
 
 
@@ -99,7 +99,7 @@ def _read_source_mol(path: Path) -> Chem.Mol | None:
 def _header_mol(text: str) -> Chem.Mol | None:
     """Molecule rebuilt from a prepared PDBQT's ``REMARK SMILES`` header."""
     for line in text.splitlines():
-        match = _SMILES_RE.match(line)
+        match = SMILES_REMARK.match(line)
         if match:
             mol = Chem.MolFromSmiles(match.group(1))
             if mol is not None:

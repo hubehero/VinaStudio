@@ -24,13 +24,14 @@ from rdkit import Chem
 
 from vinastudio.core import paths
 from vinastudio.core.chem.ligand_prep import _canonical_smiles
-from vinastudio.core.chem.pdbqt import _SMILES_RE
+from vinastudio.core.chem.pdbqt import SMILES_REMARK
 from vinastudio.core.paths import (
     BATCH_RESULTS_CSV_FILENAME,
     JOB_STATE_FILENAME,
     POSES_SDF_FILENAME,
     SCREENING_JSONL_FILENAME,
 )
+from vinastudio.core.sqlite_schema import mark_schema_ready, schema_is_ready
 
 log = logging.getLogger(__name__)
 
@@ -144,11 +145,17 @@ def _connect(db_path: Path) -> sqlite3.Connection:
 def _ensure_schema(conn: sqlite3.Connection) -> None:
     """Create or migrate the index; refuse a schema newer than this build.
 
+    A read path opens a connection and calls this too. The process-level cache
+    is keyed by the file identity, so an unchanged database skips the DDL.
+
     v2 adds favourites, tags and saved views.  The migration is additive:
     an existing v1 database gains a ``favorite`` column and the two new
     tables, while ingest never rewrites favourite/tags, so rebuilding the
     index cannot erase a user's organisation.
     """
+    if schema_is_ready(conn):
+        return
+
     conn.execute("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)")
     row = conn.execute("SELECT version FROM schema_version").fetchone()
     version = int(row["version"]) if row is not None else 0
@@ -170,6 +177,7 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
     elif version < _SCHEMA_VERSION:
         conn.execute("UPDATE schema_version SET version = ?", (_SCHEMA_VERSION,))
     conn.commit()
+    mark_schema_ready(conn)
 
 
 def _header_smiles(text: str) -> str | None:
@@ -180,7 +188,7 @@ def _header_smiles(text: str) -> str | None:
     """
     raw: str | None = None
     for line in text.splitlines():
-        match = _SMILES_RE.match(line)
+        match = SMILES_REMARK.match(line)
         if match:
             raw = match.group(1)
             break
@@ -243,18 +251,28 @@ def _receptor_name(params: dict[str, Any]) -> str:
 
 
 def _best_affinity(payload: dict[str, Any], status: str, is_batch: bool) -> float | None:
-    # Mirror ``routers/docking._summary_best_affinity``: JobState.best_affinity
-    # defaults to 0.0 and a batch never writes it, so a literal copy would
-    # show "0.00" for failed and batch runs — the jobs list computes these.
+    # Mirror ``routers/docking._summary_best_affinity``: a single job stores its
+    # own score, a batch never does, and a run with no pose has no score at all.
+    # The jobs list and the index must agree on that null.
     if status != "completed":
         return None
     if not is_batch:
+        # Older payloads recorded a zero-pose run as completed with 0.0. A run
+        # with no pose has no score; 0.0 would otherwise look like the best hit.
+        if int(payload.get("nPoses") or 0) == 0:
+            return None
         value = payload.get("bestAffinity")
         return float(value) if isinstance(value, (int, float)) else None
     scored = [
         float(row["bestAffinity"])
         for row in payload.get("batchResults") or []
-        if isinstance(row, dict) and isinstance(row.get("bestAffinity"), (int, float))
+        if isinstance(row, dict)
+        and isinstance(row.get("bestAffinity"), (int, float))
+        # Rows written before nPoses existed carry no key; only an explicit 0
+        # means the ligand produced no pose.
+        and not (
+            isinstance(row.get("nPoses"), (int, float)) and int(row["nPoses"]) == 0
+        )
     ]
     return min(scored) if scored else None
 

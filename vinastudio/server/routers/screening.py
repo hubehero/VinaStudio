@@ -14,9 +14,10 @@ import json
 import logging
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile
+from fastapi import APIRouter, File, Form, Header, HTTPException, Response, UploadFile
+from starlette.concurrency import run_in_threadpool
 
 from vinastudio.config import max_upload_bytes
 from vinastudio.core.chem.library import (
@@ -152,6 +153,7 @@ def list_screening_libraries() -> list[LibrarySummary]:
 
 @router.post("/libraries/import", response_model=LibraryImportResult)
 async def import_screening_library(
+    x_requested_with: Annotated[str, Header()],
     name: str = Form(...),
     paths: str | None = Form(default=None),
     files: list[UploadFile] | None = File(default=None),
@@ -160,7 +162,8 @@ async def import_screening_library(
 
     ``paths`` carries a JSON array of filesystem paths (native dialog);
     ``files`` the uploaded bytes (browser). At least one is required; both
-    may be present and are imported together.
+    may be present and are imported together. The custom header makes this a
+    non-simple request, like the other multipart endpoints.
     """
     if not is_valid_name(name):
         raise HTTPException(status_code=400, detail=f"illegal library name: {name}")
@@ -222,7 +225,9 @@ async def import_screening_library(
             sources.append(target)
 
         try:
-            report = import_library(name, sources)
+            # RDKit sanitisation and per-record parsing are CPU-bound; running
+            # them inline froze WebSocket progress and every other request.
+            report = await run_in_threadpool(import_library, name, sources)
         except LibraryExistsError:
             # Lost a race with a concurrent import after the pre-check.
             raise HTTPException(

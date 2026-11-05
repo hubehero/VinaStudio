@@ -512,7 +512,10 @@ async def fetch_from_library(req: LibraryFetchRequest) -> LibraryFetchResponse:
         )
 
     try:
-        ws = create_workspace(f"library-{pdb_id.lower()}")
+        ws = create_workspace(
+            f"library-{pdb_id.lower()}",
+            reuse_key=f"library:{pdb_id.lower()}:{used_filename}",
+        )
         target = ws.file(used_filename)
         target.write_bytes(content)
     except OSError as exc:
@@ -589,7 +592,10 @@ async def fetch_all_from_library(req: LibraryFetchAllRequest) -> LibraryFetchAll
             f"maximum allowed is {_MAX_FILE_SIZE / 1024 / 1024:.0f} MB"
         )
 
-    ws = create_workspace(f"library-{pdb_id.lower()}")
+    ws = create_workspace(
+        f"library-{pdb_id.lower()}",
+        reuse_key=f"library:{pdb_id.lower()}:{receptor_filename}",
+    )
     receptor_target = ws.file(receptor_filename)
     try:
         receptor_target.write_bytes(receptor_content)

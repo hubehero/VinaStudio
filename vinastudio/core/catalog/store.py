@@ -715,6 +715,10 @@ def create_saved_view(
 ) -> Json:
     view_id = new_id("view")
     now = _now()
+    # The same value must go into the INSERT and the SELECT. Using the raw
+    # ``name.strip()`` for the lookup while the INSERT stored the "view"
+    # fallback returned None and the response crashed on row["id"].
+    clean_name = name.strip() or "view"
     conn.execute(
         """INSERT INTO saved_views(id, name, scope, query_json, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?)
@@ -722,9 +726,9 @@ def create_saved_view(
              query_json = excluded.query_json,
              scope = excluded.scope,
              updated_at = excluded.updated_at""",
-        (view_id, name.strip() or "view", scope, _json(query), now, now),
+        (view_id, clean_name, scope, _json(query), now, now),
     )
-    row = conn.execute("SELECT * FROM saved_views WHERE name = ?", (name.strip(),)).fetchone()
+    row = conn.execute("SELECT * FROM saved_views WHERE name = ?", (clean_name,)).fetchone()
     return {
         "id": row["id"],
         "name": row["name"],

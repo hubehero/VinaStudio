@@ -59,6 +59,19 @@ def _restore_stdout(saved_stdout: int | None) -> None:
     os.close(saved_stdout)
 
 
+def _close_read_fd(reader: Any, read_fd: int) -> None:
+    """Close the pipe read end only after the reader has actually exited.
+
+    ``join(timeout)`` can return while the thread is still blocked on a read;
+    closing the descriptor then lets the number be recycled underneath it.
+    Leaving it open in that rare case is the safer failure.
+    """
+    if reader.is_alive():
+        log.warning("stdout reader still running; leaving fd %d open", read_fd)
+        return
+    os.close(read_fd)
+
+
 def _emit(pipe: Connection, kind: str, data: dict[str, Any] | None = None) -> None:
     """Send a structured event through the pipe."""
     event: dict[str, Any] = {"type": kind}
@@ -128,16 +141,21 @@ def docking_worker(params: dict[str, Any], pipe: Connection) -> None:
         docking_params = DockingParams(**params)
         result = run_docking(docking_params, output_dir)
 
-        _emit(pipe, "completed", {
-            "poses": [{"index": p.index, "affinity": p.affinity,
-                        "rmsdLower": p.rmsd_lower, "rmsdUpper": p.rmsd_upper}
-                       for p in result.poses],
-            "bestAffinity": result.best_affinity,
-            "nPoses": result.n_poses,
-            "elapsedMs": result.elapsed_ms,
-            "posesPdbqt": result.poses_pdbqt,
-            "posesSdf": result.poses_sdf,
-        })
+        if not result.poses:
+            _emit(pipe, "failed", {
+                "error": "docking produced no scored poses; check the receptor/ligand pair and the box",
+            })
+        else:
+            _emit(pipe, "completed", {
+                "poses": [{"index": p.index, "affinity": p.affinity,
+                            "rmsdLower": p.rmsd_lower, "rmsdUpper": p.rmsd_upper}
+                           for p in result.poses],
+                "bestAffinity": result.best_affinity,
+                "nPoses": result.n_poses,
+                "elapsedMs": result.elapsed_ms,
+                "posesPdbqt": result.poses_pdbqt,
+                "posesSdf": result.poses_sdf,
+            })
     except Exception as exc:
         log.exception("docking worker failed")
         _emit(pipe, "failed", {"error": str(exc)})
@@ -148,7 +166,7 @@ def docking_worker(params: dict[str, Any], pipe: Connection) -> None:
         # reader against ``os.close(read_fd)``.
         _restore_stdout(saved_stdout)
         reader.join(timeout=2.0)
-        os.close(read_fd)
+        _close_read_fd(reader, read_fd)
         pipe.close()
 
 
@@ -258,17 +276,27 @@ def batch_docking_worker(params: dict[str, Any], pipe: Connection) -> None:
             run_dir.mkdir(parents=True, exist_ok=True)
             result = run_docking(docking_params, str(run_dir))
 
-            best = min((p.affinity for p in result.poses), default=0.0) if result.poses else 0.0
-            _emit(pipe, "ligand_completed", {
-                "ligandIndex": idx,
-                "label": label,
-                "status": "completed",
-                "bestAffinity": best,
-                "nPoses": result.n_poses,
-                "elapsedMs": result.elapsed_ms,
-                "outDir": out_name,
-                **desc_fields,
-            })
+            if not result.poses:
+                _emit(pipe, "ligand_completed", {
+                    "ligandIndex": idx,
+                    "label": label,
+                    "status": "failed",
+                    "error": "docking produced no scored poses",
+                    "nPoses": 0,
+                    **desc_fields,
+                })
+            else:
+                best = min(p.affinity for p in result.poses)
+                _emit(pipe, "ligand_completed", {
+                    "ligandIndex": idx,
+                    "label": label,
+                    "status": "completed",
+                    "bestAffinity": best,
+                    "nPoses": result.n_poses,
+                    "elapsedMs": result.elapsed_ms,
+                    "outDir": out_name,
+                    **desc_fields,
+                })
 
         except Exception as exc:
             log.exception("batch docking failed for ligand %d", idx)
@@ -394,17 +422,27 @@ def screening_worker(params: dict[str, Any], pipe: Connection) -> None:
             run_dir.mkdir(parents=True, exist_ok=True)
             result = run_docking(docking_params, str(run_dir))
 
-            best = min((p.affinity for p in result.poses), default=0.0) if result.poses else 0.0
-            _emit(pipe, "ligand_completed", {
-                "ligandIndex": entry_index,
-                "label": name,
-                "status": "completed",
-                "bestAffinity": best,
-                "nPoses": result.n_poses,
-                "elapsedMs": result.elapsed_ms,
-                "outDir": out_name,
-                **desc_fields,
-            })
+            if not result.poses:
+                _emit(pipe, "ligand_completed", {
+                    "ligandIndex": entry_index,
+                    "label": name,
+                    "status": "failed",
+                    "error": "docking produced no scored poses",
+                    "nPoses": 0,
+                    **desc_fields,
+                })
+            else:
+                best = min(p.affinity for p in result.poses)
+                _emit(pipe, "ligand_completed", {
+                    "ligandIndex": entry_index,
+                    "label": name,
+                    "status": "completed",
+                    "bestAffinity": best,
+                    "nPoses": result.n_poses,
+                    "elapsedMs": result.elapsed_ms,
+                    "outDir": out_name,
+                    **desc_fields,
+                })
         except Exception as exc:
             log.exception("screening failed for library entry %d", entry_index)
             _emit(pipe, "ligand_completed", {
@@ -505,24 +543,37 @@ def site_screening_worker(params: dict[str, Any], pipe: Connection) -> None:
             else:
                 affinity = min((pose.affinity for pose in result.poses), default=None)
                 elapsed_total += result.elapsed_ms
-                if affinity is not None and (
-                    best_affinity is None or affinity < best_affinity
-                ):
-                    best_affinity = affinity
-                    best_result = result
-                _emit(
-                    pipe,
-                    "site_completed",
-                    {
-                        "siteIndex": index,
-                        "label": label,
-                        "status": "completed",
-                        "bestAffinity": affinity,
-                        "nPoses": result.n_poses,
-                        "elapsedMs": result.elapsed_ms,
-                        "outDir": f"site-{index:03d}",
-                    },
-                )
+                if affinity is None:
+                    _emit(
+                        pipe,
+                        "site_completed",
+                        {
+                            "siteIndex": index,
+                            "label": label,
+                            "status": "failed",
+                            "error": "docking produced no scored poses",
+                            "nPoses": 0,
+                            "elapsedMs": result.elapsed_ms,
+                            "outDir": f"site-{index:03d}",
+                        },
+                    )
+                else:
+                    if best_affinity is None or affinity < best_affinity:
+                        best_affinity = affinity
+                        best_result = result
+                    _emit(
+                        pipe,
+                        "site_completed",
+                        {
+                            "siteIndex": index,
+                            "label": label,
+                            "status": "completed",
+                            "bestAffinity": affinity,
+                            "nPoses": result.n_poses,
+                            "elapsedMs": result.elapsed_ms,
+                            "outDir": f"site-{index:03d}",
+                        },
+                    )
 
             _emit(
                 pipe,
@@ -530,33 +581,36 @@ def site_screening_worker(params: dict[str, Any], pipe: Connection) -> None:
                 {"percent": int((position + 1) / max(1, len(candidates)) * 100)},
             )
 
-        _emit(
-            pipe,
-            "completed",
-            {
-                "poses": [
-                    {
-                        "index": pose.index,
-                        "affinity": pose.affinity,
-                        "rmsdLower": pose.rmsd_lower,
-                        "rmsdUpper": pose.rmsd_upper,
-                    }
-                    for pose in (best_result.poses if best_result else [])
-                ],
-                "bestAffinity": best_affinity if best_affinity is not None else 0.0,
-                "nPoses": best_result.n_poses if best_result else 0,
-                "elapsedMs": elapsed_total,
-                "posesPdbqt": best_result.poses_pdbqt if best_result else "",
-                "posesSdf": best_result.poses_sdf if best_result else "",
-            },
-        )
+        if best_result is None:
+            _emit(pipe, "failed", {"error": "no candidate box produced a scored pose"})
+        else:
+            _emit(
+                pipe,
+                "completed",
+                {
+                    "poses": [
+                        {
+                            "index": pose.index,
+                            "affinity": pose.affinity,
+                            "rmsdLower": pose.rmsd_lower,
+                            "rmsdUpper": pose.rmsd_upper,
+                        }
+                        for pose in best_result.poses
+                    ],
+                    "bestAffinity": best_affinity,
+                    "nPoses": best_result.n_poses,
+                    "elapsedMs": elapsed_total,
+                    "posesPdbqt": best_result.poses_pdbqt,
+                    "posesSdf": best_result.poses_sdf,
+                },
+            )
     except Exception as exc:
         log.exception("site screening worker failed")
         _emit(pipe, "failed", {"error": str(exc)})
     finally:
         _restore_stdout(saved_stdout)
         reader.join(timeout=2.0)
-        os.close(read_fd)
+        _close_read_fd(reader, read_fd)
         pipe.close()
 
 
@@ -641,46 +695,61 @@ def ensemble_worker(params: dict[str, Any], pipe: Connection) -> None:
             else:
                 affinity = min((pose.affinity for pose in result.poses), default=None)
                 elapsed_total += result.elapsed_ms
-                if affinity is not None and (best_affinity is None or affinity < best_affinity):
-                    best_affinity = affinity
-                    best_result = result
-                    best_receptor = label
-                _emit(pipe, "ensemble_completed", {
-                    "receptorIndex": index,
-                    "label": label,
-                    "receptorPath": receptor_path,
-                    "status": "completed",
-                    "bestAffinity": affinity,
-                    "nPoses": result.n_poses,
-                    "elapsedMs": result.elapsed_ms,
-                    "outDir": f"conformer-{index:03d}",
-                })
+                if affinity is None:
+                    _emit(pipe, "ensemble_completed", {
+                        "receptorIndex": index,
+                        "label": label,
+                        "receptorPath": receptor_path,
+                        "status": "failed",
+                        "error": "docking produced no scored poses",
+                        "nPoses": 0,
+                        "elapsedMs": result.elapsed_ms,
+                        "outDir": f"conformer-{index:03d}",
+                    })
+                else:
+                    if best_affinity is None or affinity < best_affinity:
+                        best_affinity = affinity
+                        best_result = result
+                        best_receptor = label
+                    _emit(pipe, "ensemble_completed", {
+                        "receptorIndex": index,
+                        "label": label,
+                        "receptorPath": receptor_path,
+                        "status": "completed",
+                        "bestAffinity": affinity,
+                        "nPoses": result.n_poses,
+                        "elapsedMs": result.elapsed_ms,
+                        "outDir": f"conformer-{index:03d}",
+                    })
             _emit(pipe, "progress", {
                 "percent": int((position + 1) / max(1, len(receptors)) * 100),
             })
 
-        _emit(pipe, "completed", {
-            "poses": [
-                {
-                    "index": pose.index,
-                    "affinity": pose.affinity,
-                    "rmsdLower": pose.rmsd_lower,
-                    "rmsdUpper": pose.rmsd_upper,
-                }
-                for pose in (best_result.poses if best_result else [])
-            ],
-            "bestAffinity": best_affinity if best_affinity is not None else 0.0,
-            "nPoses": best_result.n_poses if best_result else 0,
-            "elapsedMs": elapsed_total,
-            "posesPdbqt": best_result.poses_pdbqt if best_result else "",
-            "posesSdf": best_result.poses_sdf if best_result else "",
-            "bestReceptor": best_receptor,
-        })
+        if best_result is None:
+            _emit(pipe, "failed", {"error": "no receptor conformer produced a scored pose"})
+        else:
+            _emit(pipe, "completed", {
+                "poses": [
+                    {
+                        "index": pose.index,
+                        "affinity": pose.affinity,
+                        "rmsdLower": pose.rmsd_lower,
+                        "rmsdUpper": pose.rmsd_upper,
+                    }
+                    for pose in best_result.poses
+                ],
+                "bestAffinity": best_affinity,
+                "nPoses": best_result.n_poses,
+                "elapsedMs": elapsed_total,
+                "posesPdbqt": best_result.poses_pdbqt,
+                "posesSdf": best_result.poses_sdf,
+                "bestReceptor": best_receptor,
+            })
     except Exception as exc:
         log.exception("ensemble worker failed")
         _emit(pipe, "failed", {"error": str(exc)})
     finally:
         _restore_stdout(saved_stdout)
         reader.join(timeout=2.0)
-        os.close(read_fd)
+        _close_read_fd(reader, read_fd)
         pipe.close()

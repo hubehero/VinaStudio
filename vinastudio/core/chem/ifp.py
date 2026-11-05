@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from vinastudio.core.chem.autodock_types import element_for
-from vinastudio.core.chem.pdb_lines import WATER_RESIDUES
+from vinastudio.core.chem.pdb_lines import WATER_RESIDUES, element_symbol
 from vinastudio.core.errors import InvalidInputError, brief_error
 
 #: Contact thresholds in Angstrom, applied per interaction type.  The caller's
@@ -230,10 +230,11 @@ def _parse_pdb_atom(line: str, *, is_pdbqt: bool) -> dict[str, Any] | None:
         # The type/element field runs to the end of the record.
         column = line[76:].strip() if len(line) > 76 else ""
 
-        if is_pdbqt:
-            element = element_for(atom, column)
-        else:
-            element = column.capitalize() if column else element_for(atom, "")
+        # PDB element columns are often uppercase and may be blank. The shared
+        # parser canonicalises the spelling and uses the atom-name alignment, so
+        # ``FE`` is Fe and a protein `` CA `` stays carbon. PDBQT keeps its
+        # AutoDock type namespace instead.
+        element = element_for(atom, column) if is_pdbqt else element_symbol(line)
 
         charge = 0.0
         if is_pdbqt and len(line) >= 76:

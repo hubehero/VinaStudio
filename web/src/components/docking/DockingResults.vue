@@ -4,6 +4,7 @@ import { ElButton, ElCheckbox, ElCheckboxGroup, ElDialog, ElDropdown, ElDropdown
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import { authHeaders } from '@/api/auth'
 import { saveTextFile } from '@/api/bridge'
 import { api } from '@/api/http'
 import type { Artifact, BundleMember, PoseFinding } from '@/types/api'
@@ -128,7 +129,7 @@ function openBundleDialog(): void {
 }
 
 async function downloadBundle(artifact: Artifact): Promise<void> {
-  const response = await fetch(artifact.url)
+  const response = await fetch(artifact.url, { headers: authHeaders() })
   if (!response.ok) {
     throw new Error(`bundle fetch failed: ${response.status}`)
   }

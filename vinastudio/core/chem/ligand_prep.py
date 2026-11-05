@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -50,6 +51,12 @@ log = logging.getLogger(__name__)
 #: real reason instead of guessing.
 rdBase.LogToPythonLogger()
 _RDKIT_LOGGER = logging.getLogger("rdkit")
+#: RDKit's logger is process-global. Only the first active capture may change
+#: its level; each handler filters by thread so concurrent preparations cannot
+#: read one another's error text.
+_RDKIT_CAPTURE_LOCK = threading.Lock()
+_RDKIT_CAPTURE_DEPTH = 0
+_RDKIT_PREVIOUS_LEVEL: int | None = None
 
 #: Formats this module can parameterise. A PDBQT is already prepared.
 PREPARABLE_SUFFIXES = (".mol", ".sdf", ".mol2", ".pdb")
@@ -133,24 +140,42 @@ class LigandInspection:
 
 @contextmanager
 def _captured_rdkit_messages() -> Iterator[list[str]]:
-    """Collect RDKit's own error text emitted while parsing or sanitising."""
+    """Collect RDKit's own error text emitted by *this* thread.
+
+    The logger and its level are process-global, but preparation endpoints run
+    in a thread pool. A handler that accepts every record made one request
+    quote another request's error; filtering by ``record.thread`` keeps them
+    apart, and the lock makes the level transition safe under concurrency.
+    """
+    global _RDKIT_CAPTURE_DEPTH, _RDKIT_PREVIOUS_LEVEL
+
     messages: list[str] = []
+    thread_id = threading.get_ident()
 
     class _Collector(logging.Handler):
         def emit(self, record: logging.LogRecord) -> None:
+            if record.thread != thread_id:
+                return
             text = record.getMessage().strip()
             if text:
                 messages.append(text)
 
     handler = _Collector(level=logging.DEBUG)
-    _RDKIT_LOGGER.addHandler(handler)
-    previous_level = _RDKIT_LOGGER.level
-    _RDKIT_LOGGER.setLevel(logging.DEBUG)
+    with _RDKIT_CAPTURE_LOCK:
+        if _RDKIT_CAPTURE_DEPTH == 0:
+            _RDKIT_PREVIOUS_LEVEL = _RDKIT_LOGGER.level
+            _RDKIT_LOGGER.setLevel(logging.DEBUG)
+        _RDKIT_CAPTURE_DEPTH += 1
+        _RDKIT_LOGGER.addHandler(handler)
     try:
         yield messages
     finally:
-        _RDKIT_LOGGER.removeHandler(handler)
-        _RDKIT_LOGGER.setLevel(previous_level)
+        with _RDKIT_CAPTURE_LOCK:
+            _RDKIT_LOGGER.removeHandler(handler)
+            _RDKIT_CAPTURE_DEPTH -= 1
+            if _RDKIT_CAPTURE_DEPTH == 0 and _RDKIT_PREVIOUS_LEVEL is not None:
+                _RDKIT_LOGGER.setLevel(_RDKIT_PREVIOUS_LEVEL)
+                _RDKIT_PREVIOUS_LEVEL = None
 
 
 def _explain(messages: list[str], fallback: str) -> str:
@@ -318,8 +343,11 @@ def inspect_ligand(path: str | Path) -> LigandInspection:
     # Metal ions (Na+, K+, Mg2+, Ca2+, Zn2+, etc.) cannot be docked as ligands.
     # They have no bonds and Meeko cannot assign AutoDock atom types to them.
     # Extended set covers alkali, alkaline-earth, transition, and heavy metals.
+    # Boron (5) is deliberately absent: it is a metalloid, and the boronic-acid
+    # pharmacophore is common in drugs. Including it labelled every such ligand
+    # "organometallic" and sent the user looking for a metal that is not there.
     _METAL_ATOMIC_NUMS = {
-        3, 5, 11, 12, 13, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+        3, 11, 12, 13, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
         37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50,
         55, 56, 57, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82,
     }

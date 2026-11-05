@@ -198,10 +198,15 @@ def _as_mol(source: Chem.Mol | str | Path) -> Chem.Mol:
     if isinstance(source, Path):
         return _mol_from_path(source)
     if isinstance(source, str):
-        if Path(source).suffix.lower() in {".sdf", ".mol"} and "\n" not in source.strip()[:80]:
-            path = Path(source)
-            if path.is_file():
-                return _mol_from_path(path)
+        path = Path(source)
+        try:
+            is_file = path.is_file()
+        except OSError:
+            # A molblock is not a path; long multiline text can exceed the
+            # platform's name limit and raise here instead of returning False.
+            is_file = False
+        if is_file:
+            return _mol_from_path(path)
         return _mol_from_text(source)
     raise TypeError(f"unsupported pose source: {type(source)!r}")
 
@@ -560,10 +565,13 @@ def _plane_rmsd(points: np.ndarray) -> float:
 
 
 def _cip_labels(mol: Chem.Mol) -> dict[int, str]:
-    Chem.AssignStereochemistryFrom3D(mol)
-    rdCIPLabeler.AssignCIPLabels(mol)
+    # Work on a copy: AssignStereochemistryFrom3D clears and re-derives chiral
+    # tags on the molecule it is given, and callers still need the original.
+    work = Chem.Mol(mol)
+    Chem.AssignStereochemistryFrom3D(work)
+    rdCIPLabeler.AssignCIPLabels(work)
     labels: dict[int, str] = {}
-    for atom in mol.GetAtoms():
+    for atom in work.GetAtoms():
         if atom.HasProp("_CIPCode"):
             labels[atom.GetIdx()] = atom.GetProp("_CIPCode")
     return labels

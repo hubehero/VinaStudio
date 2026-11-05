@@ -12,6 +12,7 @@ from vinastudio import __version__
 from vinastudio.config import APP_NAME, dev_server_url
 from vinastudio.desktop.server_thread import LocalServer
 from vinastudio.logging_setup import setup_logging
+from vinastudio.server.auth import generate_token
 
 log = logging.getLogger(__name__)
 
@@ -78,7 +79,10 @@ def main(argv: list[str] | None = None) -> int:
 
     application.setWindowIcon(app_icon())
 
-    server = LocalServer(create_app(), port=args.api_port)
+    # One token per process: it never touches disk, and a restarted session
+    # invalidates any token an old page still holds.
+    api_token = generate_token()
+    server = LocalServer(create_app(token=api_token), port=args.api_port)
     try:
         server.start()
     except Exception:
@@ -90,7 +94,7 @@ def main(argv: list[str] | None = None) -> int:
 
     from vinastudio.desktop.main_window import MainWindow
 
-    window = MainWindow(url)
+    window = MainWindow(url, api_token=api_token)
     window.show()
 
     try:

@@ -1,5 +1,7 @@
 /** Reconnecting WebSocket client for job progress and log streaming. */
 
+import { wsProtocols } from './auth'
+
 export type SocketStatus = 'idle' | 'connecting' | 'open' | 'closed'
 
 export interface ServerEvent {
@@ -37,7 +39,7 @@ export class EventSocket {
     this.closedByUser = false
     this.emitStatus('connecting')
 
-    const socket = new WebSocket(socketUrl())
+    const socket = new WebSocket(socketUrl(), wsProtocols())
     this.socket = socket
 
     socket.onopen = () => {

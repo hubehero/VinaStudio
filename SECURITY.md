@@ -30,6 +30,8 @@ example:
 
 - a request from a foreign web page being able to change local state, or the
   WebSocket handshake accepting an untrusted origin;
+- another local user or process driving the loopback API without the
+  per-session token, or a web page reaching it through a rebound host name;
 - escaping the workspace through an artifact, project or upload path;
 - reading or writing files outside the workspace through a crafted structure or
   project file;
@@ -38,9 +40,11 @@ example:
   source tree in a security-relevant way.
 
 Out of scope: issues that require an already-compromised machine or an attacker
-with local administrator rights; social engineering; denial of service against
-your own installation; and reports that only restate a dependency advisory
-without a path through the application.
+with local administrator rights; an attacker who can read the running process's
+memory, attach a debugger, or access the application's browser profile under the
+same user account; social engineering; denial of service against your own
+installation; and reports that only restate a dependency advisory without a
+path through the application.
 
 ## What happens next
 

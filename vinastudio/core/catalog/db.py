@@ -15,6 +15,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from vinastudio.core import paths
+from vinastudio.core.sqlite_schema import mark_schema_ready, schema_is_ready
 
 SCHEMA_VERSION = 3
 
@@ -299,7 +300,13 @@ def _add_v3_columns(conn: sqlite3.Connection) -> None:
 
 
 def ensure_schema(conn: sqlite3.Connection) -> None:
-    """Create or migrate the catalog; refuse a newer schema."""
+    """Create or migrate the catalog; refuse a newer schema.
+
+    The process-level cache is keyed by the file identity, so read paths that
+    open a fresh connection do not replay the DDL every time.
+    """
+    if schema_is_ready(conn):
+        return
     conn.execute("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL)")
     row = conn.execute("SELECT version FROM schema_version").fetchone()
     version = int(row["version"]) if row is not None else 0
@@ -322,3 +329,4 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
     elif version < SCHEMA_VERSION:
         conn.execute("UPDATE schema_version SET version = ?", (SCHEMA_VERSION,))
     conn.commit()
+    mark_schema_ready(conn)

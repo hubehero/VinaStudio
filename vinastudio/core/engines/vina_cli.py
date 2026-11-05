@@ -34,9 +34,6 @@ CLI_DIR = PACKAGE_DIR / "resources" / "vina"
 #: Point this at a binary of your own (any platform's build) to override.
 CLI_PATH_ENV = "VINASTUDIO_VINA_CLI"
 
-#: ``--num_modes`` default is 9, so it is always passed explicitly.
-DEFAULT_NUM_MODES = 9
-
 #: A windowed build has no console, so Windows would open a console window for
 #: every console-subsystem child (``vina.exe``) and leave it there for the whole
 #: run. The child still inherits the worker's stdout pipe, which is what carries

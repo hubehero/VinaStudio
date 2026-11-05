@@ -1,6 +1,8 @@
 import * as $3Dmol from '3dmol'
 import { onBeforeUnmount, onMounted, ref, shallowRef, type Ref } from 'vue'
 
+import { authHeaders } from '@/api/auth'
+
 /** How the receptor backbone is drawn. */
 export type ReceptorRepresentation = 'cartoon' | 'trace' | 'stick' | 'line' | 'sphere'
 
@@ -1303,7 +1305,7 @@ export function fetchMolecule(url: string): Promise<string> {
   const hit = moleculeTextCache.get(url)
   if (hit) return hit
   const promise = (async () => {
-    const response = await fetch(url)
+    const response = await fetch(url, { headers: authHeaders() })
     if (!response.ok) {
       throw new Error(`could not load ${url}: ${response.status} ${response.statusText}`)
     }

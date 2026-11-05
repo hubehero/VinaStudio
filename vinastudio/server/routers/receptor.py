@@ -12,7 +12,7 @@ from vinastudio.core.chem.receptor_prep import (
     prepare_receptor,
 )
 from vinastudio.core.chem.sequence import extract_sequence
-from vinastudio.core.paths import create_workspace
+from vinastudio.core.paths import create_workspace, file_reuse_key
 from vinastudio.schemas.preparation import (
     FileRef,
     ReceptorPreparationResponse,
@@ -89,7 +89,10 @@ def prepare(request: ReceptorPrepareRequest) -> ReceptorPreparationResponse:
     renderer needs them.
     """
     chosen = request.options
-    workspace = create_workspace(f"receptor-{request.path}")
+    workspace = create_workspace(
+        f"receptor-{request.path}",
+        reuse_key=file_reuse_key(request.path, extra=chosen),
+    )
 
     result = prepare_receptor(
         request.path,

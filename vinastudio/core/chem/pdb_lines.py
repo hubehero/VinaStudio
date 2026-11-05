@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Final
 
+from vinastudio.core.chem.autodock_types import canonical_element
 from vinastudio.core.errors import InvalidInputError
 
 #: Residue names treated as solvent rather than as part of a structure.
@@ -78,6 +79,30 @@ def element_record(line: str) -> str:
     if pair in _TWO_LETTER_ELEMENTS:
         return pair
     return name[:1].upper()
+
+
+def element_symbol(line: str) -> str:
+    """Element of a PDB record, canonicalised and alignment-aware.
+
+    With a blank element column the atom-name columns still carry the answer:
+    two-letter elements start at column 13, one-letter elements are
+    right-justified from column 14. Stripping the field loses that distinction
+    and turns a protein ``CA`` (alpha carbon) into calcium, so the raw slice is
+    inspected before falling back to the two-letter set.
+    """
+    column = line[76:78].strip()
+    if column:
+        return canonical_element(column)
+    raw_name = line[12:16]
+    name = raw_name.strip().lstrip("0123456789")
+    if not name:
+        return ""
+    if raw_name[:1].isspace() or raw_name[:1].isdigit():
+        return canonical_element(name[:1])
+    pair = name[:2]
+    if pair.upper() in _TWO_LETTER_ELEMENTS:
+        return canonical_element(pair)
+    return canonical_element(name[:1])
 
 
 def coordinates(line: str) -> tuple[float, float, float]:

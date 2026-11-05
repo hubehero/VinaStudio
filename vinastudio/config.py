@@ -36,7 +36,7 @@ ScoringFunction = Literal["vina", "vinardo", "ad4"]
 #: Number of tunable weights per scoring function (``Vina.set_weights`` contract).
 SCORING_WEIGHT_COUNT: Final[dict[str, int]] = {"vina": 7, "vinardo": 6, "ad4": 6}
 
-#: Maximum number of grid cells a single map set may allocate.  The old
+#: Maximum number of grid points a single map set may allocate.  The old
 #: interactive-only name is honoured as an alias for existing deployments.
 MAX_MAP_CELLS_ENV: Final = "VINASTUDIO_MAX_MAP_CELLS"
 LEGACY_MAX_MAP_CELLS_ENV: Final = "VINASTUDIO_MAX_INTERACTIVE_MAP_CELLS"

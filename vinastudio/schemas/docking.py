@@ -11,7 +11,18 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from vinastudio.config import DEFAULTS, SCORING_WEIGHT_COUNT, ScoringFunction
+from vinastudio.config import (
+    DEFAULTS,
+    LIB_MAX_MOL_MB_DEFAULT,
+    LIB_MAX_MOLS_DEFAULT,
+    SCORING_WEIGHT_COUNT,
+    ScoringFunction,
+)
+
+#: The batch contract mirrors the library caps; a request cannot ask the server
+#: to carry more ligands or inline PDBQT text than an import may hold.
+BATCH_LIGAND_MAX = LIB_MAX_MOLS_DEFAULT
+BATCH_LIGAND_PDBQT_MAX = LIB_MAX_MOL_MB_DEFAULT * 1024 * 1024
 
 
 def _validate_weights(
@@ -138,7 +149,7 @@ class DockingJobResult(BaseModel):
     jobId: str
     status: Literal["completed"]
     poses: list[PoseInfo]
-    bestAffinity: float
+    bestAffinity: float | None = None
     posesPdbqt: str
     posesSdf: str
     nPoses: int
@@ -654,7 +665,9 @@ class BatchLigandItem(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     ligandPath: str | None = None
-    ligandPdbqtString: str | None = None
+    ligandPdbqtString: str | None = Field(
+        default=None, max_length=BATCH_LIGAND_PDBQT_MAX
+    )
     label: str = ""
     """Optional label to distinguish results."""
     prepare: bool = False
@@ -673,14 +686,16 @@ class BatchDockingRequest(BaseModel):
     flexReceptorPath: str | None = None
     center: tuple[float, float, float]
     size: tuple[float, float, float]
-    ligands: list[BatchLigandItem] = Field(default_factory=list)
+    ligands: list[BatchLigandItem] = Field(
+        default_factory=list, max_length=BATCH_LIGAND_MAX
+    )
     selectionId: str | None = None
     scoring: ScoringFunction = "vina"
-    exhaustiveness: int = 8
-    nPoses: int = 20
-    energyRange: float = 3.0
-    minRmsd: float = 1.0
-    cpu: int = 0
+    exhaustiveness: int = Field(default=8, ge=1, le=512)
+    nPoses: int = Field(default=20, ge=1, le=100)
+    energyRange: float = Field(default=3.0, gt=0)
+    minRmsd: float = Field(default=1.0, ge=0)
+    cpu: int = Field(default=0, ge=0)
     parallelism: int | None = Field(
         default=None,
         ge=1,
@@ -689,7 +704,7 @@ class BatchDockingRequest(BaseModel):
             "the memory budget). Omit to use max(1, cpu_count-1)."
         ),
     )
-    seed: int = 42
+    seed: int = Field(default=42, ge=0)
     noRefine: bool = False
     weights: list[float] | None = None
     engine: Literal["vina", "vina-cli"] = Field(

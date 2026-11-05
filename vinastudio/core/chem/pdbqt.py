@@ -51,7 +51,7 @@ _VINA_RESULT_RE: Final = re.compile(
 #: from the multi-token `REMARK SMILES IDX ...` line. Each captured group starts
 #: with a non-space, so it cannot overlap the `\s+` in front of it — a trailing
 #: `(.+)$` gave the engine a second way to split a long run of spaces.
-_SMILES_RE: Final = re.compile(r"^REMARK\s+SMILES\s+(\S+)$")
+SMILES_REMARK: Final = re.compile(r"^REMARK\s+SMILES\s+(\S+)$")
 _SMILES_IDX_RE: Final = re.compile(r"^REMARK\s+SMILES\s+IDX\s+(\S.*)$")
 _H_PARENT_RE: Final = re.compile(r"^REMARK\s+H\s+PARENT\s+(\S.*)$")
 _TORSDOF_RE: Final = re.compile(r"^TORSDOF\s+(\d+)")
@@ -280,7 +280,7 @@ def parse_pdbqt(text: str, *, source: str | None = None) -> PdbqtDocument:
                 smiles_idx.extend(_as_int(token) for token in match.group(1).split())
             elif match := _H_PARENT_RE.match(line):
                 h_parents.extend(_as_int(token) for token in match.group(1).split())
-            elif match := _SMILES_RE.match(line):
+            elif match := SMILES_REMARK.match(line):
                 document.smiles = match.group(1)
             continue
 

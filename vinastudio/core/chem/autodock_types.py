@@ -58,3 +58,16 @@ def element_for(name: str, atom_type: str = "") -> str:
     if len(pair) == 2 and pair[0].isalpha() and pair[1].islower():
         return pair.capitalize()
     return stripped[0].upper()
+
+
+def canonical_element(symbol: str) -> str:
+    """Element symbol with its conventional capitalisation (``FE`` -> ``Fe``).
+
+    PDB element columns and two-letter atom names are often uppercase. Comparing
+    that spelling against sets written as ``{"Fe", "Cl"}`` silently misses every
+    metal and halogen, so callers normalise before classifying.
+    """
+    stripped = symbol.strip()
+    if not stripped:
+        return ""
+    return stripped[0].upper() + stripped[1:].lower()

@@ -20,6 +20,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, File, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from starlette.concurrency import run_in_threadpool
 
 from vinastudio import __version__
 from vinastudio.config import (
@@ -108,6 +109,7 @@ from vinastudio.schemas.storage import DeletedJob, JobStorageSummary
 from vinastudio.server.job_manager import JobState
 from vinastudio.server.job_manager import batch_results_csv_text as _batch_csv_text
 from vinastudio.server.job_manager import manager as job_manager
+from vinastudio.server.routers.paths import REFERENCE_PATH_SUFFIXES, require_file
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/docking", tags=["docking"])
@@ -139,7 +141,6 @@ _BUNDLE_DOWNLOAD_LIMIT = 128
 # One in-flight map set is already ~150 MB at the default 1iep box; concurrent
 # calls could otherwise take down the process that owns every running job.
 _INTERACTIVE_MAPS = threading.BoundedSemaphore(1)
-_INTERACTIVE_MAX_CELLS = max_map_cells()
 
 
 def _validate_box(
@@ -696,9 +697,9 @@ def rmsd_against_reference(job_id: str, request: RmsdRequest) -> RmsdResponse:
     reference = request.referencePath or request.referencePdbqt
     if reference is None:
         raise InvalidInputError("referencePath or referencePdbqt is required")
-    ref_path = Path(reference)
-    if not ref_path.exists():
-        raise InvalidInputError(f"reference not found: {reference}")
+    # Both fields are file paths. Validate the suffix and existence without
+    # echoing the path back (the error is otherwise a local-file oracle).
+    ref_path = require_file(reference, REFERENCE_PATH_SUFFIXES, "reference")
 
     structure_match = reference_matches_poses(state.poses_sdf, ref_path)
     if structure_match is False:
@@ -1109,9 +1110,9 @@ def _interactive_map_cells(
     spacing: float,
     force_even_voxels: bool,
 ) -> int:
-    """Vina grid cells for one interactive map set."""
+    """Vina grid points for one interactive map set (voxels + 1 per axis)."""
     box = Box(center=center, size=size, spacing=spacing, force_even_voxels=force_even_voxels)
-    return math.prod(box.voxels)
+    return math.prod(box.grid_points)
 
 
 def _check_interactive_map_budget(
@@ -1121,10 +1122,13 @@ def _check_interactive_map_budget(
     force_even_voxels: bool,
 ) -> None:
     cells = _interactive_map_cells(center, size, spacing, force_even_voxels)
-    if cells > _INTERACTIVE_MAX_CELLS:
+    # Read the budget per request: the environment variable is an operator
+    # control, and a module-level snapshot silently ignored later changes.
+    limit = max_map_cells()
+    if cells > limit:
         raise InvalidInputError(
-            f"interactive box has {cells:,} grid cells (limit "
-            f"{_INTERACTIVE_MAX_CELLS:,}); use a smaller box or run a docking job"
+            f"interactive box has {cells:,} grid points (limit "
+            f"{limit:,}); use a smaller box or run a docking job"
         )
 
 
@@ -1209,6 +1213,11 @@ def _interactive_params(
         spacing=request.spacing,
         force_even_voxels=request.forceEvenVoxels,
     )
+    # Both backends build maps in this process; the CLI path used to skip this
+    # check entirely and could spawn an unbounded number of Vina processes.
+    _check_interactive_map_budget(
+        request.center, request.size, request.spacing, request.forceEvenVoxels
+    )
     return DockingParams(
         receptor_path=request.receptorPath,
         flex_pdbqt_path=request.flexReceptorPath,
@@ -1255,7 +1264,9 @@ def score_pose(request: ScoreRequest) -> ScoreResponse:
 
     if resolve_backend() == CLI_BACKEND:
         _reject_cli_weights(request.weights)
-        with tempfile.TemporaryDirectory(prefix="vinastudio-score-") as scratch:
+        with _INTERACTIVE_MAPS, tempfile.TemporaryDirectory(
+            prefix="vinastudio-score-"
+        ) as scratch:
             return ScoreResponse(**score_cli(_interactive_params(request), scratch))
 
     with _INTERACTIVE_MAPS:
@@ -1280,8 +1291,12 @@ def optimize_pose(request: OptimizeRequest) -> OptimizeResponse:
 
     if resolve_backend() == CLI_BACKEND:
         _reject_cli_weights(request.weights)
-        with tempfile.TemporaryDirectory(prefix="vinastudio-optimize-") as scratch:
-            energy, pose = optimize_cli(_interactive_params(request), request.maxSteps, scratch)
+        with _INTERACTIVE_MAPS, tempfile.TemporaryDirectory(
+            prefix="vinastudio-optimize-"
+        ) as scratch:
+            energy, pose = optimize_cli(
+                _interactive_params(request), request.maxSteps, scratch
+            )
         return OptimizeResponse(energy=energy, ligandPdbqt=pose)
 
     with _INTERACTIVE_MAPS:
@@ -1312,8 +1327,12 @@ def randomize_pose(request: RandomizeRequest) -> RandomizeResponse:
 
     if resolve_backend() == CLI_BACKEND:
         _reject_cli_weights(request.weights)
-        with tempfile.TemporaryDirectory(prefix="vinastudio-randomize-") as scratch:
-            pose = randomize_cli(_interactive_params(request), request.maxSteps, scratch)
+        with _INTERACTIVE_MAPS, tempfile.TemporaryDirectory(
+            prefix="vinastudio-randomize-"
+        ) as scratch:
+            pose = randomize_cli(
+                _interactive_params(request), request.maxSteps, scratch
+            )
         return RandomizeResponse(ligandPdbqt=pose)
 
     with _INTERACTIVE_MAPS:
@@ -1342,9 +1361,9 @@ def export_csv(job_id: str, referencePath: str | None = None) -> dict[str, str]:
     if referencePath is not None:
         from vinastudio.core.chem.rmsd import reference_matches_poses, rmsd_vs_reference
 
-        ref_path = Path(referencePath)
-        if not ref_path.exists():
-            raise InvalidInputError(f"reference not found: {referencePath}")
+        ref_path = require_file(
+            referencePath, REFERENCE_PATH_SUFFIXES, "reference"
+        )
         if reference_matches_poses(state.poses_sdf, ref_path) is not False:
             rmsd_values = rmsd_vs_reference(state.poses_sdf, ref_path)
 
@@ -1734,4 +1753,5 @@ async def import_bundle(
         raise InvalidInputError("result bundle is empty")
     if len(payload) > limit:
         raise InvalidInputError("result bundle exceeds the upload limit")
-    return _import_result_bundle(payload)
+    # Zip parsing and up to 64 member writes are blocking; keep the loop free.
+    return await run_in_threadpool(_import_result_bundle, payload)

@@ -166,12 +166,16 @@ def read_atoms(path: str | Path) -> list[PocketAtom]:
 
     suffix = file_path.suffix.lower()
     text = ""
-    if suffix in {".pdb", ".ent"}:
-        text = file_path.read_text(encoding="utf-8", errors="replace")
-    elif suffix in {".cif", ".mmcif"}:
-        from vinastudio.core.chem.mmcif import mmcif_to_pdb
+    if suffix in {".pdb", ".ent", ".cif", ".mmcif"}:
+        raw = file_path.read_text(encoding="utf-8", errors="replace")
+        if not raw.strip():
+            raise InvalidInputError(f"{file_path.name} is empty")
+        if suffix in {".cif", ".mmcif"}:
+            from vinastudio.core.chem.mmcif import mmcif_to_pdb
 
-        text = mmcif_to_pdb(file_path.read_text(encoding="utf-8", errors="replace"))
+            text = mmcif_to_pdb(raw)
+        else:
+            text = raw
     if text:
         atoms = _atoms_from_pdb(text)
     elif suffix == ".pdbqt":

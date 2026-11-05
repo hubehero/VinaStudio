@@ -8,6 +8,7 @@ It also downloads Swagger UI assets for locally-served API docs.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import logging
 import re
 import shutil
@@ -22,10 +23,32 @@ STATIC_DIR = REPO_ROOT / "vinastudio" / "server" / "static"
 
 log = logging.getLogger("build_web")
 
+#: Pin the exact distribution and integrity of the API-docs assets. The
+#: version comes from the bundle's ``PACKAGE_VERSION``; a floating ``@5`` could
+#: silently replace a reviewed asset with a different release.
+SWAGGER_VERSION = "5.33.0"
 SWAGGER_ASSETS = {
-    "swagger-ui-bundle.js": "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js",
-    "swagger-ui.css": "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css",
+    "swagger-ui-bundle.js": {
+        "url": f"https://cdn.jsdelivr.net/npm/swagger-ui-dist@{SWAGGER_VERSION}/swagger-ui-bundle.js",
+        "sha256": "62df541529080464a7660adc793eab7128c6193ce3be24ddc1e0e0a4a63edc2f",
+        "bytes": 1585988,
+    },
+    "swagger-ui.css": {
+        "url": f"https://cdn.jsdelivr.net/npm/swagger-ui-dist@{SWAGGER_VERSION}/swagger-ui.css",
+        "sha256": "1ac324f7dcd27e4b9386b4bd6421271ec147e922a22c05ba24b11515e9aa6321",
+        "bytes": 186154,
+    },
 }
+
+
+def _matches(path: Path, *, sha256: str, size: int) -> bool:
+    try:
+        if path.stat().st_size != size:
+            return False
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return False
+    return digest == sha256
 
 
 def find_pnpm() -> str:
@@ -49,20 +72,36 @@ def run(command: list[str], *, cwd: Path) -> None:
 
 
 def download_swagger_assets() -> None:
-    """Download Swagger UI assets for locally-served API docs (no CDN at runtime)."""
+    """Verify or fetch the pinned Swagger UI assets (no CDN at runtime)."""
     swagger_dir = STATIC_DIR / "swagger"
     swagger_dir.mkdir(exist_ok=True)
-    for filename, url in SWAGGER_ASSETS.items():
+    for filename, asset in SWAGGER_ASSETS.items():
         target = swagger_dir / filename
-        if target.exists():
-            log.info("swagger: %s already exists, skipping", filename)
+        if _matches(target, sha256=asset["sha256"], size=asset["bytes"]):
+            log.info("swagger: %s verified, skipping", filename)
             continue
-        log.info("swagger: downloading %s", filename)
+        if target.exists():
+            log.warning("swagger: %s does not match the pinned asset; refetching", filename)
+
+        temporary = target.with_name(f"{target.name}.tmp")
+        temporary.unlink(missing_ok=True)
+        log.info("swagger: downloading %s@%s", filename, SWAGGER_VERSION)
         try:
-            urllib.request.urlretrieve(url, target)
-            log.info("swagger: saved %s (%d bytes)", filename, target.stat().st_size)
-        except Exception as exc:  # noqa: BLE001 - download failure must not abort the build
-            log.warning("swagger: failed to download %s: %s", filename, exc)
+            urllib.request.urlretrieve(asset["url"], temporary)
+        except Exception as exc:
+            temporary.unlink(missing_ok=True)
+            raise SystemExit(
+                f"swagger: could not download {filename} from {asset['url']}: {exc}"
+            ) from exc
+        if not _matches(
+            temporary, sha256=asset["sha256"], size=asset["bytes"]
+        ):
+            temporary.unlink(missing_ok=True)
+            raise SystemExit(
+                f"swagger: {filename} does not match the pinned SHA-256/size"
+            )
+        temporary.replace(target)
+        log.info("swagger: saved %s (%d bytes)", filename, target.stat().st_size)
 
 
 def prune_stale_assets() -> None:

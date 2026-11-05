@@ -62,7 +62,7 @@ class PoseResult:
 @dataclass(slots=True)
 class DockingResult:
     poses: list[PoseResult] = field(default_factory=list)
-    best_affinity: float = 0.0
+    best_affinity: float | None = None
     n_poses: int = 0
     elapsed_ms: int = 0
     poses_pdbqt: str = ""
@@ -96,10 +96,11 @@ def run_docking(params: DockingParams, output_dir: str) -> DockingResult:
             spacing=params.spacing,
             force_even_voxels=params.force_even_voxels,
         )
-        cells = math.prod(box.voxels)
+        # Vina allocates one grid point more than the voxel count per axis.
+        cells = math.prod(box.grid_points)
         if cells > max_map_cells():
             raise ValueError(
-                f"box needs {cells:,} grid cells, above the {max_map_cells():,}-cell "
+                f"box needs {cells:,} grid points, above the {max_map_cells():,}-cell "
                 "map budget; use a smaller box or raise the map-cell limit explicitly"
             )
         ensure_box_contains_receptor(params.receptor_path, box)
@@ -197,16 +198,22 @@ def result_from_poses(out_pdbqt: Path, elapsed_ms: int) -> DockingResult:
     poses: list[PoseResult] = []
     if text:
         for pose in parse_pdbqt(text).poses:
+            if pose.energy is None:
+                # A pose without a ``REMARK VINA RESULT`` line has no score.
+                # Counting it as 0.0 would rank a malformed run above every
+                # real hit, because 0.0 is the best possible value on this scale.
+                log.warning("skipping pose %d without a VINA RESULT energy", pose.index)
+                continue
             poses.append(PoseResult(
                 index=pose.index,
-                affinity=pose.energy or 0.0,
+                affinity=pose.energy,
                 rmsd_lower=pose.rmsd_lower_bound or 0.0,
                 rmsd_upper=pose.rmsd_upper_bound or 0.0,
             ))
 
     result = DockingResult(
         poses=poses,
-        best_affinity=min((p.affinity for p in poses), default=0.0) if poses else 0.0,
+        best_affinity=min((p.affinity for p in poses), default=None) if poses else None,
         n_poses=len(poses),
         elapsed_ms=elapsed_ms,
         poses_pdbqt=text,

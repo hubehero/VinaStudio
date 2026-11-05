@@ -15,6 +15,11 @@ from vinastudio.core.chem.ifp import (
     parse_receptor_atoms,
 )
 from vinastudio.core.errors import InvalidInputError, VinaStudioError, brief_error
+from vinastudio.server.routers.paths import (
+    LIGAND_PATH_SUFFIXES,
+    RECEPTOR_PATH_SUFFIXES,
+    require_file,
+)
 
 log = logging.getLogger(__name__)
 
@@ -42,6 +47,14 @@ def analyze_interactions(request: dict[str, Any]) -> dict[str, Any]:
 
     if not ligand_path and not ligand_pdbqt:
         raise InvalidInputError("ligandPath or ligandPdbqtString is required")
+
+    # Native-dialog paths are intentional, but the parser only understands a
+    # few formats. Validating here also keeps the path out of error messages.
+    receptor_path = str(
+        require_file(receptor_path, RECEPTOR_PATH_SUFFIXES, "receptor")
+    )
+    if ligand_path:
+        ligand_path = str(require_file(ligand_path, LIGAND_PATH_SUFFIXES, "ligand"))
 
     try:
         interactions = _find_interactions(

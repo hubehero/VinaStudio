@@ -19,9 +19,10 @@ from rdkit import Chem
 from rdkit.Chem import rdMolDescriptors
 from rdkit.Chem.MolStandardize import rdMolStandardize
 
-from vinastudio.core.chem.pdbqt import _SMILES_RE
+from vinastudio.core.chem.pdbqt import SMILES_REMARK
 from vinastudio.core.chem.properties import compute_properties, lipinski_violations
 from vinastudio.core.chem.rdkit_io import mol_from_file
+from vinastudio.core.errors import InvalidInputError
 
 _PDB_ID = re.compile(r"(?:^|[_-])([0-9][A-Za-z0-9]{3})(?:[_-]|$)")
 DESCRIPTOR_VERSION = "catalog-v2"
@@ -128,8 +129,13 @@ def identity_from_smiles(smiles: str) -> Identity | None:
 
 def _first_sdf_mol(path: Path) -> Chem.Mol | None:
     try:
-        return mol_from_file(path, sanitize=True, removeHs=False)
-    except (OSError, RuntimeError, ValueError):
+        # Mol2 carries formal charges and atom types that RDKit's sanitiser
+        # rewrites; reading it unsanitised keeps the InChIKey aligned with the
+        # same molecule supplied as SDF.
+        return mol_from_file(
+            path, sanitize=path.suffix.lower() != ".mol2", removeHs=False
+        )
+    except (OSError, RuntimeError, ValueError, InvalidInputError):
         return None
 
 
@@ -140,16 +146,20 @@ def _pdbqt_header_mol(path: Path) -> Chem.Mol | None:
     except OSError:
         return None
     for line in text.splitlines():
-        match = _SMILES_RE.match(line)
+        match = SMILES_REMARK.match(line)
         if match:
             return Chem.MolFromSmiles(match.group(1))
     return None
 
 
 def ligand_identity(path: str | Path) -> Identity:
-    """Ligand identity from SDF/MOL/PDBQT, with content hash as last resort."""
+    """Ligand identity from SDF/MOL/MOL2/PDBQT, with content hash as last resort."""
     target = Path(path)
-    mol = _first_sdf_mol(target) if target.suffix.lower() in {".sdf", ".mol"} else None
+    mol = (
+        _first_sdf_mol(target)
+        if target.suffix.lower() in {".sdf", ".mol", ".mol2"}
+        else None
+    )
     if mol is None and target.suffix.lower() == ".pdbqt":
         mol = _pdbqt_header_mol(target)
     if mol is not None:

@@ -81,10 +81,14 @@ def load_poses(poses_sdf: str) -> list[Chem.Mol]:
 
 
 def success_rate(values: Sequence[float], threshold: float = DEFAULT_RMSD_THRESHOLD) -> float:
-    """Fraction of poses with RMSD < *threshold* (empty input → 0.0)."""
+    """Fraction of poses with RMSD <= *threshold* (empty input → 0.0).
+
+    "Within 2.0 Å" includes exactly 2.0; the validation report already used
+    ``best_rmsd > threshold`` for failure, so this makes the API agree.
+    """
     if not values:
         return 0.0
-    return sum(1 for v in values if v < threshold) / len(values)
+    return sum(1 for v in values if v <= threshold) / len(values)
 
 
 def structure_matches(reference: Chem.Mol, other: Chem.Mol) -> bool | None:

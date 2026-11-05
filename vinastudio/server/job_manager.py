@@ -99,7 +99,7 @@ class JobState:
     created_at: float = field(default_factory=time.time)
     # Result data (populated on completion)
     poses: list[dict[str, Any]] = field(default_factory=list)
-    best_affinity: float = 0.0
+    best_affinity: float | None = None
     n_poses: int = 0
     poses_pdbqt: str = ""
     poses_sdf: str = ""
@@ -143,6 +143,11 @@ class JobState:
     _readers_done: int = field(default=0, repr=False)
 
 
+#: Terminal jobs kept in memory. Disk indexes are never deleted; an evicted
+#: job simply disappears from this session's list, and a restart can restore it.
+MAX_IN_MEMORY_JOBS = 200
+
+
 class JobManager:
     """Manages all docking jobs in this session."""
 
@@ -153,6 +158,30 @@ class JobManager:
 
     def bind_hub(self, hub: Any) -> None:
         self._hub = hub
+
+    def _remember(self, state: JobState) -> None:
+        with self._lock:
+            self._remember_locked(state)
+
+    def _remember_locked(self, state: JobState) -> None:
+        """Insert a job and evict the least-recently-used terminal ones.
+
+        Running jobs are never evicted; a table of nothing but live jobs may
+        exceed the cap until they finish. ``get_job`` moves a job to the end.
+        """
+        self._jobs[state.job_id] = state
+        while len(self._jobs) > MAX_IN_MEMORY_JOBS:
+            victim = next(
+                (
+                    job_id
+                    for job_id, candidate in self._jobs.items()
+                    if candidate.status not in {"running", "queued"}
+                ),
+                None,
+            )
+            if victim is None:
+                break
+            self._jobs.pop(victim, None)
 
     def _launch(self, job_id: str, entry: Any, worker_params_list: list[dict[str, Any]]) -> None:
         """Start one spawned worker per params entry, one reader per pipe.
@@ -204,7 +233,7 @@ class JobManager:
             params=_persistable_params(params),
             provenance=_job_provenance(params),
         )
-        self._jobs[job_id] = state
+        self._remember(state)
 
         # Prepare params for the worker
         worker_params = dict(params)
@@ -252,7 +281,7 @@ class JobManager:
             params=_persistable_params(persist_params),
             provenance=_job_provenance(params),
         )
-        self._jobs[job_id] = state
+        self._remember(state)
 
         # Prepare params shared by every shard. No map pre-computation here:
         # vina's load_maps path segfaults under set_receptor (upstream
@@ -346,7 +375,7 @@ class JobManager:
             params=_persistable_params(persist_params),
             provenance=_job_provenance(params),
         )
-        self._jobs[job_id] = state
+        self._remember(state)
 
         worker_params = dict(params)
         worker_params["job_id"] = job_id
@@ -389,7 +418,7 @@ class JobManager:
             params=_persistable_params(params),
             provenance=_job_provenance(params),
         )
-        self._jobs[job_id] = state
+        self._remember(state)
 
         worker_params = dict(params)
         worker_params["job_id"] = job_id
@@ -427,7 +456,7 @@ class JobManager:
             params=_persistable_params(params),
             provenance=_job_provenance(params),
         )
-        self._jobs[job_id] = state
+        self._remember(state)
 
         worker_params = dict(params)
         worker_params["job_id"] = job_id
@@ -729,7 +758,10 @@ class JobManager:
                         _write_batch_csv(job_id, state.batch_results)
                 else:
                     state.poses = event.get("poses", [])
-                    state.best_affinity = event.get("bestAffinity", 0.0)
+                    affinity = event.get("bestAffinity")
+                    state.best_affinity = (
+                        float(affinity) if isinstance(affinity, (int, float)) else None
+                    )
                     state.n_poses = event.get("nPoses", 0)
                     state.poses_pdbqt = event.get("posesPdbqt", "")
                     state.poses_sdf = event.get("posesSdf", "")
@@ -738,6 +770,14 @@ class JobManager:
                     # The pipe carried the only copy of the SDF; writing it
                     # here is what makes a restarted session replay results.
                     _write_poses_sdf(job_id, state.poses_sdf)
+                    if state.poses_sdf and (
+                        workspace_root() / job_id / POSES_SDF_FILENAME
+                    ).is_file():
+                        # The artifact is on disk now. Keep the in-memory table
+                        # bounded: get_job() hydrates once if the UI asks.
+                        state.poses_pdbqt = ""
+                        state.poses_sdf = ""
+                        state.needs_hydration = True
                 state.elapsed_ms = event.get("elapsedMs")
                 state.stage = "done"
                 state.artifacts = _collect_job_artifacts(job_id)
@@ -812,8 +852,13 @@ class JobManager:
 
     def get_job(self, job_id: str) -> JobState | None:
         with self._lock:
-            state = self._jobs.get(job_id)
-            if state is not None and state.needs_hydration:
+            state = self._jobs.pop(job_id, None)
+            if state is None:
+                return None
+            # Re-insert to mark this job as recently used; the dict's insertion
+            # order is the LRU order the eviction loop walks.
+            self._jobs[job_id] = state
+            if state.needs_hydration:
                 # First access after restore fills the large text fields.
                 # Hydration holds the lock so two concurrent first reads
                 # cannot race; it costs one pass per restored job, ever.
@@ -835,7 +880,7 @@ class JobManager:
         with self._lock:
             if state.job_id in self._jobs:
                 raise ValueError(f"job {state.job_id} already exists")
-            self._jobs[state.job_id] = state
+            self._remember_locked(state)
         _write_job_json(state.job_id, _job_json_payload(state))
 
     def restore_history(self) -> None:
@@ -877,7 +922,7 @@ class JobManager:
             with self._lock:
                 if job_id in self._jobs:
                     continue  # a live run wins over its own stale index
-                self._jobs[job_id] = state
+                self._remember_locked(state)
             if interrupted:
                 # A SIGKILL left the index claiming a live run.  Marking the
                 # memory failed is not enough: backfill() below skips any
@@ -1444,7 +1489,14 @@ def _state_from_payload(data: dict[str, Any], job_id: str) -> JobState:
         scoring=str(data.get("scoring") or "vina"),
         created_at=float(data.get("createdAt") or time.time()),
         poses=list(data.get("poses") or []),
-        best_affinity=float(data.get("bestAffinity") or 0.0),
+        # A run that produced no pose has no score. Older job.json files wrote
+        # 0.0 here, so nPoses is the reliable signal, not the number.
+        best_affinity=(
+            float(data["bestAffinity"])
+            if int(data.get("nPoses") or 0) > 0
+            and isinstance(data.get("bestAffinity"), (int, float))
+            else None
+        ),
         n_poses=int(data.get("nPoses") or 0),
         is_batch=bool(data.get("isBatch")),
         is_screening=bool(data.get("isScreening")),
