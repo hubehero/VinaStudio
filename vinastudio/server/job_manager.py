@@ -642,151 +642,27 @@ class JobManager:
                 return
 
             if kind == "stage":
-                state.stage = event.get("stage")
-                if state.is_batch and "totalLigands" in event:
-                    state.total_ligands = event["totalLigands"]
+                _apply_stage(state, event)
             elif kind == "progress":
-                # Multi-item jobs derive progress from completed work items;
-                # a Vina stdout scale from one child must not move the whole
-                # batch/screening/ensemble bar to 100.
-                if not (
-                    state.is_batch
-                    or state.is_screening
-                    or state.is_ensemble
-                    or state.is_site_screening
-                ):
-                    state.progress = event.get("percent", 0)
+                _apply_progress(state, event)
             elif kind == "log":
-                line = event.get("line", "")
-                state.log.append(line)
-                if len(state.log) > 500:
-                    state.log = state.log[-500:]
-                # The file keeps every line; the in-memory list is the capped
-                # view.  Appending here is what a restart can replay.
-                _append_job_log(job_id, line)
+                _apply_log(state, job_id, event)
             elif kind == "batch_progress":
-                # Label only: the counters that ride along are shard-local
-                # values and meaningless once N workers report (TASK-14 §4.3).
-                state.current_ligand = event.get("label", "")
+                _apply_batch_progress(state, event)
             elif kind == "ligand_completed":
-                # The server owns the counters — one increment per terminal
-                # event, under the same lock every reader holds, so concurrent
-                # shards can neither lose nor double-count a ligand.
-                if event.get("status") == "completed":
-                    state.completed_ligands += 1
-                else:
-                    state.failed_ligands += 1
-                if state.is_screening:
-                    # Single writer: this lock serialises every reader thread,
-                    # so jsonl lines can never interleave (TASK-13 §4.2).
-                    _append_screening_jsonl(job_id, _screening_row(event))
-                    affinity = event.get("bestAffinity")
-                    if event.get("status") == "completed" and isinstance(affinity, (int, float)):
-                        if state.screening_best is None:
-                            state.screening_best = float(affinity)
-                        else:
-                            state.screening_best = min(state.screening_best, float(affinity))
-                else:
-                    state.batch_results.append({
-                        "ligandIndex": event.get("ligandIndex", 0),
-                        "label": event.get("label", ""),
-                        "status": event.get("status", ""),
-                        "bestAffinity": event.get("bestAffinity"),
-                        "nPoses": event.get("nPoses", 0),
-                        "elapsedMs": event.get("elapsedMs"),
-                        "outDir": event.get("outDir", ""),
-                        "error": event.get("error", ""),
-                        # TASK-10 handover: descriptors ride every row, null
-                        # when nothing parsed (CSV renders them as empty).
-                        "qed": event.get("qed"),
-                        "lipinskiViolations": event.get("lipinskiViolations"),
-                        "smiles": event.get("smiles"),
-                    })
-                if state.total_ligands > 0:
-                    state.progress = int(
-                        (state.completed_ligands + state.failed_ligands)
-                        / state.total_ligands * 100
-                    )
+                _apply_ligand_completed(state, job_id, event)
             elif kind == "ensemble_progress":
-                state.current_ligand = event.get("label", "")
+                _apply_ensemble_progress(state, event)
             elif kind == "ensemble_completed":
-                if event.get("status") == "completed":
-                    state.completed_ligands += 1
-                else:
-                    state.failed_ligands += 1
-                state.ensemble_results.append({
-                    "receptorIndex": event.get("receptorIndex", 0),
-                    "label": event.get("label", ""),
-                    "receptorPath": event.get("receptorPath", ""),
-                    "status": event.get("status", "failed"),
-                    "bestAffinity": event.get("bestAffinity"),
-                    "nPoses": event.get("nPoses", 0),
-                    "elapsedMs": event.get("elapsedMs"),
-                    "outDir": event.get("outDir", ""),
-                    "error": event.get("error", ""),
-                })
-                if state.total_ligands > 0:
-                    state.progress = int(
-                        (state.completed_ligands + state.failed_ligands)
-                        / state.total_ligands * 100
-                    )
+                _apply_ensemble_completed(state, event)
             elif kind == "site_progress":
-                # Label only, exactly like ``batch_progress``: the running box
-                # is display state, not a counter.
-                state.current_ligand = event.get("label", "")
+                _apply_site_progress(state, event)
             elif kind == "site_completed":
-                # One ligand, many boxes: the counters are box counters (see
-                # ``JobState.is_site_screening``), and the append-only rows are
-                # the ranking the sites endpoint serves.
-                if event.get("status") == "completed":
-                    state.completed_ligands += 1
-                else:
-                    state.failed_ligands += 1
-                _append_site_jsonl(job_id, _site_row(event))
-                if state.total_ligands > 0:
-                    state.progress = int(
-                        (state.completed_ligands + state.failed_ligands)
-                        / state.total_ligands * 100
-                    )
+                _apply_site_completed(state, job_id, event)
             elif kind == "completed":
-                state.progress = 100
-                if state.is_batch:
-                    state.batch_results = event.get("results", [])
-                    state.completed_ligands = event.get("completed", 0)
-                    state.failed_ligands = event.get("failed", 0)
-                    if len(state.batch_results) > _BATCH_JSON_LIMIT:
-                        _write_batch_csv(job_id, state.batch_results)
-                else:
-                    state.poses = event.get("poses", [])
-                    affinity = event.get("bestAffinity")
-                    state.best_affinity = (
-                        float(affinity) if isinstance(affinity, (int, float)) else None
-                    )
-                    state.n_poses = event.get("nPoses", 0)
-                    state.poses_pdbqt = event.get("posesPdbqt", "")
-                    state.poses_sdf = event.get("posesSdf", "")
-                    if state.is_ensemble:
-                        state.best_receptor = event.get("bestReceptor")
-                    # The pipe carried the only copy of the SDF; writing it
-                    # here is what makes a restarted session replay results.
-                    _write_poses_sdf(job_id, state.poses_sdf)
-                    if state.poses_sdf and (
-                        workspace_root() / job_id / POSES_SDF_FILENAME
-                    ).is_file():
-                        # The artifact is on disk now. Keep the in-memory table
-                        # bounded: get_job() hydrates once if the UI asks.
-                        state.poses_pdbqt = ""
-                        state.poses_sdf = ""
-                        state.needs_hydration = True
-                state.elapsed_ms = event.get("elapsedMs")
-                state.stage = "done"
-                state.artifacts = _collect_job_artifacts(job_id)
-                state.status = "completed"  # Set LAST to avoid race with HTTP result endpoint
+                _apply_completed(state, job_id, event)
             elif kind == "failed":
-                state.status = "failed"
-                state.error = event.get("error", "unknown error")
-                state.stage = None
-                state.artifacts = _collect_job_artifacts(job_id)
+                _apply_failed(state, job_id, event)
 
             if kind in _PERSIST_EVENT_KINDS:
                 payload = _job_json_payload(state)
@@ -980,6 +856,174 @@ class JobManager:
         for payload, rows in pending:
             _write_job_json(payload["jobId"], payload, ligand_rows=rows)
 
+
+def _apply_stage(state: JobState, event: dict[str, Any]) -> None:
+    state.stage = event.get("stage")
+    if state.is_batch and "totalLigands" in event:
+        state.total_ligands = event["totalLigands"]
+
+
+def _apply_progress(state: JobState, event: dict[str, Any]) -> None:
+    # Multi-item jobs derive progress from completed work items; a Vina stdout
+    # scale from one child must not move the whole batch/screening/ensemble
+    # bar to 100.
+    if not (
+        state.is_batch
+        or state.is_screening
+        or state.is_ensemble
+        or state.is_site_screening
+    ):
+        state.progress = event.get("percent", 0)
+
+
+def _apply_log(state: JobState, job_id: str, event: dict[str, Any]) -> None:
+    line = event.get("line", "")
+    state.log.append(line)
+    if len(state.log) > 500:
+        state.log = state.log[-500:]
+    # The file keeps every line; the in-memory list is the capped view.
+    _append_job_log(job_id, line)
+
+
+def _apply_batch_progress(state: JobState, event: dict[str, Any]) -> None:
+    # Label only: the counters that ride along are shard-local values and
+    # meaningless once N workers report (TASK-14 §4.3).
+    state.current_ligand = event.get("label", "")
+
+
+def _apply_ligand_completed(
+    state: JobState, job_id: str, event: dict[str, Any]
+) -> None:
+    # The server owns the counters — one increment per terminal event, under
+    # the same lock every reader holds, so concurrent shards can neither lose
+    # nor double-count a ligand.
+    if event.get("status") == "completed":
+        state.completed_ligands += 1
+    else:
+        state.failed_ligands += 1
+    if state.is_screening:
+        # Single writer: this lock serialises every reader thread, so jsonl
+        # lines can never interleave (TASK-13 §4.2).
+        _append_screening_jsonl(job_id, _screening_row(event))
+        affinity = event.get("bestAffinity")
+        if event.get("status") == "completed" and isinstance(affinity, (int, float)):
+            if state.screening_best is None:
+                state.screening_best = float(affinity)
+            else:
+                state.screening_best = min(state.screening_best, float(affinity))
+    else:
+        state.batch_results.append({
+            "ligandIndex": event.get("ligandIndex", 0),
+            "label": event.get("label", ""),
+            "status": event.get("status", ""),
+            "bestAffinity": event.get("bestAffinity"),
+            "nPoses": event.get("nPoses", 0),
+            "elapsedMs": event.get("elapsedMs"),
+            "outDir": event.get("outDir", ""),
+            "error": event.get("error", ""),
+            # TASK-10 handover: descriptors ride every row, null when nothing
+            # parsed (CSV renders them as empty).
+            "qed": event.get("qed"),
+            "lipinskiViolations": event.get("lipinskiViolations"),
+            "smiles": event.get("smiles"),
+        })
+    if state.total_ligands > 0:
+        state.progress = int(
+            (state.completed_ligands + state.failed_ligands)
+            / state.total_ligands * 100
+        )
+
+
+def _apply_ensemble_progress(state: JobState, event: dict[str, Any]) -> None:
+    state.current_ligand = event.get("label", "")
+
+
+def _apply_ensemble_completed(state: JobState, event: dict[str, Any]) -> None:
+    if event.get("status") == "completed":
+        state.completed_ligands += 1
+    else:
+        state.failed_ligands += 1
+    state.ensemble_results.append({
+        "receptorIndex": event.get("receptorIndex", 0),
+        "label": event.get("label", ""),
+        "receptorPath": event.get("receptorPath", ""),
+        "status": event.get("status", "failed"),
+        "bestAffinity": event.get("bestAffinity"),
+        "nPoses": event.get("nPoses", 0),
+        "elapsedMs": event.get("elapsedMs"),
+        "outDir": event.get("outDir", ""),
+        "error": event.get("error", ""),
+    })
+    if state.total_ligands > 0:
+        state.progress = int(
+            (state.completed_ligands + state.failed_ligands)
+            / state.total_ligands * 100
+        )
+
+
+def _apply_site_progress(state: JobState, event: dict[str, Any]) -> None:
+    # Label only, exactly like ``batch_progress``: the running box is display
+    # state, not a counter.
+    state.current_ligand = event.get("label", "")
+
+
+def _apply_site_completed(state: JobState, job_id: str, event: dict[str, Any]) -> None:
+    # One ligand, many boxes: the counters are box counters (see
+    # ``JobState.is_site_screening``), and the append-only rows are the ranking
+    # the sites endpoint serves.
+    if event.get("status") == "completed":
+        state.completed_ligands += 1
+    else:
+        state.failed_ligands += 1
+    _append_site_jsonl(job_id, _site_row(event))
+    if state.total_ligands > 0:
+        state.progress = int(
+            (state.completed_ligands + state.failed_ligands)
+            / state.total_ligands * 100
+        )
+
+
+def _apply_completed(state: JobState, job_id: str, event: dict[str, Any]) -> None:
+    state.progress = 100
+    if state.is_batch:
+        state.batch_results = event.get("results", [])
+        state.completed_ligands = event.get("completed", 0)
+        state.failed_ligands = event.get("failed", 0)
+        if len(state.batch_results) > _BATCH_JSON_LIMIT:
+            _write_batch_csv(job_id, state.batch_results)
+    else:
+        state.poses = event.get("poses", [])
+        affinity = event.get("bestAffinity")
+        state.best_affinity = (
+            float(affinity) if isinstance(affinity, (int, float)) else None
+        )
+        state.n_poses = event.get("nPoses", 0)
+        state.poses_pdbqt = event.get("posesPdbqt", "")
+        state.poses_sdf = event.get("posesSdf", "")
+        if state.is_ensemble:
+            state.best_receptor = event.get("bestReceptor")
+        # The pipe carried the only copy of the SDF; writing it here is what
+        # makes a restarted session replay results.
+        _write_poses_sdf(job_id, state.poses_sdf)
+        if state.poses_sdf and (
+            workspace_root() / job_id / POSES_SDF_FILENAME
+        ).is_file():
+            # The artifact is on disk now. Keep the in-memory table bounded:
+            # get_job() hydrates once if the UI asks.
+            state.poses_pdbqt = ""
+            state.poses_sdf = ""
+            state.needs_hydration = True
+    state.elapsed_ms = event.get("elapsedMs")
+    state.stage = "done"
+    state.artifacts = _collect_job_artifacts(job_id)
+    state.status = "completed"  # Set LAST to avoid race with HTTP result endpoint
+
+
+def _apply_failed(state: JobState, job_id: str, event: dict[str, Any]) -> None:
+    state.status = "failed"
+    state.error = event.get("error", "unknown error")
+    state.stage = None
+    state.artifacts = _collect_job_artifacts(job_id)
 
 def _stop_process(process: BaseProcess | None) -> None:
     """Stop a worker process, escalating when SIGTERM is not enough.

@@ -156,10 +156,28 @@ class PdbqtDocument:
     smiles: str | None = None
     """SMILES from ``REMARK SMILES``; the only source of bond orders."""
     smiles_index_map: tuple[int, ...] = ()
-    """Flattened (pdbqt_serial, smiles_atom_index) pairs."""
+    """Flattened ``(smiles_atom_index, pdbqt_serial)`` pairs, as Meeko writes
+    ``REMARK SMILES IDX``. Use :attr:`serial_smiles_indices` for lookups."""
     hydrogen_parents: tuple[int, ...] = ()
     """Flattened (hydrogen_serial, parent_serial) pairs."""
     source: str | None = None
+
+    @property
+    def serial_smiles_indices(self) -> dict[int, int]:
+        """PDBQT atom serial -> 1-based SMILES atom index.
+
+        Meeko writes the pair in ``(smiles_index, pdbqt_serial)`` order; a dict
+        built the other way silently attaches each formal charge to the wrong
+        atom. The map repeats per model, but the values agree.
+        """
+        return {
+            serial: smiles_index
+            for smiles_index, serial in zip(
+                self.smiles_index_map[0::2],
+                self.smiles_index_map[1::2],
+                strict=False,
+            )
+        }
 
     @property
     def n_poses(self) -> int:

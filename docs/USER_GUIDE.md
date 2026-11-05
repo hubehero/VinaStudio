@@ -279,9 +279,11 @@ favourable binding. The interface flags both instead of showing a plain green
   reference, clustering and interaction detection. These are report-only: they
   never re-dock or edit coordinates.
 - **Interactions** are shown for the pose you selected: ionic/salt-bridge
-  candidates, hydrogen bonds, hydrophobic contacts, halogen bonds (a
-  distance-only candidate), metal coordination and water-mediated contacts.
-  Metals/waters must have been retained during receptor preparation. The 2D
+  candidates (when the ligand carries formal charges, the two signs must be
+  opposite; otherwise a charged-side-chain candidate is reported), hydrogen
+  bonds, hydrophobic contacts, halogen bonds (a distance-only candidate),
+  metal coordination and water-mediated contacts. Metals/waters must have been
+  retained during receptor preparation. The 2D
   diagram gives the same contacts as a readable map; the residue summary groups
   them and the CSV export keeps the raw rows. There is no π-stacking.
 

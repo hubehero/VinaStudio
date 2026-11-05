@@ -16,7 +16,7 @@ entries about the product — no internal task ids or workflow narration.
 
 - **安装**：`httpx` 改为运行时依赖，标准方式安装后应用可正常启动；发布预检会检查未声明的第三方导入。
 - **结果可信度**：没有产生任何构象的对接或筛选行标记为失败，不再显示为 `0.00 kcal/mol` 或排在筛选榜首；历史零姿态任务恢复后同样不显示分数。
-- **科学结果**：PDB 元素列缺失时正确识别 Fe/Zn/Cl 等元素（蛋白 `CA` 仍为碳）；`.mol2` 与 `.sdf` 使用同一 InChIKey；多模型 mmCIF 只取首个模型；`.pdbqt` 字符串路径可正常读取；硼酸不再被误报为有机金属。
+- **科学结果**：PDB 元素列缺失时正确识别 Fe/Zn/Cl 等元素（蛋白 `CA` 仍为碳）；`.mol2` 与 `.sdf` 使用同一 InChIKey；多模型 mmCIF 只取首个模型；`.pdbqt` 字符串路径可正常读取；硼酸不再被误报为有机金属；配体带非零形式电荷时，离子/盐桥要求两侧反号（1IEP 的 GLU286 接触由 ionic 修正为氢键），没有形式电荷信息时仍使用候选规则。
 - **本地 API 安全**：新增每次启动生成的访问令牌和回环 Host 校验，覆盖 HTTP、产物读取和 WebSocket；请求体在解析前按上限拒绝；交互分析、RMSD 与 CSV 的输入路径只接受支持的格式且错误不回显路径；筛选库导入要求界面请求头。
 - **交互式对接**：网格预算同时覆盖 CLI 后端，并发交互评分、优化和随机化会被串行化。
 - **边界与提示**：2.0 Å RMSD 成功阈值统一为“≤ 2.0”；空 PDB 报告“文件为空”；网格预算按 Vina 实际格点数计算。
@@ -29,7 +29,7 @@ entries about the product — no internal task ids or workflow narration.
 
 - **Install**: `httpx` is a runtime dependency again, so a standard install starts; release preflight now checks undeclared third-party imports.
 - **Result trust**: runs or screening rows that produced no pose are marked failed instead of `0.00 kcal/mol` or ranking first; restored zero-pose jobs show no score either.
-- **Scientific results**: PDB records with a blank element column resolve Fe/Zn/Cl correctly (a protein `CA` stays carbon); `.mol2` and `.sdf` share one InChIKey; multi-model mmCIF uses the first model; `.pdbqt` string paths read correctly; boronic acids are no longer labelled organometallic.
+- **Scientific results**: PDB records with a blank element column resolve Fe/Zn/Cl correctly (a protein `CA` stays carbon); `.mol2` and `.sdf` share one InChIKey; multi-model mmCIF uses the first model; `.pdbqt` string paths read correctly; boronic acids are no longer labelled organometallic; when a ligand carries non-zero formal charges, ionic/salt-bridge contacts require opposite signs (the 1IEP GLU286 contact changes from ionic to a hydrogen bond), while inputs without formal-charge data keep the candidate rule.
 - **Local API security**: a per-launch token and loopback Host check cover HTTP, artifacts and WebSocket; oversized request bodies are rejected before parsing; interaction, RMSD and CSV input paths accept only supported formats without echoing the path; project save/load errors no longer echo the caller's path; screening library import requires the UI request header.
 - **Interactive docking**: the grid budget also covers the CLI backend, and concurrent interactive scoring, optimisation and randomisation are serialised.
 - **Boundaries and messages**: the 2.0 Å RMSD success threshold is consistently “≤ 2.0”; an empty PDB reports that the file is empty; the map budget counts Vina's actual grid points.

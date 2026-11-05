@@ -362,7 +362,7 @@ export default {
       },
       interactionTypes: {
         q: 'How are interaction types decided?',
-        a: 'The report currently covers ionic/salt-bridge candidates (charged side chain + ligand N/O, <4.0 Å), hydrogen bonds (N/O–N/O, <3.5 Å), hydrophobic contacts (C–C/C–S, <4.0 Å), halogen bonds (receptor N/O/S + ligand halogen, <3.5 Å; distance candidate only, no angle test), metal coordination (retained metal + N/O/S, ≤3.0 Å) and water-mediated contacts (retained water + ligand N/O/S + a bridging acceptor, both legs ≤3.5 Å). There is no π-stacking. Metals/waters must be retained during preparation or they cannot appear here.',
+        a: 'The report currently covers ionic/salt-bridge candidates (charged side chain + ligand N/O, <4.0 Å; when the ligand carries non-zero formal charges, the two signs must be opposite, otherwise a charged-side-chain candidate is reported), hydrogen bonds (N/O–N/O, <3.5 Å), hydrophobic contacts (C–C/C–S, <4.0 Å), halogen bonds (receptor N/O/S + ligand halogen, <3.5 Å; distance candidate only, no angle test), metal coordination (retained metal + N/O/S, ≤3.0 Å) and water-mediated contacts (retained water + ligand N/O/S + a bridging acceptor, both legs ≤3.5 Å). There is no π-stacking. Metals/waters must be retained during preparation or they cannot appear here.',
       },
       exportBundle: {
         q: 'Where does the exported result bundle go?',

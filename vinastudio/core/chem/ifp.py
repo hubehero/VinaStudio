@@ -17,6 +17,7 @@ from typing import Any
 from vinastudio.core.chem.autodock_types import element_for
 from vinastudio.core.chem.butina import butina_partition
 from vinastudio.core.chem.pdb_lines import WATER_RESIDUES, element_symbol
+from vinastudio.core.chem.pdbqt import PdbqtError, parse_pdbqt
 from vinastudio.core.errors import InvalidInputError, brief_error
 
 #: Contact thresholds in Angstrom, applied per interaction type.  The caller's
@@ -43,20 +44,21 @@ WATER_BRIDGE_ELEMENTS = frozenset({"N", "O", "S"})
 _POLAR_ELEMENTS = frozenset({"N", "O"})
 _HYDROPHOBIC_ELEMENTS = frozenset({"C", "S"})
 
-#: Side-chain atoms that carry a formal charge at physiological pH.  Only
-#: geometry is available, so a salt bridge is reported when a contact involves
-#: one of these; the rule reads residue and atom names, which PDB and PDBQT
-#: both carry, so the two input formats agree.
-CHARGED_SIDECHAIN_ATOMS = frozenset({
-    ("ASP", "OD1"),
-    ("ASP", "OD2"),
-    ("GLU", "OE1"),
-    ("GLU", "OE2"),
-    ("LYS", "NZ"),
-    ("ARG", "NE"),
-    ("ARG", "NH1"),
-    ("ARG", "NH2"),
-})
+#: Side-chain atoms that carry a formal charge at physiological pH, and its
+#: sign.  The sign lets the classifier require an opposite ligand charge when
+#: the input file actually carries one; otherwise the old candidate rule is
+#: used, because a bare PDBQT has only partial charges.
+CHARGED_SIDECHAIN_SIGNS: dict[tuple[str, str], int] = {
+    ("ASP", "OD1"): -1,
+    ("ASP", "OD2"): -1,
+    ("GLU", "OE1"): -1,
+    ("GLU", "OE2"): -1,
+    ("LYS", "NZ"): 1,
+    ("ARG", "NE"): 1,
+    ("ARG", "NH1"): 1,
+    ("ARG", "NH2"): 1,
+}
+CHARGED_SIDECHAIN_ATOMS = frozenset(CHARGED_SIDECHAIN_SIGNS)
 
 #: The three contact types as wire columns; fingerprint bit order is the same
 #: sequence (ionic=0, hydrogen_bond=1, hydrophobic=2) so a matrix built from
@@ -159,7 +161,54 @@ def parse_ligand_pdbqt(content: str) -> list[dict[str, Any]]:
             atom = _parse_pdb_atom(line, is_pdbqt=True)
             if atom:
                 atoms.append(atom)
+    formal_charges = _pdbqt_formal_charges(content)
+    if formal_charges is not None:
+        for atom in atoms:
+            atom["formal_charge"] = formal_charges.get(atom["serial"])
     return atoms
+
+
+def _pdbqt_formal_charges(content: str) -> dict[int, int] | None:
+    """Formal charges keyed by PDBQT atom serial, when the header carries them.
+
+    ``None`` means the ligand has no non-zero formal charge information, so the
+    legacy charged-side-chain candidate rule still applies. A bare PDBQT has
+    only Gasteiger partial charges and cannot answer this question.
+    """
+    from rdkit import Chem
+
+    try:
+        document = parse_pdbqt(content)
+    except (PdbqtError, ValueError, RuntimeError):
+        return None
+    if not document.smiles:
+        return None
+    mol = Chem.MolFromSmiles(document.smiles)
+    if mol is None:
+        return None
+    charges = [atom.GetFormalCharge() for atom in mol.GetAtoms()]
+    if not any(charges):
+        return None
+    return {
+        serial: charges[index - 1]
+        for serial, index in document.serial_smiles_indices.items()
+        if 1 <= index <= len(charges)
+    }
+
+
+def _sdf_formal_charges(content: str) -> list[int] | None:
+    """Per-atom formal charges for the first SDF record, when any are non-zero."""
+    from rdkit import Chem
+
+    block = content.split("$$$$")[0]
+    try:
+        mol = Chem.MolFromMolBlock(block, sanitize=False, removeHs=False)
+    except Exception:  # noqa: BLE001 - malformed SDF falls back to no charge data
+        return None
+    if mol is None:
+        return None
+    charges = [atom.GetFormalCharge() for atom in mol.GetAtoms()]
+    return charges if any(charges) else None
 
 
 def parse_ligand_sdf(content: str) -> list[dict[str, Any]]:
@@ -177,6 +226,7 @@ def parse_ligand_sdf(content: str) -> list[dict[str, Any]]:
     except (ValueError, IndexError):
         return atoms
 
+    formal_charges = _sdf_formal_charges(content)
     # Parse atoms block (starts at line 4)
     for i in range(4, min(4 + n_atoms, len(lines))):
         parts = lines[i].split()
@@ -186,6 +236,7 @@ def parse_ligand_sdf(content: str) -> list[dict[str, Any]]:
                 y = float(parts[1])
                 z = float(parts[2])
                 element = parts[3].capitalize()
+                atom_index = i - 4
 
                 if element in INTERACTION_ELEMENTS:
                     atoms.append({
@@ -195,6 +246,12 @@ def parse_ligand_sdf(content: str) -> list[dict[str, Any]]:
                         "atom": element,
                         "residue": "LIG",
                         "element": element,
+                        "formal_charge": (
+                            formal_charges[atom_index]
+                            if formal_charges is not None
+                            and atom_index < len(formal_charges)
+                            else None
+                        ),
                         "charge": 0.0,
                         "metal": element in METAL_ELEMENTS,
                         "water": False,
@@ -218,6 +275,10 @@ def _parse_pdb_atom(line: str, *, is_pdbqt: bool) -> dict[str, Any] | None:
     and ``42A`` share a sequence number, and a fingerprint that merges them
     would compare the wrong residues (task book勘误 ②).
     """
+    try:
+        serial = int(line[6:11])
+    except (ValueError, IndexError):
+        serial = 0
     try:
         x = float(line[30:38])
         y = float(line[38:46])
@@ -245,6 +306,7 @@ def _parse_pdb_atom(line: str, *, is_pdbqt: bool) -> dict[str, Any] | None:
             except ValueError:
                 charge = 0.0
         return {
+            "serial": serial,
             "x": x,
             "y": y,
             "z": z,
@@ -255,6 +317,7 @@ def _parse_pdb_atom(line: str, *, is_pdbqt: bool) -> dict[str, Any] | None:
             "icode": icode,
             "element": element,
             "charged": (residue, atom) in CHARGED_SIDECHAIN_ATOMS,
+            "formal_charge": CHARGED_SIDECHAIN_SIGNS.get((residue, atom)),
             "charge": charge,
             "metal": element in METAL_ELEMENTS,
             "water": residue.upper() in WATER_RESIDUES,
@@ -301,14 +364,23 @@ def classify_contact(
     ):
         return "halogen_bond"
 
-    # Ionic interactions: a charged receptor side chain facing a polar ligand atom
+    # Ionic interactions: a charged receptor side chain facing a polar ligand
+    # atom. When the ligand carries formal charges, require an opposite sign;
+    # otherwise (bare PDBQT, neutralized SDF) keep the old candidate rule.
     if (
         receptor.get("charged")
         and r_element in _POLAR_ELEMENTS
         and l_element in _POLAR_ELEMENTS
         and distance < IONIC_MAX_DISTANCE
     ):
-        return "ionic"
+        ligand_charge = ligand.get("formal_charge")
+        receptor_charge = receptor.get("formal_charge")
+        if (
+            ligand_charge is None
+            or receptor_charge is None
+            or receptor_charge * ligand_charge < 0
+        ):
+            return "ionic"
 
     # Hydrogen bonds: N-O, N-N, O-O with distance < 3.5
     if (
