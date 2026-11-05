@@ -637,22 +637,22 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "certifi", specifier = ">=2024.2.2" },
-    { name = "fastapi", specifier = ">=0.115" },
-    { name = "gemmi", specifier = ">=0.7.5" },
-    { name = "httpx", specifier = ">=0.27" },
-    { name = "meeko", specifier = ">=0.7.1" },
-    { name = "numpy", specifier = ">=1.26" },
-    { name = "pydantic", specifier = ">=2.9" },
-    { name = "pyside6", specifier = ">=6.7" },
+    { name = "certifi", specifier = ">=2024.2.2,<2027" },
+    { name = "fastapi", specifier = ">=0.115,<1" },
+    { name = "gemmi", specifier = ">=0.7.5,<1" },
+    { name = "httpx", specifier = ">=0.27,<1" },
+    { name = "meeko", specifier = ">=0.7.1,<1" },
+    { name = "numpy", specifier = ">=1.26,<3" },
+    { name = "pydantic", specifier = ">=2.9,<3" },
+    { name = "pyside6", specifier = ">=6.7,<7" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24" },
-    { name = "python-multipart", specifier = ">=0.0.12" },
-    { name = "rdkit", specifier = ">=2024.3.1" },
+    { name = "python-multipart", specifier = ">=0.0.12,<1" },
+    { name = "rdkit", specifier = ">=2024.3.1,<2027" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.7" },
-    { name = "scipy", specifier = ">=1.13" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
-    { name = "vina", marker = "sys_platform != 'win32'", specifier = ">=1.2.7" },
+    { name = "scipy", specifier = ">=1.13,<2" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32,<1" },
+    { name = "vina", marker = "sys_platform != 'win32'", specifier = ">=1.2.7,<2" },
 ]
 provides-extras = ["dev"]
 
