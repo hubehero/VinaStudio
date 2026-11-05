@@ -136,6 +136,19 @@ _BUNDLE_INLINE_KEYS = frozenset({
 #: the file itself lives on in exports/result-bundles/.
 _BUNDLE_DOWNLOADS: dict[str, Path] = {}
 _BUNDLE_DOWNLOAD_LIMIT = 128
+_BUNDLE_DOWNLOADS_LOCK = threading.Lock()
+
+
+def _remember_bundle_download(token: str, path: Path) -> None:
+    with _BUNDLE_DOWNLOADS_LOCK:
+        _BUNDLE_DOWNLOADS[token] = path
+        while len(_BUNDLE_DOWNLOADS) > _BUNDLE_DOWNLOAD_LIMIT:
+            _BUNDLE_DOWNLOADS.pop(next(iter(_BUNDLE_DOWNLOADS)))
+
+
+def _bundle_download_path(token: str) -> Path | None:
+    with _BUNDLE_DOWNLOADS_LOCK:
+        return _BUNDLE_DOWNLOADS.get(token)
 
 # Interactive score/optimize/randomize build affinity maps in the API process.
 # One in-flight map set is already ~150 MB at the default 1iep box; concurrent
@@ -1566,9 +1579,7 @@ def export_bundle(job_id: str, request: ExportBundleRequest) -> Artifact:
             bundle.writestr(name, content)
 
     token = uuid.uuid4().hex
-    _BUNDLE_DOWNLOADS[token] = zip_path
-    while len(_BUNDLE_DOWNLOADS) > _BUNDLE_DOWNLOAD_LIMIT:
-        _BUNDLE_DOWNLOADS.pop(next(iter(_BUNDLE_DOWNLOADS)))
+    _remember_bundle_download(token, zip_path)
 
     return Artifact(
         name=zip_path.name,
@@ -1582,7 +1593,7 @@ def export_bundle(job_id: str, request: ExportBundleRequest) -> Artifact:
 @router.get("/result-bundles/{token}")
 def download_result_bundle(token: str) -> FileResponse:
     """Serve a bundle by its server-issued download token."""
-    path = _BUNDLE_DOWNLOADS.get(token)
+    path = _bundle_download_path(token)
     if path is None or not path.is_file() or path.suffix.lower() != ".zip":
         raise HTTPException(status_code=404, detail="result bundle not found")
     return FileResponse(str(path), media_type="application/zip", filename=path.name)

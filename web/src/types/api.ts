@@ -618,21 +618,21 @@ export interface JobStorageEntry {
   label: string
   status: string
   createdAt: number
-  bytes: number
-  files: number
+  bytes: number | null
+  files: number | null
   deletable: boolean
 }
 
 export interface JobStorageSummary {
   count: number
-  totalBytes: number
-  deletableBytes: number
+  totalBytes: number | null
+  deletableBytes: number | null
   entries: JobStorageEntry[]
 }
 
 export interface DeletedJob {
   jobId: string
-  bytes: number
+  bytes: number | null
 }
 
 export interface DockingJobSummary {

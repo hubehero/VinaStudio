@@ -21,6 +21,7 @@ from statistics import mean
 
 from rdkit import Chem
 
+from vinastudio.core.chem.butina import butina_partition
 from vinastudio.core.chem.rmsd import rmsd_between
 
 #: Community convention (same as RMSD success threshold), not a hard limit.
@@ -53,27 +54,13 @@ def cluster_poses(pose_mols: list[Chem.Mol], cutoff: float = DEFAULT_CLUSTER_CUT
 
     Input molecules are never mutated: ``rmsd_between`` copies internally.
     """
-    n = len(pose_mols)
-    if n == 0:
+    if not pose_mols:
         return []
     dist = _distance_matrix(pose_mols)
-    neighbours = [
-        [j for j in range(n) if j != i and dist[i][j] <= cutoff]
-        for i in range(n)
+    return [
+        _build_cluster(members, dist)
+        for members in butina_partition(dist, cutoff)
     ]
-    # Seed order: most neighbours first; stable sort keeps index order on ties.
-    order = sorted(range(n), key=lambda i: -len(neighbours[i]))
-
-    assigned = [False] * n
-    clusters: list[Cluster] = []
-    for seed in order:
-        if assigned[seed]:
-            continue
-        members = [seed, *(j for j in neighbours[seed] if not assigned[j])]
-        for index in members:
-            assigned[index] = True
-        clusters.append(_build_cluster(members, dist))
-    return clusters
 
 
 def _distance_matrix(mols: list[Chem.Mol]) -> list[list[float]]:

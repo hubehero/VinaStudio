@@ -100,7 +100,9 @@ async function open(job: DockingJobSummary): Promise<void> {
         <div v-if="docking.jobStorage" class="history__storage">
           {{ t('docking.history.storage', {
             jobs: docking.jobStorage.count,
-            size: formatBytes(docking.jobStorage.totalBytes),
+            size: docking.jobStorage.totalBytes === null
+              ? '—'
+              : formatBytes(docking.jobStorage.totalBytes),
           }) }}
         </div>
       </div>

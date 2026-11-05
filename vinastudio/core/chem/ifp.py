@@ -10,10 +10,12 @@ column the fingerprint residue keys need (task book勘误 ①②).
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 from vinastudio.core.chem.autodock_types import element_for
+from vinastudio.core.chem.butina import butina_partition
 from vinastudio.core.chem.pdb_lines import WATER_RESIDUES, element_symbol
 from vinastudio.core.errors import InvalidInputError, brief_error
 
@@ -335,6 +337,36 @@ def _distance(a: dict[str, Any], b: dict[str, Any]) -> float:
     return (dx * dx + dy * dy + dz * dz) ** 0.5
 
 
+def _nearby_pairs(
+    receptor_coords: Any,
+    ligand_coords: Any,
+    cutoff: float,
+) -> Iterator[tuple[int, int, float]]:
+    """Yield ``(receptor_index, ligand_index, distance)`` within *cutoff*.
+
+    Chunked so a large receptor does not allocate a full R×L×3 difference
+    array. ``np.argwhere`` walks row-major, which keeps the receptor-major
+    order the previous nested loops produced.
+    """
+    import numpy as np
+
+    if len(receptor_coords) == 0 or len(ligand_coords) == 0:
+        return
+    chunk = max(1, 1_000_000 // len(ligand_coords))
+    for offset in range(0, len(receptor_coords), chunk):
+        block = receptor_coords[offset : offset + chunk]
+        difference = block[:, None, :] - ligand_coords[None, :, :]
+        distances = np.sqrt(np.einsum("ijk,ijk->ij", difference, difference))
+        for r_index, l_index in np.argwhere(distances <= cutoff):
+            receptor_index = offset + int(r_index)
+            ligand_index = int(l_index)
+            yield (
+                receptor_index,
+                ligand_index,
+                distances[receptor_index - offset, ligand_index],
+            )
+
+
 def find_contacts(
     receptor_atoms: list[dict[str, Any]],
     ligand_atoms: list[dict[str, Any]],
@@ -350,20 +382,25 @@ def find_contacts(
     import numpy as np
 
     contacts: list[tuple[dict[str, Any], dict[str, Any], float, str]] = []
-    for r_atom in receptor_atoms:
-        # Water is handled as a bridge below, never as a direct receptor atom.
-        if r_atom.get("water"):
-            continue
-        for l_atom in ligand_atoms:
-            dx = r_atom["x"] - l_atom["x"]
-            dy = r_atom["y"] - l_atom["y"]
-            dz = r_atom["z"] - l_atom["z"]
-            dist = np.sqrt(dx * dx + dy * dy + dz * dz)
-
-            if dist <= distance_cutoff:
-                inter_type = classify_contact(r_atom, l_atom, dist)
-                if inter_type:
-                    contacts.append((r_atom, l_atom, dist, inter_type))
+    # Water is handled as a bridge below, never as a direct receptor atom.
+    direct_receptor = [atom for atom in receptor_atoms if not atom.get("water")]
+    if direct_receptor and ligand_atoms:
+        receptor_coords = np.array(
+            [[atom["x"], atom["y"], atom["z"]] for atom in direct_receptor],
+            dtype=float,
+        )
+        ligand_coords = np.array(
+            [[atom["x"], atom["y"], atom["z"]] for atom in ligand_atoms],
+            dtype=float,
+        )
+        for r_index, l_index, dist in _nearby_pairs(
+            receptor_coords, ligand_coords, distance_cutoff
+        ):
+            r_atom = direct_receptor[r_index]
+            l_atom = ligand_atoms[l_index]
+            inter_type = classify_contact(r_atom, l_atom, dist)
+            if inter_type:
+                contacts.append((r_atom, l_atom, dist, inter_type))
 
     # Water-mediated contacts: ligand donor/acceptor -> water -> receptor polar
     # atom.  The output row names the receptor bridge (not the water) and
@@ -502,34 +539,15 @@ def tanimoto(a: frozenset[tuple[str, int]], b: frozenset[tuple[str, int]]) -> fl
 def butina_clustering(
     distances: list[list[float]], cutoff: float
 ) -> list[tuple[list[int], int]]:
-    """BUTINA over a square distance matrix — same greedy semantics as
-    ``core.chem.cluster`` (neighbours within cutoff, seed = most neighbours,
-    pull in still-unassigned members) but self-contained on plain distances
-    (task book §4.3 — cluster.py stays untouched).
+    """BUTINA over a square distance matrix, sharing the pose-cluster rule.
 
     Returns ``(members, centroid)`` per cluster; the centroid is the member
     with the smallest mean distance to the others (ties → lowest index).
     """
-    n = len(distances)
-    if n == 0:
-        return []
-    neighbours = [
-        [j for j in range(n) if j != i and distances[i][j] <= cutoff]
-        for i in range(n)
+    return [
+        (members, _centroid_of(members, distances))
+        for members in butina_partition(distances, cutoff)
     ]
-    # Seed order: most neighbours first; stable sort keeps index order on ties.
-    order = sorted(range(n), key=lambda i: -len(neighbours[i]))
-
-    assigned = [False] * n
-    clusters: list[tuple[list[int], int]] = []
-    for seed in order:
-        if assigned[seed]:
-            continue
-        members = [seed, *(j for j in neighbours[seed] if not assigned[j])]
-        for index in members:
-            assigned[index] = True
-        clusters.append((members, _centroid_of(members, distances)))
-    return clusters
 
 
 def _centroid_of(members: list[int], distances: list[list[float]]) -> int:

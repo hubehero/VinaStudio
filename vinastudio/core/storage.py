@@ -23,7 +23,12 @@ TERMINAL = frozenset({"completed", "failed", "cancelled"})
 _JOB_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 
-def _directory_size(directory: Path) -> tuple[int, int]:
+def _directory_size(directory: Path) -> tuple[int | None, int | None]:
+    """Exact byte/file count, or ``(None, None)`` when it cannot be measured.
+
+    Returning a partial total made an unreadable directory look small and
+    therefore safe to delete. The caller must show "unknown" instead.
+    """
     total = 0
     files = 0
     try:
@@ -32,10 +37,10 @@ def _directory_size(directory: Path) -> tuple[int, int]:
                 try:
                     total += item.stat().st_size
                 except OSError:
-                    continue
+                    return None, None
                 files += 1
     except OSError:
-        pass
+        return None, None
     return total, files
 
 
@@ -88,8 +93,20 @@ def summarize_jobs(root: Path) -> dict[str, Any]:
             }
         )
     entries.sort(key=lambda row: (row["createdAt"], row["jobId"]), reverse=True)
-    total = sum(row["bytes"] for row in entries)
-    deletable = sum(row["bytes"] for row in entries if row["deletable"])
+    all_sizes_known = all(row["bytes"] is not None for row in entries)
+    deletable_sizes_known = all(
+        row["bytes"] is not None for row in entries if row["deletable"]
+    )
+    total = (
+        sum(row["bytes"] for row in entries if row["bytes"] is not None)
+        if all_sizes_known
+        else None
+    )
+    deletable = (
+        sum(row["bytes"] for row in entries if row["deletable"])
+        if deletable_sizes_known
+        else None
+    )
     return {
         "count": len(entries),
         "totalBytes": total,
