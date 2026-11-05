@@ -306,6 +306,8 @@ pnpm -C web build:checked
 
 科学逻辑应留在 `vinastudio/core/`，不要依赖 Qt 或 FastAPI；用户可见的文案改动需要同时更新 `web/src/i18n/locales/zh-CN.ts` 和 `en-US.ts`。
 
+公开的 release tree（`vina_simple/`）有意不包含 Python 测试套件；上面的 `pytest` 命令作用于开发树。开发树包含 900 多项单元与集成测试，1IEP 对照和验证记录见[验证](#验证)与[学术验证](docs/ACADEMIC_VALIDATION.zh-CN.md)。
+
 ## 贡献
 
 欢迎可复现的 bug 报告、聚焦的修复和文档改进。提交 PR 前：

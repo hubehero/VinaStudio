@@ -305,6 +305,8 @@ pnpm -C web build:checked
 
 Keep scientific logic in `vinastudio/core/`; it must not import Qt or FastAPI. User-facing copy changes must update both `web/src/i18n/locales/zh-CN.ts` and `en-US.ts`.
 
+The public release tree (`vina_simple/`) intentionally does not ship the Python test suite; the `pytest` command above applies to the development tree. That tree contains 900+ unit and integration tests; the 1IEP control and validation records are linked under [Validation](#validation) and [Academic validation](docs/ACADEMIC_VALIDATION.md).
+
 ## Contributing
 
 Reproducible bug reports, focused fixes and documentation improvements are welcome. Before opening a PR:
