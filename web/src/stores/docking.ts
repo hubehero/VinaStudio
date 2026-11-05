@@ -73,6 +73,9 @@ export const useDockingStore = defineStore('docking', () => {
   const clusterCutoff = ref<number>(2.0)
   const representativesOnly = ref(false)
   let clusterCacheKey: string | null = null
+  // Monotonic request ids: a slow earlier poll must not overwrite a newer one.
+  let statusRequestSeq = 0
+  let batchRequestSeq = 0
 
   // -- batch job ------------------------------------------------------------
   const activeBatchId = ref<string | null>(null)
@@ -228,6 +231,9 @@ export const useDockingStore = defineStore('docking', () => {
   async function startDocking(params: DockingRequest): Promise<string | null> {
     try {
       const result = await api.startDocking(params)
+      clearValidation()
+      clearRmsd()
+      clearClusters()
       activeJobId.value = result.jobId
       activeJobLabel.value = params.ligandPath ? basename(params.ligandPath) : ''
       jobStatus.value = {
@@ -251,6 +257,9 @@ export const useDockingStore = defineStore('docking', () => {
   async function startEnsemble(params: EnsembleDockingRequest): Promise<string | null> {
     try {
       const result = await api.startEnsembleDocking(params)
+      clearValidation()
+      clearRmsd()
+      clearClusters()
       activeJobId.value = result.jobId
       activeJobLabel.value = params.ligandPath ? basename(params.ligandPath) : 'ensemble'
       jobStatus.value = {
@@ -272,28 +281,37 @@ export const useDockingStore = defineStore('docking', () => {
   }
 
   async function refreshStatus(): Promise<void> {
-    if (!activeJobId.value) return
+    const id = activeJobId.value
+    if (!id) return
+    const label = activeJobLabel.value
+    const sequence = ++statusRequestSeq
     try {
-      jobStatus.value = await api.dockingJobStatus(activeJobId.value)
-      if (jobStatus.value.status === 'completed') {
-        jobResult.value = await api.dockingJobResult(activeJobId.value)
+      const status = await api.dockingJobStatus(id)
+      // The user may have started/opened another job while this was in flight.
+      if (sequence !== statusRequestSeq || activeJobId.value !== id) return
+      jobStatus.value = status
+      if (status.status === 'completed') {
+        const result = await api.dockingJobResult(id)
+        if (sequence !== statusRequestSeq || activeJobId.value !== id) return
+        jobResult.value = result
         stopPolling()
         // Persist the reference into the open project (idempotent — polling
         // and the WebSocket path both land here).
-        useProjectStore().recordResult(activeJobId.value, activeJobLabel.value)
-      } else if (jobStatus.value.status === 'failed' || jobStatus.value.status === 'cancelled') {
+        useProjectStore().recordResult(id, label)
+      } else if (status.status === 'failed' || status.status === 'cancelled') {
         stopPolling()
       }
     } catch {
-      // Job may have been cleaned up
+      // Job may have been cleaned up; stale responses are dropped by the checks above.
     }
   }
 
   async function cancel(): Promise<void> {
-    if (!activeJobId.value) return
+    const id = activeJobId.value
+    if (!id) return
     try {
-      await api.cancelDocking(activeJobId.value)
-      await refreshStatus()
+      await api.cancelDocking(id)
+      if (activeJobId.value === id) await refreshStatus()
     } catch {
       // ignore
     }
@@ -301,6 +319,7 @@ export const useDockingStore = defineStore('docking', () => {
 
   function reset(): void {
     stopPolling()
+    statusRequestSeq += 1
     activeJobId.value = null
     activeJobLabel.value = ''
     jobStatus.value = null
@@ -326,24 +345,29 @@ export const useDockingStore = defineStore('docking', () => {
     size?: [number, number, number] | null
     referenceSdfPath?: string | null
   } = {}): Promise<void> {
-    if (!activeJobId.value) return
+    const id = activeJobId.value
+    if (!id) return
     validating.value = true
     validationError.value = null
     try {
-      validation.value = await api.validatePoses(activeJobId.value, {
+      const result = await api.validatePoses(id, {
         center: options.center ?? null,
         size: options.size ?? null,
         referenceSdfPath: options.referenceSdfPath ?? null,
       })
+      if (activeJobId.value !== id) return
+      validation.value = result
     } catch (err) {
+      if (activeJobId.value !== id) return
       validation.value = null
       validationError.value = err instanceof Error ? err.message : String(err)
     } finally {
-      validating.value = false
+      if (activeJobId.value === id) validating.value = false
     }
   }
 
   function clearValidation(): void {
+    validating.value = false
     validation.value = null
     validationError.value = null
   }
@@ -354,21 +378,26 @@ export const useDockingStore = defineStore('docking', () => {
    * empty values — the caller surfaces it as a warning, not an error.
    */
   async function runRmsd(referencePath: string): Promise<void> {
-    if (!activeJobId.value || !referencePath) return
+    const id = activeJobId.value
+    if (!id || !referencePath) return
     rmsding.value = true
     rmsdError.value = null
     rmsdReferencePath.value = referencePath
     try {
-      rmsd.value = await api.jobRmsd(activeJobId.value, { referencePath })
+      const result = await api.jobRmsd(id, { referencePath })
+      if (activeJobId.value !== id) return
+      rmsd.value = result
     } catch (err) {
+      if (activeJobId.value !== id) return
       rmsd.value = null
       rmsdError.value = err instanceof Error ? err.message : String(err)
     } finally {
-      rmsding.value = false
+      if (activeJobId.value === id) rmsding.value = false
     }
   }
 
   function clearRmsd(): void {
+    rmsding.value = false
     rmsd.value = null
     rmsdError.value = null
     rmsdReferencePath.value = null
@@ -380,25 +409,30 @@ export const useDockingStore = defineStore('docking', () => {
    * slider does not re-hit the API; changing the cutoff recomputes.
    */
   async function runCluster(cutoff: number = clusterCutoff.value): Promise<void> {
-    if (!activeJobId.value) return
+    const id = activeJobId.value
+    if (!id) return
     clusterCutoff.value = cutoff
-    const cacheKey = `${activeJobId.value}:${cutoff}`
+    const cacheKey = `${id}:${cutoff}`
     if (clusters.value && clusterCacheKey === cacheKey) return
     clustering.value = true
     clusterError.value = null
     try {
-      clusters.value = await api.clusterPoses(activeJobId.value, { cutoff })
+      const result = await api.clusterPoses(id, { cutoff })
+      if (activeJobId.value !== id) return
+      clusters.value = result
       clusterCacheKey = cacheKey
     } catch (err) {
+      if (activeJobId.value !== id) return
       clusters.value = null
       clusterCacheKey = null
       clusterError.value = err instanceof Error ? err.message : String(err)
     } finally {
-      clustering.value = false
+      if (activeJobId.value === id) clustering.value = false
     }
   }
 
   function clearClusters(): void {
+    clustering.value = false
     clusters.value = null
     clusterError.value = null
     clusterCacheKey = null
@@ -469,34 +503,43 @@ export const useDockingStore = defineStore('docking', () => {
   }
 
   async function refreshBatchStatus(): Promise<void> {
-    if (!activeBatchId.value) return
+    const id = activeBatchId.value
+    if (!id) return
+    const sequence = ++batchRequestSeq
     try {
       // Polling carries counters only; the full row array is fetched once on
       // completion for the results table, not every three seconds.
-      const progress = await api.batchProgress(activeBatchId.value)
+      const progress = await api.batchProgress(id)
+      if (sequence !== batchRequestSeq || activeBatchId.value !== id) return
       batchStatus.value = {
         ...progress,
         ligands: batchStatus.value?.ligands ?? [],
       }
       if (progress.status === 'completed') {
-        batchStatus.value = await api.batchStatus(activeBatchId.value)
-        batchResult.value = await api.batchResult(activeBatchId.value)
+        const finalStatus = await api.batchStatus(id)
+        const finalResult = await api.batchResult(id)
+        if (sequence !== batchRequestSeq || activeBatchId.value !== id) return
+        batchStatus.value = finalStatus
+        batchResult.value = finalResult
         stopPolling()
-        useProjectStore().recordResult(activeBatchId.value, '')
+        useProjectStore().recordResult(id, '')
       } else if (progress.status === 'failed' || progress.status === 'cancelled') {
-        batchStatus.value = await api.batchStatus(activeBatchId.value)
+        const finalStatus = await api.batchStatus(id)
+        if (sequence !== batchRequestSeq || activeBatchId.value !== id) return
+        batchStatus.value = finalStatus
         stopPolling()
       }
     } catch {
-      // Job may have been cleaned up
+      // Job may have been cleaned up; stale responses are dropped above.
     }
   }
 
   async function cancelBatch(): Promise<void> {
-    if (!activeBatchId.value) return
+    const id = activeBatchId.value
+    if (!id) return
     try {
-      await api.cancelDocking(activeBatchId.value)
-      await refreshBatchStatus()
+      await api.cancelDocking(id)
+      if (activeBatchId.value === id) await refreshBatchStatus()
     } catch {
       // ignore
     }
@@ -504,6 +547,7 @@ export const useDockingStore = defineStore('docking', () => {
 
   function resetBatch(): void {
     stopPolling()
+    batchRequestSeq += 1
     activeBatchId.value = null
     batchStatus.value = null
     batchResult.value = null
@@ -550,19 +594,24 @@ export const useDockingStore = defineStore('docking', () => {
    */
   async function openHistoryJob(job: DockingJobSummary): Promise<void> {
     reset()
-    activeJobId.value = job.jobId
+    const id = job.jobId
+    const sequence = ++statusRequestSeq
+    activeJobId.value = id
     isHistoryView.value = true
     activeJobLabel.value = job.label
     try {
-      jobStatus.value = await api.dockingJobStatus(job.jobId)
-      const current = jobStatus.value.status
-      if (current === 'completed') {
-        jobResult.value = await api.dockingJobResult(job.jobId)
-      } else if (current === 'running' || current === 'queued') {
-        startPolling(job.jobId, 'job')
+      const status = await api.dockingJobStatus(id)
+      if (sequence !== statusRequestSeq || activeJobId.value !== id) return
+      jobStatus.value = status
+      if (status.status === 'completed') {
+        const result = await api.dockingJobResult(id)
+        if (sequence !== statusRequestSeq || activeJobId.value !== id) return
+        jobResult.value = result
+      } else if (status.status === 'running' || status.status === 'queued') {
+        startPolling(id, 'job')
       }
     } catch {
-      reset()
+      if (sequence === statusRequestSeq && activeJobId.value === id) reset()
     }
   }
 
@@ -572,17 +621,22 @@ export const useDockingStore = defineStore('docking', () => {
    */
   async function openHistoryBatch(job: DockingJobSummary): Promise<void> {
     resetBatch()
-    activeBatchId.value = job.jobId
+    const id = job.jobId
+    const sequence = ++batchRequestSeq
+    activeBatchId.value = id
     try {
-      batchStatus.value = await api.batchStatus(job.jobId)
-      const current = batchStatus.value?.status
-      if (current === 'completed') {
-        batchResult.value = await api.batchResult(job.jobId)
-      } else if (current === 'running' || current === 'queued') {
-        startPolling(job.jobId, 'batch')
+      const status = await api.batchStatus(id)
+      if (sequence !== batchRequestSeq || activeBatchId.value !== id) return
+      batchStatus.value = status
+      if (status.status === 'completed') {
+        const result = await api.batchResult(id)
+        if (sequence !== batchRequestSeq || activeBatchId.value !== id) return
+        batchResult.value = result
+      } else if (status.status === 'running' || status.status === 'queued') {
+        startPolling(id, 'batch')
       }
     } catch {
-      resetBatch()
+      if (sequence === batchRequestSeq && activeBatchId.value === id) resetBatch()
     }
   }
 

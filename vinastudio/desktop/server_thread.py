@@ -12,6 +12,10 @@ from fastapi import FastAPI
 
 log = logging.getLogger(__name__)
 
+#: The interface sends only keep-alives / future commands; anything larger is
+#: not a legitimate client frame. Uvicorn enforces this before JSON parsing.
+WS_MAX_MESSAGE_BYTES = 64 * 1024
+
 
 class _PortReportingServer(uvicorn.Server):
     """Uvicorn server that announces the port it actually bound to."""
@@ -52,6 +56,7 @@ class LocalServer:
             port=port,
             log_level=log_level,
             access_log=False,
+            ws_max_size=WS_MAX_MESSAGE_BYTES,
             # Uvicorn's default log config builds a colourised formatter, which
             # calls sys.stdout.isatty(). A windowed build has no stdout (it is
             # None), so that call raised before the window could open; None hands

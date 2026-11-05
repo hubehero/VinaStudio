@@ -108,9 +108,9 @@ def save_project(request: dict[str, Any]) -> dict[str, str]:
             "filename": filepath.name,
             "status": "saved",
         }
-    except Exception as e:
+    except Exception:
         log.exception("Failed to save project")
-        raise InvalidInputError(f"Failed to save project: {e}") from None
+        raise InvalidInputError("could not save project") from None
 
 
 @router.post("/save-as")
@@ -128,7 +128,7 @@ def save_project_as(request: dict[str, Any]) -> dict[str, str]:
     if filepath.suffix.lower() != ".vinaproj":
         raise InvalidInputError("project path must end with .vinaproj")
     if filepath.is_dir():
-        raise InvalidInputError(f"project path is a directory: {filepath}")
+        raise InvalidInputError("project path is a directory")
 
     try:
         project = ProjectFile(**project_data)
@@ -142,9 +142,9 @@ def save_project_as(request: dict[str, Any]) -> dict[str, str]:
             "filename": filepath.name,
             "status": "saved",
         }
-    except Exception as e:
+    except Exception:
         log.exception("Failed to save project")
-        raise InvalidInputError(f"Failed to save project: {e}") from None
+        raise InvalidInputError("could not save project") from None
 
 
 def _job_index_exists(job_id: str) -> bool:
@@ -175,10 +175,10 @@ def load_project(request: dict[str, Any]) -> dict[str, Any]:
 
     filepath = Path(filepath_str)
     if not filepath.exists():
-        raise InvalidInputError(f"project file not found: {filepath_str}")
+        raise InvalidInputError("project file not found")
 
     if filepath.suffix.lower() != ".vinaproj":
-        raise InvalidInputError(f"not a .vinaproj file: {filepath_str}")
+        raise InvalidInputError("not a .vinaproj file")
 
     try:
         with open(filepath, encoding="utf-8") as f:
@@ -197,9 +197,9 @@ def load_project(request: dict[str, Any]) -> dict[str, Any]:
         }
     except json.JSONDecodeError as e:
         raise InvalidInputError(f"invalid JSON in project file: {e}") from None
-    except Exception as e:
+    except Exception:
         log.exception("Failed to load project")
-        raise InvalidInputError(f"Failed to load project: {e}") from None
+        raise InvalidInputError("could not load project") from None
 
 
 @router.get("/list")
@@ -238,13 +238,13 @@ def delete_project(filename: str) -> dict[str, str]:
     try:
         filepath = resolve_within(projects_dir, filename)
     except ValueError as exc:
-        raise InvalidInputError(f"invalid project name: {filename}") from exc
+        raise InvalidInputError("invalid project name") from exc
 
     if not filepath.exists():
-        raise InvalidInputError(f"project not found: {filename}")
+        raise InvalidInputError("project not found")
 
     if filepath.suffix.lower() != ".vinaproj":
-        raise InvalidInputError(f"not a .vinaproj file: {filename}")
+        raise InvalidInputError("not a .vinaproj file")
 
     filepath.unlink()
     return {"status": "deleted", "filename": filename}
