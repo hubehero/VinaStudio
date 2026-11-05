@@ -30,11 +30,14 @@ Exit code 0 means "safe to tag". Every failure says what to fix.
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import re
 import subprocess
 import sys
+import tomllib
+from importlib.metadata import packages_distributions
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -280,6 +283,97 @@ def missing_internal_imports() -> list[str]:
             target = REPO_ROOT.joinpath(*module.split("."))
             if not target.with_suffix(".py").exists() and not (target / "__init__.py").exists():
                 problems.add(f"{relative}: {module}")
+    return sorted(problems)
+
+
+#: Import names that differ from their distribution name.
+RUNTIME_IMPORT_ALIASES = {
+    "multipart": "python-multipart",
+}
+
+#: Imports satisfied by another declared dependency's own requirements.  The
+#: declaration stays with the framework that pins it; a direct pin here would
+#: have to guess the framework's supported Starlette range.
+TRANSITIVE_RUNTIME_IMPORTS = {
+    "starlette": "fastapi",
+}
+
+
+def _normalise_distribution(name: str) -> str:
+    return name.strip().lower().replace("_", "-")
+
+
+def declared_dependencies() -> set[str]:
+    """Distribution names declared as runtime dependencies in pyproject.toml."""
+    metadata = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    names: set[str] = set()
+    for requirement in metadata.get("project", {}).get("dependencies", []):
+        match = re.match(r"\s*([A-Za-z0-9][A-Za-z0-9._-]*)", requirement)
+        if match is not None:
+            names.add(_normalise_distribution(match.group(1)))
+    return names
+
+
+def runtime_external_imports() -> dict[str, set[str]]:
+    """Top-level third-party modules imported by the shipped ``vinastudio`` tree.
+
+    Parsed with ``ast`` rather than a line regex: a commented-out import or a
+    string that looks like one must not satisfy (or fail) this check.
+    """
+    imports: dict[str, set[str]] = {}
+    root = REPO_ROOT / "vinastudio"
+    if not root.is_dir():
+        return imports
+    for path in sorted(root.rglob("*.py")):
+        relative = path.relative_to(REPO_ROOT)
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError as exc:
+            imports[f"<unparseable {relative}>"] = {str(exc)}
+            continue
+        modules: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                modules.update(alias.name.split(".")[0] for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                modules.add(node.module.split(".")[0])
+        for module in modules:
+            if module == "vinastudio" or module == "__future__":
+                continue
+            if module in sys.stdlib_module_names or module in sys.builtin_module_names:
+                continue
+            imports.setdefault(module, set()).add(str(relative))
+    return imports
+
+
+def missing_external_dependencies() -> list[str]:
+    """Third-party imports the runtime tree uses but ``dependencies`` omits.
+
+    This is the check that would have caught ``httpx``: it was imported at module
+    load by two routers, so ``create_app()`` failed on an install without the dev
+    extra.  Internal-import completeness cannot see that class of failure.
+    """
+    declared = declared_dependencies()
+    installed = {
+        module.lower(): {_normalise_distribution(dist) for dist in distributions}
+        for module, distributions in packages_distributions().items()
+    }
+    problems: set[str] = set()
+    for module, files in runtime_external_imports().items():
+        if module.startswith("<"):
+            problems.add(f"{module}: cannot parse the module list")
+            continue
+        candidates = set(installed.get(module.lower(), ()))
+        alias = RUNTIME_IMPORT_ALIASES.get(module.lower())
+        if alias:
+            candidates.add(_normalise_distribution(alias))
+        candidates.add(_normalise_distribution(module))
+        if candidates & declared:
+            continue
+        provider = TRANSITIVE_RUNTIME_IMPORTS.get(module.lower())
+        if provider and _normalise_distribution(provider) in declared:
+            continue
+        problems.add(f"{', '.join(sorted(files)[:2])}: {module}")
     return sorted(problems)
 
 
@@ -532,6 +626,16 @@ def main() -> int:
         )
     else:
         ok("every vinastudio import resolves inside this tree")
+
+    missing_dependencies = missing_external_dependencies()
+    if missing_dependencies:
+        bad(
+            "external imports",
+            f"{len(missing_dependencies)} third-party import(s) are not declared in "
+            "pyproject.toml dependencies: " + "; ".join(missing_dependencies[:5]),
+        )
+    else:
+        ok("every runtime import is declared in dependencies")
 
     # 12. Public documentation policy. Keep the README/CONTRIBUTING order,
     #     CITATION version, release-job table and public links in step.
