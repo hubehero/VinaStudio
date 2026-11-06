@@ -242,6 +242,35 @@ export const useCatalogStore = defineStore('catalog', () => {
     const updated = await api.catalogPrepareMolecule(id, options)
     const index = molecules.value.findIndex((item) => item.id === id)
     if (index >= 0) molecules.value[index] = updated
+    if (updated.files.some((file) => file.kind === 'pdbqt' || file.kind === 'flex_pdbqt')) {
+      useMoleculeStore().adoptCatalogMolecule(updated)
+    }
+  }
+
+  /** Bridge every prepared Catalog molecule into the legacy docking pipeline.
+   *
+   * Catalog is the durable source; BoxPanel/DockingForm still read the legacy
+   * molecule store. Without this bridge a molecule prepared in Catalog never
+   * appears in the receptor/ligand selectors until a Study is used.
+   */
+  async function adoptPreparedForPipeline(): Promise<void> {
+    const store = useMoleculeStore()
+    const pageSize = 200
+    let offset = 0
+    while (true) {
+      const result = await api.catalogSearch({
+        prep: 'prepared',
+        limit: pageSize,
+        offset,
+      })
+      for (const item of result.items) {
+        if (item.files.some((file) => file.kind === 'pdbqt' || file.kind === 'flex_pdbqt')) {
+          store.adoptCatalogMolecule(item)
+        }
+      }
+      offset += result.items.length
+      if (result.items.length === 0 || offset >= result.total) break
+    }
   }
 
   async function createStudy(name: string): Promise<CatalogStudy> {
@@ -492,6 +521,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     selectMolecule,
     patchMolecule,
     prepareMolecule,
+    adoptPreparedForPipeline,
     deleteMolecule,
     bulkTag,
     selectAllMatching,

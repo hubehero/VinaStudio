@@ -12,6 +12,7 @@ import WorkspaceWizard from '@/components/WorkspaceWizard.vue'
 import { clearNativeCommands, registerNativeCommands } from '@/api/native'
 import { pickFiles, pickSaveFile } from '@/api/bridge'
 import { eventSocket, type ServerEvent } from '@/api/ws'
+import { useCatalogStore } from '@/stores/catalog'
 import { useDockingStore } from '@/stores/docking'
 import { useMoleculeStore } from '@/stores/molecules'
 import { useProjectStore } from '@/stores/project'
@@ -25,6 +26,7 @@ const docking = useDockingStore()
 const workspace = useWorkspaceStore()
 const project = useProjectStore()
 const molecules = useMoleculeStore()
+const catalog = useCatalogStore()
 const router = useRouter()
 const { t } = useI18n()
 
@@ -98,6 +100,10 @@ onMounted(async () => {
   if (workspace.isConfigured) {
     await system.refresh()
     await molecules.loadFromManifest()
+    await catalog.adoptPreparedForPipeline().catch(() => {
+      // The Catalog index is optional for the legacy pipeline; a failed
+      // bridge must not prevent the workspace from opening.
+    })
     startServices()
   }
 
@@ -178,6 +184,9 @@ async function retryWorkspace(): Promise<void> {
   if (workspace.isConfigured) {
     await system.refresh()
     await molecules.loadFromManifest()
+    await catalog.adoptPreparedForPipeline().catch(() => {
+      // See onMounted: a missing Catalog must not block the workspace.
+    })
     startServices()
   }
 }

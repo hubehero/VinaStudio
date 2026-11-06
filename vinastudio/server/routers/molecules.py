@@ -96,6 +96,7 @@ def verify_molecules(request: dict) -> dict:
 
     existing = []
     missing = []
+    missing_artifacts: dict[str, list[str]] = {}
     mtimes = {}
     for mol_id in ids:
         mol = molecules.get(mol_id)
@@ -109,7 +110,23 @@ def verify_molecules(request: dict) -> dict:
         else:
             missing.append(mol_id)
 
-    return {"existing": existing, "missing": missing, "mtimes": mtimes}
+        absent = []
+        for artifact in mol.get("artifacts", []) or []:
+            raw = artifact.get("path", "")
+            candidate = Path(raw) if raw else None
+            if candidate is not None and not candidate.is_absolute():
+                candidate = ws / candidate
+            if candidate is None or not candidate.is_file():
+                absent.append(str(artifact.get("name") or raw or "artifact"))
+        if absent:
+            missing_artifacts[mol_id] = absent
+
+    return {
+        "existing": existing,
+        "missing": missing,
+        "missingArtifacts": missing_artifacts,
+        "mtimes": mtimes,
+    }
 
 
 @router.delete("/{mol_id}/file")

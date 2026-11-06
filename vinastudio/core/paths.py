@@ -164,16 +164,21 @@ def create_workspace(
 
 
 def cleanup_orphan_workspaces(
-    *, older_than_days: int = 30, root: Path | None = None
+    *,
+    older_than_days: int = 30,
+    root: Path | None = None,
+    protected: set[Path] | None = None,
 ) -> int:
     """Remove old preparation/render directories that never became jobs.
 
     A directory with ``job.json`` is a docking job and is never touched, even
-    if it is old. Everything else is a preparation or render artefact and is
-    reclaimable after the retention window.
+    if it is old. ``protected`` holds prepared directories still referenced by
+    persisted state (manifest, projects, catalog); deleting one leaves the
+    interface with a URL that can only 404.
     """
     base = root or workspace_root()
     cutoff = time.time() - older_than_days * 86400
+    protected = {path.resolve() for path in (protected or ())}
     try:
         entries = list(base.iterdir())
     except OSError:
@@ -183,6 +188,8 @@ def cleanup_orphan_workspaces(
         if not entry.is_dir() or (entry / JOB_STATE_FILENAME).exists():
             continue
         try:
+            if entry.resolve() in protected:
+                continue
             if entry.stat().st_mtime >= cutoff:
                 continue
             shutil.rmtree(entry)

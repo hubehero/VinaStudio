@@ -31,6 +31,8 @@ type ExtendedDockingStatus = DockingStatus | 'idle'
 export const useDockingStore = defineStore('docking', () => {
   // -- form defaults --------------------------------------------------------
   const defaults = ref<DockingDefaults | null>(null)
+  /** Last start failure, including the API's actionable detail. */
+  const startError = ref<string | null>(null)
 
   // -- active job -----------------------------------------------------------
   const activeJobId = ref<string | null>(null)
@@ -229,6 +231,7 @@ export const useDockingStore = defineStore('docking', () => {
   }
 
   async function startDocking(params: DockingRequest): Promise<string | null> {
+    startError.value = null
     try {
       const result = await api.startDocking(params)
       clearValidation()
@@ -249,12 +252,14 @@ export const useDockingStore = defineStore('docking', () => {
       isHistoryView.value = false
       startPolling(result.jobId, 'job')
       return result.jobId
-    } catch {
+    } catch (cause) {
+      startError.value = cause instanceof Error ? cause.message : String(cause)
       return null
     }
   }
 
   async function startEnsemble(params: EnsembleDockingRequest): Promise<string | null> {
+    startError.value = null
     try {
       const result = await api.startEnsembleDocking(params)
       clearValidation()
@@ -275,7 +280,8 @@ export const useDockingStore = defineStore('docking', () => {
       isHistoryView.value = false
       startPolling(result.jobId, 'job')
       return result.jobId
-    } catch {
+    } catch (cause) {
+      startError.value = cause instanceof Error ? cause.message : String(cause)
       return null
     }
   }
@@ -320,6 +326,7 @@ export const useDockingStore = defineStore('docking', () => {
   function reset(): void {
     stopPolling()
     statusRequestSeq += 1
+    startError.value = null
     activeJobId.value = null
     activeJobLabel.value = ''
     jobStatus.value = null
@@ -729,6 +736,7 @@ export const useDockingStore = defineStore('docking', () => {
     runCluster,
     clearClusters,
     loadDefaults,
+    startError,
     startDocking,
     startEnsemble,
     refreshStatus,

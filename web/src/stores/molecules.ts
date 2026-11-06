@@ -955,7 +955,7 @@ export const useMoleculeStore = defineStore('molecules', () => {
       const ids = molecules.value.map((m) => m.id)
       if (ids.length === 0) return
 
-      api.verifyMolecules(ids).then(({ existing, missing, mtimes }) => {
+      api.verifyMolecules(ids).then(({ existing, missing, missingArtifacts = {}, mtimes }) => {
         // Mark missing files as errors.
         for (const id of missing) {
           const mol = molecules.value.find((m) => m.id === id)
@@ -964,6 +964,27 @@ export const useMoleculeStore = defineStore('molecules', () => {
             mol.error = { kind: 'FileNotFound', detail: 'File not found on disk' } as never
           }
         }
+
+        // A prepared directory may have been removed while the source still
+        // exists. Drop the stale URLs so the viewport cannot request a 404;
+        // the molecule falls back to "inspected" and can be prepared again.
+        let artifactsChanged = false
+        for (const [id, absent] of Object.entries(missingArtifacts)) {
+          const mol = molecules.value.find((m) => m.id === id)
+          if (!mol || absent.length === 0) continue
+          const absentNames = new Set(absent)
+          mol.artifacts = mol.artifacts.filter((artifact) => !absentNames.has(artifact.name))
+          if (!mol.artifacts.some((artifact) => artifact.kind === 'pdbqt')) mol.pdbqt = null
+          mol.status = mol.artifacts.some((artifact) => artifact.kind === 'pdbqt')
+            ? 'prepared'
+            : 'inspected'
+          mol.error = {
+            kind: 'FileNotFound',
+            detail: 'Prepared files are missing; prepare again',
+          } as never
+          artifactsChanged = true
+        }
+        if (artifactsChanged) scheduleSave()
 
         // Queue re-inspection for molecules that need it:
         // - Never inspected (status === 'uploaded')

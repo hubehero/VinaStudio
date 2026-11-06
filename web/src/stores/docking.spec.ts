@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 
+import { api } from '@/api/http'
 import { useDockingStore } from './docking'
 import type { DockingJobResult } from '@/types/api'
 
@@ -23,6 +24,21 @@ function resultWithPoses(count: number): DockingJobResult {
 
 beforeEach(() => {
   setActivePinia(createPinia())
+  vi.restoreAllMocks()
+})
+
+describe('start failures', () => {
+  it('keeps the API detail so the form can explain a box mismatch', async () => {
+    vi.spyOn(api, 'startDocking').mockRejectedValue(
+      new Error('the docking box contains no receptor atoms'),
+    )
+    const docking = useDockingStore()
+
+    const jobId = await docking.startDocking({} as never)
+
+    expect(jobId).toBeNull()
+    expect(docking.startError).toContain('contains no receptor atoms')
+  })
 })
 
 describe('pose overlay', () => {

@@ -683,6 +683,7 @@ export default {
     openReport: 'Open full report',
     errorNoPdbqt: 'Prepared PDBQT files not found',
     errorStartFailed: 'Failed to start docking',
+    boxMismatch: 'The selected receptor and docking box do not match. Re-define the box in Binding site; the box contains no receptor atoms.',
     errorExportCsv: 'Failed to export CSV',
     errorExportPose: 'Failed to export pose',
     batch: {

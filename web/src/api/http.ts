@@ -52,6 +52,7 @@ import type {
   LibrarySearchRequest,
   LibrarySearchResponse,
   LibrarySummary,
+  MoleculeVerifyResponse,
   CompoundFetchRequest,
   CompoundFetchResponse,
   CompoundSearchPage,
@@ -548,7 +549,7 @@ export const api = {
       method: 'POST',
     }),
   verifyMolecules: (ids: string[]) =>
-    request<{ existing: string[]; missing: string[]; mtimes: Record<string, number> }>('/api/molecules/verify', {
+    request<MoleculeVerifyResponse>('/api/molecules/verify', {
       method: 'POST',
       body: JSON.stringify({ ids }),
     }),

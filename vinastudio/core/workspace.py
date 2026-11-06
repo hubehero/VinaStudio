@@ -20,6 +20,8 @@ from __future__ import annotations
 import json
 import logging
 import shutil
+import sqlite3
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -269,3 +271,104 @@ def save_molecule_manifest(workspace: Path, manifest: dict[str, Any]) -> None:
         # Clean up the temp file on failure.
         tmp.unlink(missing_ok=True)
         raise
+
+
+def _json_strings(value: Any) -> Iterator[str]:
+    """Every string value in a persisted JSON document."""
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for nested in value.values():
+            yield from _json_strings(nested)
+    elif isinstance(value, list):
+        for nested in value:
+            yield from _json_strings(nested)
+
+
+def _protect_reference(
+    raw: str,
+    workspace: Path,
+    jobs_root: Path,
+    protected: set[Path],
+) -> None:
+    candidate = Path(raw)
+    if not candidate.is_absolute():
+        candidate = workspace / candidate
+    try:
+        resolved = candidate.resolve()
+    except OSError:
+        return
+    if not resolved.is_relative_to(jobs_root):
+        return
+    relative = resolved.relative_to(jobs_root)
+    if relative.parts:
+        protected.add(jobs_root / relative.parts[0])
+
+
+def referenced_workspace_dirs(jobs_root: Path) -> set[Path]:
+    """Directories under ``jobs/`` still referenced by persisted workspace state.
+
+    Preparation directories have no ``job.json``, so the cleanup cannot tell a
+    stale cache from a receptor the molecule manifest still opens. Collect the
+    references from the molecule manifest, project files, legacy library
+    indexes and the catalog before reclaiming anything.
+
+    Raises ``ValueError`` when a reference source exists but cannot be read:
+    the caller must skip cleanup rather than delete data it cannot account for.
+    """
+    jobs_root = jobs_root.resolve()
+    workspace = jobs_root.parent if jobs_root.name == "jobs" else jobs_root
+    protected: set[Path] = set()
+
+    manifest_path = _manifest_path(workspace)
+    if manifest_path.is_file():
+        try:
+            data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(f"cannot read molecule manifest {manifest_path}: {exc}") from exc
+        for raw in _json_strings(data):
+            _protect_reference(raw, workspace, jobs_root, protected)
+
+    projects_dir = workspace / "projects"
+    for project_path in sorted(projects_dir.glob("*.vinaproj")):
+        try:
+            data = json.loads(project_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(f"cannot read project {project_path}: {exc}") from exc
+        for raw in _json_strings(data):
+            _protect_reference(raw, workspace, jobs_root, protected)
+
+    libraries_dir = workspace / "libraries"
+    for index_path in sorted(libraries_dir.glob("*/index.json")):
+        try:
+            data = json.loads(index_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(f"cannot read library index {index_path}: {exc}") from exc
+        for raw in _json_strings(data):
+            _protect_reference(raw, workspace, jobs_root, protected)
+
+    catalog_path = workspace / "catalog.sqlite"
+    if catalog_path.is_file():
+        try:
+            connection = sqlite3.connect(str(catalog_path))
+            try:
+                for query in (
+                    "SELECT path FROM molecule_files",
+                    "SELECT prepared_path FROM library_members "
+                    "WHERE prepared_path IS NOT NULL",
+                ):
+                    try:
+                        rows = connection.execute(query).fetchall()
+                    except sqlite3.OperationalError as exc:
+                        if "no such table" in str(exc).lower():
+                            continue
+                        raise
+                    for row in rows:
+                        if row and isinstance(row[0], str):
+                            _protect_reference(row[0], workspace, jobs_root, protected)
+            finally:
+                connection.close()
+        except sqlite3.Error as exc:
+            raise ValueError(f"cannot read catalog {catalog_path}: {exc}") from exc
+
+    return protected

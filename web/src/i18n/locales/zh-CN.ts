@@ -683,6 +683,7 @@ export default {
     openReport: '查看完整报告',
     errorNoPdbqt: '未找到已准备的 PDBQT 文件',
     errorStartFailed: '启动对接失败',
+    boxMismatch: '所选受体与对接盒子不匹配：盒子内没有受体原子，请到「结合位点」重新定盒。',
     errorExportCsv: '导出 CSV 失败',
     errorExportPose: '导出构象失败',
     batch: {

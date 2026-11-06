@@ -20,7 +20,9 @@ entries about the product — no internal task ids or workflow narration.
 - **本地 API 安全**：新增每次启动生成的访问令牌和回环 Host 校验，覆盖 HTTP、产物读取和 WebSocket；请求体在解析前按上限拒绝；交互分析、RMSD 与 CSV 的输入路径只接受支持的格式且错误不回显路径；筛选库导入要求界面请求头。
 - **交互式对接**：网格预算同时覆盖 CLI 后端，并发交互评分、优化和随机化会被串行化。
 - **边界与提示**：2.0 Å RMSD 成功阈值统一为“≤ 2.0”；空 PDB 报告“文件为空”；网格预算按 Vina 实际格点数计算。
-- **稳定性**：任务表按最近使用保留 200 条并释放已落盘的姿态大文本；准备与渲染目录按源文件复用，启动时清理 30 天前的孤儿目录；WebSocket 每客户端使用有界队列、限制连接数和单条消息大小；结果与分子索引的 schema 检查按数据库文件缓存。
+- **稳定性**：任务表按最近使用保留 200 条并释放已落盘的姿态大文本；准备与渲染目录按源文件复用，启动清理只删除未被分子清单、项目、Catalog 或库索引引用的 30 天前目录；缺失的准备产物会被识别并提示重新准备，不再请求已失效的地址；WebSocket 每客户端使用有界队列、限制连接数和单条消息大小；结果与分子索引的 schema 检查按数据库文件缓存。
+- **分子目录**：Catalog 中已准备的受体/配体现在会进入结合位点和对接的分子下拉框；在 Catalog 内完成准备后立即可选，无需再通过 Study 中转。
+- **对接启动提示**：启动失败会显示后端的具体原因；受体与盒子不匹配时明确提示到「结合位点」重新定盒，不再只显示“启动对接失败”；Ensemble 构象列表会跟随当前受体。
 - **任务切换**：切换到另一个任务后，旧任务迟到的轮询、校验、RMSD 或聚类结果会被丢弃，不再覆盖当前任务或写入当前项目。
 - **存储统计**：无法读取的任务目录显示“未知大小”，不再静默报告为 0 或部分大小。
 - **构建**：Swagger UI 固定到 5.33.0 并校验 SHA-256 与字节数；构建会清理旧的哈希资源。
@@ -33,7 +35,9 @@ entries about the product — no internal task ids or workflow narration.
 - **Local API security**: a per-launch token and loopback Host check cover HTTP, artifacts and WebSocket; oversized request bodies are rejected before parsing; interaction, RMSD and CSV input paths accept only supported formats without echoing the path; project save/load errors no longer echo the caller's path; screening library import requires the UI request header.
 - **Interactive docking**: the grid budget also covers the CLI backend, and concurrent interactive scoring, optimisation and randomisation are serialised.
 - **Boundaries and messages**: the 2.0 Å RMSD success threshold is consistently “≤ 2.0”; an empty PDB reports that the file is empty; the map budget counts Vina's actual grid points.
-- **Stability**: the job table keeps 200 recently used entries and releases pose text already on disk; preparation and render directories are reused by source, with 30-day orphan cleanup on startup; WebSocket clients get a bounded queue, a connection cap and a per-message size limit; result and catalog schema checks are cached per database file.
+- **Stability**: the job table keeps 200 recently used entries and releases pose text already on disk; preparation and render directories are reused by source, and startup cleanup only reclaims 30-day-old directories that no molecule manifest, project, catalog or library index references; missing prepared artifacts are detected and marked for re-preparation instead of requesting a dead URL; WebSocket clients get a bounded queue, a connection cap and a per-message size limit; result and catalog schema checks are cached per database file.
+- **Molecule catalog**: prepared Catalog receptors and ligands now appear in the binding-site and docking selectors; a molecule prepared in Catalog is selectable immediately, without routing through a Study.
+- **Docking start feedback**: a failed start now shows the backend reason; a receptor/box mismatch explicitly asks for a new box in Binding site instead of only saying "Failed to start docking"; the Ensemble conformer list follows the current receptor.
 - **Job switching**: a late poll, validation, RMSD or cluster response from the previous job is discarded instead of overwriting the current job or its project reference.
 - **Storage accounting**: a job directory that cannot be measured reports an unknown size instead of silently showing zero or a partial total.
 - **Build**: Swagger UI is pinned to 5.33.0 with SHA-256 and size checks; stale hashed assets are pruned.

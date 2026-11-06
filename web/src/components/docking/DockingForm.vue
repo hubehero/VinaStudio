@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { DataAnalysis, Download, RefreshRight, VideoPause, VideoPlay } from '@element-plus/icons-vue'
 import { ElButton, ElInput, ElInputNumber, ElMessage, ElOption, ElProgress, ElSelect, ElSlider, ElSwitch } from 'element-plus'
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -61,15 +61,34 @@ function flexPathFor(mol: (typeof molecules.usableReceptors)[number]): string | 
 function ensureEnsembleSelection(): void {
   if (!ensembleMode.value) return
   const usable = molecules.usableReceptors
-  if (ensembleReceptorIds.value.length >= 2) return
+  const usableIds = new Set(usable.map((mol) => mol.id))
   const preferred = molecules.pipelineReceptor
-  const ids = preferred ? [preferred.id] : []
+  const ids = ensembleReceptorIds.value.filter((id) => usableIds.has(id))
+  if (preferred && !ids.includes(preferred.id)) ids.unshift(preferred.id)
   for (const mol of usable) {
     if (ids.length >= 2) break
     if (!ids.includes(mol.id)) ids.push(mol.id)
   }
   ensembleReceptorIds.value = ids
 }
+
+function showStartFailure(): void {
+  const detail = docking.startError
+  if (detail?.includes('contains no receptor atoms')) {
+    ElMessage.error(t('docking.boxMismatch'))
+    return
+  }
+  ElMessage.error(detail || t('docking.errorStartFailed'))
+}
+
+watch(
+  () => molecules.pipelineReceptor?.id,
+  (id) => {
+    if (!id) return
+    const rest = ensembleReceptorIds.value.filter((value) => value !== id)
+    ensembleReceptorIds.value = [id, ...rest]
+  },
+)
 
 onMounted(() => {
   if (molecules.pipelineReceptor) {
@@ -160,7 +179,7 @@ async function startEnsemble(): Promise<void> {
       : null,
     mapPaths: null,
   })
-  if (!jobId) ElMessage.error(t('docking.errorStartFailed'))
+  if (!jobId) showStartFailure()
 }
 
 async function startDocking(): Promise<void> {
@@ -207,7 +226,7 @@ async function startDocking(): Promise<void> {
 
   const jobId = await docking.startDocking(params)
   if (!jobId) {
-    ElMessage.error(t('docking.errorStartFailed'))
+    showStartFailure()
   }
 }
 

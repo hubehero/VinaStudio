@@ -22,7 +22,8 @@ from starlette.types import Scope
 from vinastudio import __version__
 from vinastudio.config import APP_NAME, STATIC_DIR, dev_server_url, max_upload_bytes
 from vinastudio.core.errors import ReceptorTemplateError, VinaStudioError
-from vinastudio.core.paths import cleanup_orphan_workspaces, resolve_artifact
+from vinastudio.core.paths import cleanup_orphan_workspaces, resolve_artifact, workspace_root
+from vinastudio.core.workspace import referenced_workspace_dirs
 from vinastudio.server.auth import TOKEN_HEADER, host_is_trusted, token_matches
 from vinastudio.server.body_limit import BodyLimitMiddleware
 from vinastudio.server.job_manager import manager as job_manager
@@ -67,9 +68,19 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Rebuild the jobs list from job.json so a restarted session still shows
     # past results; never in JobManager.__init__ — imports must not do IO.
     job_manager.restore_history()
-    removed = cleanup_orphan_workspaces()
-    if removed:
-        log.info("removed %d orphan preparation directories", removed)
+    try:
+        protected = referenced_workspace_dirs(workspace_root())
+    except Exception:
+        # A manifest/project/catalog that cannot be read is not permission to
+        # delete every preparation directory; skip reclaiming this launch.
+        log.warning(
+            "could not read workspace references; skipping orphan cleanup",
+            exc_info=True,
+        )
+    else:
+        removed = cleanup_orphan_workspaces(protected=protected)
+        if removed:
+            log.info("removed %d orphan preparation directories", removed)
     log.info("%s API ready", APP_NAME)
     yield
     job_manager.shutdown()

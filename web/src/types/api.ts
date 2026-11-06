@@ -1899,3 +1899,11 @@ export interface CatalogLibraryInput {
   moleculeIds?: string[]
   selectionId?: string
 }
+
+/** Result of the workspace molecule existence/artifact check. */
+export interface MoleculeVerifyResponse {
+  existing: string[]
+  missing: string[]
+  missingArtifacts: Record<string, string[]>
+  mtimes: Record<string, number>
+}
