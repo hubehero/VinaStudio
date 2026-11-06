@@ -357,9 +357,11 @@ projects in the workspace's `projects/` folder.
 
 The Job history header shows the total size of indexed jobs. A terminal job has
 a small delete button; confirmation is required, and the action removes its
-poses, log and result-index row. Running jobs and unindexed preparation
-directories are never offered for deletion. Nothing is deleted automatically;
-use this when a workspace has accumulated old results.
+poses, log and result-index row. Running jobs and indexed history are never
+removed automatically. On startup the app may reclaim preparation/render
+directories older than 30 days only when no molecule manifest, project, catalog
+or library index references them; referenced artifacts and indexed jobs are
+kept. Use the delete button when a workspace has accumulated old results.
 
 ---
 

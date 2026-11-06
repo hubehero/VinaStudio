@@ -115,7 +115,9 @@ does not delete user files.
 - The picker does not build a local fingerprint/ANN index or provide
   substructure/similarity search; that remains a separate product decision.
 - Catalog 1iep has been exercised through preparation, Study → docking and an
-  actual catalog-library virtual screening run.
+  actual catalog-library virtual screening run. Individually prepared Catalog
+  molecules also enter the legacy receptor/ligand selectors at startup and
+  immediately after preparation; a Study is not required.
 
 ## For developers
 

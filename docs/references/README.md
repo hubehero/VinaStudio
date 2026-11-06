@@ -38,7 +38,7 @@
   允许的再分发，署名见上表。
 - **fpocket 的软件本体是 GNU GPL**（论文 §Availability 明载；另有第三方资料写
   MIT，存在不一致）。本项目**只按论文描述自行实现，不阅读、不复制、不链接
-  fpocket 源码**——沿用 `AGENTS.md` 既有的 GPL 隔离先例（MolEditPy 作行为规格）。
+  fpocket 源码**——沿用项目的 GPL 隔离原则（MolEditPy 作行为规格，不复制实现）。
 - 第三方网页指南（如 Talindrew 的 P2Rank vs fpocket 对比）**只作为线索**，
   未收录其正文；需要时按 URL 引用，不作为实现依据。
 

@@ -227,7 +227,7 @@ Study、集合、筛选库与 FTS5 索引；结构文件本身仍在磁盘上。
   `molecules.json.pre-catalog`；旧 `/api/molecules` 仅保留兼容投影，不是
   第二写源。
 - 只有 Study 的主受体与首个配体都已有 PDBQT 产物时，页面才会把它们接入
-  现有对接管线。
+  现有对接管线；Catalog 中单独准备的分子也会在启动和准备完成后桥接进选择器。
 - 文件、SMILES、2D 画板、示例、RCSB、PubChem、ChEMBL 都写入 Catalog；
   表格用 `ElTableV2` 虚拟渲染行并记住列显示配置，API 仍按页返回。
 

@@ -260,6 +260,8 @@ Libraries and an FTS5 index. Structures stay on disk.
   `/api/molecules` shape survives as a compatibility projection only.
 - The new page can adopt a Study's primary receptor and first ligand into the
   existing docking pipeline only when both have prepared PDBQT artifacts.
+  Individually prepared Catalog molecules are also bridged into the legacy
+  receptor/ligand selectors at startup and after preparation.
 - Every import path (files, SMILES, sketcher, samples, RCSB, PubChem, ChEMBL)
   writes Catalog rows; the table virtualises rows with `ElTableV2` and keeps
   visible-column choices, while the API still returns bounded pages.

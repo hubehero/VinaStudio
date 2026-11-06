@@ -111,7 +111,8 @@ Catalog 的库成员关系是权威数据。增删成员、准备成员或删除
 - 虚拟筛选在库、运行和历史中显示库的显示名，同时请求仍使用稳定目录 id；点击排名行可查看单配体结果（评分、SMILES、耗时和输出目录）。
 - 选择器不建立本地指纹/ANN 索引，也不提供子结构/相似性搜索；那仍是独立的
   产品决策。
-- 1iep Catalog 已实测准备 → Study → 对接 → Catalog 库虚拟筛选。
+- 1iep Catalog 已实测准备 → Study → 对接 → Catalog 库虚拟筛选；Catalog 中单独
+  准备的分子也会在启动和准备完成后进入旧对接选择器，不要求先建 Study。
 
 ## 源路径与预览边界
 
@@ -119,8 +120,8 @@ Catalog 的库成员关系是权威数据。增删成员、准备成员或删除
 preview 接受任意路径：Catalog 把这类文件记录为 `path_kind: external`，
 `/molecules/{id}/preview` 只读取该分子已经登记的文件，不接受裸路径参数。
 浏览器导入必须走 `/api/files/upload`，由服务端写入工作区。回环 API 还会拒绝
-带有外部 `Origin` 的状态修改请求，规则见 `docs/ARCHITECTURE.md` 与
-`exchange/HANDBOOK.md` §4.11。外部源文件保留在原位置以支持原地工作流；需要
+带有外部 `Origin` 的状态修改请求，规则见 `docs/ARCHITECTURE.md`。
+外部源文件保留在原位置以支持原地工作流；需要
 跨机器可移植时，应把文件复制到工作区。
 
 

@@ -8,8 +8,8 @@
 >
 > 本文说明支持范围、能做什么、已知边界和排障方法。科学方法学与格式限制
 > （能量不可跨打分函数比较、PDBQT 无键级等）与 Linux 版完全相同，见
-> [USER_GUIDE.zh-CN.md](USER_GUIDE.zh-CN.md)；更深的实现细节在源码树的
-> `docs/TECHNICAL_GUIDE.md`。
+> [USER_GUIDE.zh-CN.md](USER_GUIDE.zh-CN.md)；更深的实现细节见
+> [ARCHITECTURE.zh-CN.md](ARCHITECTURE.zh-CN.md)。
 
 ---
 
