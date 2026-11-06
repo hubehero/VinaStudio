@@ -12,6 +12,8 @@ entries about the product — no internal task ids or workflow narration.
 
 ## [Unreleased]
 
+## [0.6.9] - 2026-11-06
+
 ### 修复
 
 - **安装**：`httpx` 改为运行时依赖，标准方式安装后应用可正常启动；运行时直接依赖增加下一个主版本上界（日历版本以 2027 为界），锁文件仍固定实际版本；发布预检会检查未声明的第三方导入。

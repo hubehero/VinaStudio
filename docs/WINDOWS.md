@@ -2,10 +2,10 @@
 
 **English** · [简体中文](WINDOWS.zh-CN.md) · [Home](../README.en.md)
 
-> **Status (2026-11-03).** Windows is supported from **0.4.0**. The current
-> **0.6.8** installer is built by CI; the 2026-10-20 real-machine walkthrough
+> **Status (2026-11-06).** Windows is supported from **0.4.0**. The current
+> **0.6.9** release is built by CI; the 2026-10-20 real-machine walkthrough
 > validated the 0.3.0 development build. No new manual walkthrough was done for
-> 0.6.8, so this page separates the hardware walkthrough from the CI build.
+> 0.6.9, so this page separates the hardware walkthrough from the CI build.
 >
 > This page covers what is supported, what works, where the boundaries are, and
 > how to diagnose a problem. The scientific conventions (energies are not
@@ -24,7 +24,7 @@
 | Installer size | about 230 MB |
 | Graphics | A Direct3D 11 GPU (Intel, NVIDIA or AMD); WebGL goes through ANGLE onto D3D11 |
 | Docking engine | The bundled **AutoDock Vina 1.2.7 command-line binary** (Apache-2.0) |
-| Availability | **0.4.0+**; 0.6.8 is the current release installer, CI-built. The real-machine walkthrough covered the 0.3.0 development build |
+| Availability | **0.4.0+**; 0.6.9 is the current release, CI-built. The real-machine walkthrough covered the 0.3.0 development build |
 | Code signing | **Unsigned**, so SmartScreen asks for confirmation on first run (see §2) |
 
 The installer carries the Python runtime, the scientific stack and the Vina
@@ -192,11 +192,13 @@ administrator rights.
 - Development-tree installer used for the walkthrough: `vinastudio-0.3.0-setup.exe`,
   229,564,630 bytes, SHA-256
   `ec51d3d5e8448b2ab65b4a8a02dc88c25175e86aac80dac1ae81f2c9370bbb66`.
-- **0.6.8 release installer (current)**: `vinastudio-0.6.8-setup.exe`,
+- **0.6.8 release installer (last measured)**: `vinastudio-0.6.8-setup.exe`,
   232,271,727 bytes, SHA-256
   `6adfb3298ee713fcfe79a808497df4c6a998e13ea1a80faa6d9c21ae5ed19413`,
   built from tag `v0.6.8` (`1292125`) by run `41647837199`. This is a CI-built
   installer; the real-machine walkthrough above remains the 0.3.0 evidence.
+- **0.6.9 release build**: produced by the same CI pipeline from tag `v0.6.9`;
+  its asset sizes and SHA-256 values are recorded on the release page.
 - **0.6.2 historical installer**: `vinastudio-0.6.2-setup.exe`,
   232,152,460 bytes, SHA-256
   `1147bdaae7e5bf8f6a6dafd2702e424e70dc3127184f3aaa2292d197f764938b`,
