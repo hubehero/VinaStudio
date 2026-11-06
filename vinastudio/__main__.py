@@ -80,8 +80,9 @@ def main(argv: list[str] | None = None) -> int:
     application.setWindowIcon(app_icon())
 
     # One token per process: it never touches disk, and a restarted session
-    # invalidates any token an old page still holds.
-    api_token = generate_token()
+    # invalidates any token an old page still holds. The CI name is a test seam
+    # for the frozen-build check; a normal launch never sets it.
+    api_token = os.environ.get("VINASTUDIO_CI_API_TOKEN") or generate_token()
     server = LocalServer(create_app(token=api_token), port=args.api_port)
     try:
         server.start()

@@ -219,6 +219,9 @@ jobs:
           $env:VINASTUDIO_HOME = $appHome
           $env:QT_QPA_PLATFORM = "offscreen"
           $env:VINASTUDIO_SIMULATE_NO_CONSOLE = "1"
+          # H2 protects /api/**; give this frozen-build probe its own token.
+          $env:VINASTUDIO_CI_API_TOKEN = [guid]::NewGuid().ToString("N")
+          $headers = @{ "X-VinaStudio-Token" = $env:VINASTUDIO_CI_API_TOKEN }
           $out = Join-Path $env:TEMP "vinastudio-ci.out"
           $err = Join-Path $env:TEMP "vinastudio-ci.err"
           $proc = Start-Process -FilePath "dist/vinastudio/vinastudio.exe" `
@@ -234,7 +237,7 @@ jobs:
             }
             if (-not $port) { throw "the app never opened a listening port within three minutes" }
 
-            $info = Invoke-RestMethod "http://127.0.0.1:$port/api/system/info"
+            $info = Invoke-RestMethod "http://127.0.0.1:$port/api/system/info" -Headers $headers
             Write-Host ("backend={0} reason={1} cliAvailable={2}" -f `
               $info.docking.backend, $info.docking.reasonCode, $info.docking.cliAvailable)
             if ($info.docking.backend -ne "vina-cli") {
@@ -246,7 +249,7 @@ jobs:
             # installation was missing "vina" — true about the import, false about
             # the capability. Assert the verdict the page renders, in the frozen
             # build, where the module really is unimportable.
-            $check = Invoke-RestMethod "http://127.0.0.1:$port/api/system/selfcheck"
+            $check = Invoke-RestMethod "http://127.0.0.1:$port/api/system/selfcheck" -Headers $headers
             Write-Host ("dockingAvailable={0} dockingMissing=[{1}] failed=[{2}]" -f `
               $check.dockingAvailable, ($check.dockingMissing -join ","), ($check.failed -join ","))
             if (-not $check.dockingAvailable) {
@@ -285,13 +288,13 @@ jobs:
             } | ConvertTo-Json -Depth 4
             $dockJob = Invoke-RestMethod -Method Post `
               -Uri "http://127.0.0.1:$port/api/docking/start" `
-              -ContentType "application/json" -Body $dockBody
+              -ContentType "application/json" -Body $dockBody -Headers $headers
             Write-Host "started docking job $($dockJob.jobId)"
 
             $dockStatus = $null
             foreach ($attempt in 1..90) {
               Start-Sleep -Seconds 2
-              $dockStatus = Invoke-RestMethod "http://127.0.0.1:$port/api/docking/jobs/$($dockJob.jobId)"
+              $dockStatus = Invoke-RestMethod "http://127.0.0.1:$port/api/docking/jobs/$($dockJob.jobId)" -Headers $headers
               if ($dockStatus.status -in @("completed", "failed", "cancelled")) { break }
             }
             if ($null -eq $dockStatus -or $dockStatus.status -ne "completed") {
@@ -304,7 +307,7 @@ jobs:
               throw "docking did not complete: $state log=$tail"
             }
 
-            $dockResult = Invoke-RestMethod "http://127.0.0.1:$port/api/docking/jobs/$($dockJob.jobId)/result"
+            $dockResult = Invoke-RestMethod "http://127.0.0.1:$port/api/docking/jobs/$($dockJob.jobId)/result" -Headers $headers
             if ($dockResult.poses.Count -lt 1) { throw "docking completed with no poses" }
             if ($dockResult.bestAffinity -ge 0) {
               throw "docking returned a non-negative affinity: $($dockResult.bestAffinity)"
@@ -320,7 +323,7 @@ jobs:
             Write-Host "--- main window title: '$($proc.MainWindowTitle)'"
             if ($dockJob) {
               try {
-                $s = Invoke-RestMethod "http://127.0.0.1:$port/api/docking/jobs/$($dockJob.jobId)"
+                $s = Invoke-RestMethod "http://127.0.0.1:$port/api/docking/jobs/$($dockJob.jobId)" -Headers $headers
                 Write-Host "--- docking job $($dockJob.jobId): $($s.status) $($s.progress)% stage=$($s.stage) error=$($s.error)"
                 $s.log | Select-Object -Last 20 | ForEach-Object { Write-Host "    $_" }
               } catch {
