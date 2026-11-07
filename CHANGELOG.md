@@ -12,6 +12,8 @@ entries about the product — no internal task ids or workflow narration.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-07
+
 ### 新增
 
 - **准备缓存**：相同源文件与准备选项再次准备时直接复用 PDBQT/PDB/SDF 与报告，不再重复运行 Meeko；命中状态通过 `run.cached` 返回。

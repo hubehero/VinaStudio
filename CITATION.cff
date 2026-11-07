@@ -3,7 +3,7 @@ message: "If you use VinaStudio in academic work, cite the software and the meth
 title: "VinaStudio"
 abstract: "A desktop workbench for reproducible AutoDock Vina molecular docking."
 type: software
-version: "0.6.9"
+version: "0.7.0"
 date-released: 2026-11-03
 license: MIT
 repository-code: "https://github.com/hubehero/VinaStudio"
