@@ -126,6 +126,10 @@ preview 接受任意路径：Catalog 把这类文件记录为 `path_kind: extern
 
 
 
+- **准备库**是只读动态作用域（`prep=prepared`），只列出已有准备产物的受体和
+  配体；取消准备会移除准备记录并释放未被引用的缓存目录，源文件保留。该库不能
+  手动扩充或重命名。
+
 ## 面向开发者
 
 - 核心：`vinastudio/core/catalog/`（`db`、`store`、`query`、`identity`、`migrate`、`suggest`、`library`）

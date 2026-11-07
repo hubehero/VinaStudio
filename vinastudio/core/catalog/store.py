@@ -544,6 +544,42 @@ def add_library_member(
     return cursor.rowcount > 0
 
 
+_PREPARED_FILE_KINDS = ("pdbqt", "pdb", "sdf", "flex_pdbqt")
+
+
+def unprepare_molecule(conn: sqlite3.Connection, molecule_id: str) -> list[str]:
+    """Remove prepared artifacts and mark the molecule unprepared.
+
+    Source files use the ``source`` kind and are left untouched. Prepared
+    artifacts are rows of ``pdbqt``/``pdb``/``sdf``/``flex_pdbqt``. The returned
+    paths are candidates for cache-directory release after the transaction.
+    """
+    rows = conn.execute(
+        """SELECT path FROM molecule_files
+           WHERE molecule_id = ?
+             AND (kind IN ('pdbqt', 'flex_pdbqt')
+                  OR (kind IN ('pdb', 'sdf') AND is_primary = 0))""",
+        (molecule_id,),
+    ).fetchall()
+    paths = [str(row["path"]) for row in rows]
+    conn.execute(
+        """DELETE FROM molecule_files
+           WHERE molecule_id = ?
+             AND (kind IN ('pdbqt', 'flex_pdbqt')
+                  OR (kind IN ('pdb', 'sdf') AND is_primary = 0))""",
+        (molecule_id,),
+    )
+    conn.execute(
+        "UPDATE library_members SET prepared_path = NULL WHERE molecule_id = ?",
+        (molecule_id,),
+    )
+    conn.execute(
+        "UPDATE molecules SET prep_status = 'unprepared', updated_at = ? WHERE id = ?",
+        (_now(), molecule_id),
+    )
+    return paths
+
+
 def summary(conn: sqlite3.Connection) -> Json:
     def count(table: str) -> int:
         return int(conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
@@ -553,6 +589,9 @@ def summary(conn: sqlite3.Connection) -> Json:
         "studies": count("studies"),
         "collections": count("collections"),
         "libraries": count("libraries"),
+        "prepared": int(conn.execute(
+            "SELECT COUNT(*) FROM molecules WHERE prep_status = 'prepared'"
+        ).fetchone()[0]),
     }
 
 

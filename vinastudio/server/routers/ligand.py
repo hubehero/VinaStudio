@@ -6,6 +6,7 @@ import logging
 
 from fastapi import APIRouter
 
+from vinastudio.core import prep_cache
 from vinastudio.core.chem.ligand_prep import (
     LigandPrepOptions,
     inspect_ligand,
@@ -25,7 +26,7 @@ from vinastudio.schemas.preparation import (
     LigandProperties,
     LigandReport,
 )
-from vinastudio.server.routers.artifacts import artifact, run_info
+from vinastudio.server.routers.artifacts import artifact, cached_artifacts, run_info
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/ligand", tags=["ligand"])
@@ -197,10 +198,34 @@ def prepare(request: LigandPrepareRequest) -> LigandPreparationResponse:
     reproducible.
     """
     chosen = request.options
-    workspace = create_workspace(
-        f"ligand-{request.path}",
-        reuse_key=file_reuse_key(request.path, extra=chosen),
-    )
+    reuse_key = file_reuse_key(request.path, extra=chosen)
+    workspace = create_workspace(f"ligand-{request.path}", reuse_key=reuse_key)
+
+    cached = prep_cache.load_entry(workspace, kind="ligand", key=reuse_key)
+    if cached is not None:
+        written = cached_artifacts(workspace, cached)
+        pdbqt_item = next(
+            (
+                item
+                for item in cached.get("artifacts", [])
+                if isinstance(item, dict) and item.get("kind") == "pdbqt"
+            ),
+            None,
+        )
+        if written is not None and isinstance(pdbqt_item, dict):
+            pdbqt_path = workspace.file(str(pdbqt_item.get("name", "")))
+            try:
+                pdbqt = pdbqt_path.read_text(encoding="utf-8")
+            except OSError:
+                pdbqt = ""
+            if pdbqt:
+                log.info("ligand cache hit %s", request.path)
+                return LigandPreparationResponse(
+                    run=run_info(workspace, cached=True),
+                    report=LigandReport.model_validate(cached["report"]),
+                    artifacts=written,
+                    pdbqt=pdbqt,
+                )
 
     result = prepare_ligand(request.path, _ligand_options(chosen))
 
@@ -216,7 +241,7 @@ def prepare(request: LigandPrepareRequest) -> LigandPreparationResponse:
         result.report.rotatable_bonds,
     )
 
-    return LigandPreparationResponse(
+    response = LigandPreparationResponse(
         run=run_info(workspace),
         report=_to_report(result.report),
         artifacts=[
@@ -225,3 +250,15 @@ def prepare(request: LigandPrepareRequest) -> LigandPreparationResponse:
         ],
         pdbqt=result.pdbqt,
     )
+    try:
+        prep_cache.save_entry(
+            workspace,
+            kind="ligand",
+            source=request.path,
+            key=reuse_key,
+            report=response.report.model_dump(),
+            artifacts=[item.model_dump() for item in response.artifacts],
+        )
+    except OSError:
+        log.warning("could not write ligand cache marker for %s", request.path, exc_info=True)
+    return response

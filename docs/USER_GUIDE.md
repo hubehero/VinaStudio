@@ -89,6 +89,15 @@ The status bar shows the application version and the event channel. A green
 “connected” indicator means the interface and the local API are talking; both
 run on your machine, and the API listens on loopback only.
 
+### 3.2 Preparation cache
+
+Repeating a preparation with the same source, options, and file metadata reuses
+the cached PDBQT/PDB/SDF files and report instead of running Meeko again. The
+cache is local to the application and is managed from **Settings → Preparation
+cache**: automatic cleanup, retention days, maximum entries, usage statistics,
+and manual clearing are all there. Cache cleanup never removes a preparation
+still referenced by a molecule, project, Catalog entry, or library.
+
 > **Windows note:** the first run may be slow while the bundled runtime
 > initialises. Later launches are faster.
 

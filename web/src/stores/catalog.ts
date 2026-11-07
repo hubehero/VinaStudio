@@ -20,6 +20,7 @@ export type CatalogScope =
   | { kind: 'study'; id: string; name: string }
   | { kind: 'collection'; id: string; name: string }
   | { kind: 'library'; id: string; name: string }
+  | { kind: 'prepared' }
   | { kind: 'unassigned' }
 
 const EMPTY_FACETS: CatalogSearchFacets = { source: [], status: [], prep: [], tags: [] }
@@ -39,7 +40,7 @@ export const useCatalogStore = defineStore('catalog', () => {
   const libraries = ref<CatalogLibrary[]>([])
   const savedViews = ref<CatalogSavedView[]>([])
   const suggestions = ref<CatalogSuggestion[]>([])
-  const summary = ref<CatalogSummary>({ molecules: 0, studies: 0, collections: 0, libraries: 0 })
+  const summary = ref<CatalogSummary>({ molecules: 0, studies: 0, collections: 0, libraries: 0, prepared: 0 })
   const scope = ref<CatalogScope>({ kind: 'all' })
   const kind = ref('')
   const status = ref('')
@@ -145,6 +146,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     if (scope.value.kind === 'study') params.study_id = scope.value.id
     else if (scope.value.kind === 'collection') params.collection_id = scope.value.id
     else if (scope.value.kind === 'library') params.library_id = scope.value.id
+    else if (scope.value.kind === 'prepared') params.prep = 'prepared'
     else if (scope.value.kind === 'unassigned') params.unassigned = true
     return params
   }
@@ -209,6 +211,14 @@ export const useCatalogStore = defineStore('catalog', () => {
     if (index >= 0) molecules.value[index] = updated
   }
 
+  async function unprepareMolecule(id: string): Promise<void> {
+    const updated = await api.catalogUnprepareMolecule(id)
+    const index = molecules.value.findIndex((item) => item.id === id)
+    if (index >= 0) molecules.value[index] = updated
+    await loadContext()
+    if (scope.value.kind === 'prepared') await search()
+  }
+
   async function deleteMolecule(id: string): Promise<void> {
     await api.catalogDeleteMolecule(id)
     await refresh()
@@ -245,6 +255,8 @@ export const useCatalogStore = defineStore('catalog', () => {
     if (updated.files.some((file) => file.kind === 'pdbqt' || file.kind === 'flex_pdbqt')) {
       useMoleculeStore().adoptCatalogMolecule(updated)
     }
+    await loadContext()
+    if (scope.value.kind === 'prepared') await search()
   }
 
   /** Bridge every prepared Catalog molecule into the legacy docking pipeline.
@@ -521,6 +533,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     selectMolecule,
     patchMolecule,
     prepareMolecule,
+    unprepareMolecule,
     adoptPreparedForPipeline,
     deleteMolecule,
     bulkTag,

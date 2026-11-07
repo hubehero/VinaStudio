@@ -56,6 +56,8 @@ def slugify(text: str, *, fallback: str = "run", limit: int = 40) -> str:
 #: changes and terminal states; the log lives beside it because large text
 #: must never travel inside the JSON (HANDBOOK §4.6).
 JOB_STATE_FILENAME = "job.json"
+#: Completion marker for a preparation-cache entry.
+PREP_CACHE_MARKER = ".prep-cache.json"
 JOB_LOG_FILENAME = "job.log"
 POSES_SDF_FILENAME = "poses.sdf"
 BATCH_RESULTS_CSV_FILENAME = "batch_results.csv"
@@ -101,7 +103,12 @@ class Workspace:
 
     def write(self, name: str, content: str) -> Path:
         target = self.file(name)
-        target.write_text(content, encoding="utf-8")
+        tmp = target.with_name(f".{target.name}.{os.getpid()}.{os.urandom(4).hex()}.tmp")
+        try:
+            tmp.write_text(content, encoding="utf-8")
+            os.replace(tmp, target)
+        finally:
+            tmp.unlink(missing_ok=True)
         return target
 
     def relative(self, target: Path) -> str:
@@ -186,6 +193,10 @@ def cleanup_orphan_workspaces(
     removed = 0
     for entry in entries:
         if not entry.is_dir() or (entry / JOB_STATE_FILENAME).exists():
+            continue
+        # Marked preparation cache entries are managed by prep_cache.cleanup,
+        # which applies the user's retention and entry-cap settings.
+        if (entry / PREP_CACHE_MARKER).exists():
             continue
         try:
             if entry.resolve() in protected:

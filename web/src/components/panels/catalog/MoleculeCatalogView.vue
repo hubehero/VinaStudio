@@ -226,6 +226,7 @@ function scopeLabel(): string {
   if (store.scope.kind === 'study') return store.scope.name
   if (store.scope.kind === 'collection') return store.scope.name
   if (store.scope.kind === 'library') return store.scope.name
+  if (store.scope.kind === 'prepared') return t('catalog.preparedLibrary')
   if (store.scope.kind === 'unassigned') return t('catalog.unassigned')
   return t('catalog.all')
 }
@@ -511,6 +512,25 @@ async function removeView(id: string): Promise<void> {
   await store.deleteSavedView(id)
 }
 
+async function unprepareActive(): Promise<void> {
+  const mol = active.value
+  if (!mol || mol.prepStatus !== 'prepared') return
+  try {
+    await ElMessageBox.confirm(
+      t('catalog.unprepareConfirm', { name: mol.name }),
+      { type: 'warning', confirmButtonText: t('catalog.unprepare') },
+    )
+  } catch {
+    return
+  }
+  try {
+    await store.unprepareMolecule(mol.id)
+    ElMessage.success(t('catalog.unprepareDone'))
+  } catch (cause) {
+    ElMessage.error(cause instanceof Error ? cause.message : t('catalog.unprepareFailed'))
+  }
+}
+
 async function removeActive(): Promise<void> {
   const mol = active.value
   if (!mol) return
@@ -533,7 +553,7 @@ async function addBulkTag(): Promise<void> {
 
 async function renameScope(): Promise<void> {
   const current = store.scope
-  if (current.kind === 'all' || current.kind === 'unassigned') return
+  if (current.kind === 'all' || current.kind === 'unassigned' || current.kind === 'prepared') return
   const name = await promptName(t('catalog.rename'))
   if (!name) return
   try {
@@ -898,6 +918,13 @@ async function applySuggestion(id: string): Promise<void> {
         >
           {{ t('catalog.unassigned') }}
         </button>
+        <button
+          class="tree-item"
+          :class="{ active: store.scope.kind === 'prepared' }"
+          @click="store.setScope({ kind: 'prepared' })"
+        >
+          {{ t('catalog.preparedLibrary') }} <span>{{ store.summary.prepared }}</span>
+        </button>
 
         <section class="tree-section">
           <div class="tree-section__head">
@@ -973,7 +1000,7 @@ async function applySuggestion(id: string): Promise<void> {
               </p>
             </div>
             <div class="catalog-scope__actions">
-              <el-button size="small" @click="renameScope">{{ t('catalog.rename') }}</el-button>
+              <el-button v-if="store.scope.kind !== 'prepared'" size="small" @click="renameScope">{{ t('catalog.rename') }}</el-button>
               <el-button
                 v-if="store.scope.kind === 'study'"
                 size="small"
@@ -1010,8 +1037,11 @@ async function applySuggestion(id: string): Promise<void> {
             <span>{{ t('catalog.collectionMembers', { n: collectionCount }) }}</span>
             <span class="muted">{{ t('catalog.scopeMembersHint') }}</span>
           </div>
+          <div v-else-if="store.scope.kind === 'prepared'" class="catalog-scope-summary">
+            <span class="muted">{{ t('catalog.preparedLibraryHint') }}</span>
+          </div>
         </section>
-        <div v-if="selectedCount > 0" class="catalog-bulk">
+        <div v-if="selectedCount > 0 && store.scope.kind !== 'prepared'" class="catalog-bulk">
           <strong>{{ t('catalog.selected', { n: selectedCount }) }}</strong>
           <el-select v-model="targetStudyId" size="small" clearable :placeholder="t('catalog.addToStudy')">
             <el-option v-for="study in store.studies" :key="study.id" :label="study.name" :value="study.id" />
@@ -1082,7 +1112,21 @@ async function applySuggestion(id: string): Promise<void> {
           >
             {{ t('catalog.prepare') }}
           </el-button>
-          <el-button size="small" text type="danger" @click="removeActive">{{ t('catalog.removeMolecule') }}</el-button>
+          <el-button
+            v-if="active.prepStatus === 'prepared'"
+            size="small"
+            type="warning"
+            @click="unprepareActive"
+          >
+            {{ t('catalog.unprepare') }}
+          </el-button>
+          <el-button
+            v-if="store.scope.kind !== 'prepared'"
+            size="small"
+            text
+            type="danger"
+            @click="removeActive"
+          >{{ t('catalog.removeMolecule') }}</el-button>
           <ViewportCanvas
             v-if="receptorUrl || ligandUrl"
             :receptor-url="receptorUrl"

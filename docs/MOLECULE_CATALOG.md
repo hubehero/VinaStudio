@@ -119,6 +119,11 @@ does not delete user files.
   molecules also enter the legacy receptor/ligand selectors at startup and
   immediately after preparation; a Study is not required.
 
+- The **Prepared library** is a read-only dynamic scope (`prep=prepared`) listing
+  receptors and ligands with prepared artifacts. Cancel preparation removes the
+  prepared rows and releases an unreferenced cache directory; the source file is
+  retained. It cannot be manually extended or renamed.
+
 ## For developers
 
 - Core: `vinastudio/core/catalog/` (`db`, `store`, `query`, `identity`,

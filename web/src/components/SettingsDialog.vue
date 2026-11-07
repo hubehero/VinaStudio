@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  Delete,
   FolderOpened,
   Grid,
   Monitor,
@@ -8,7 +9,7 @@ import {
   Sunny,
   View,
 } from '@element-plus/icons-vue'
-import { ElAlert, ElButton, ElDialog, ElInput, ElInputNumber, ElMessage, ElRadio, ElRadioGroup, ElSlider, ElSwitch } from 'element-plus'
+import { ElAlert, ElButton, ElDialog, ElInput, ElInputNumber, ElMessage, ElMessageBox, ElRadio, ElRadioGroup, ElSlider, ElSwitch } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -16,7 +17,7 @@ import { api } from '@/api/http'
 import { openInBrowser, pickDirectory } from '@/api/bridge'
 import { rendererInfo } from '@/composables/use3Dmol'
 import { useSettingsStore } from '@/stores/settings'
-import type { UpdateCheck } from '@/types/api'
+import type { CacheSettings, CacheStats, UpdateCheck } from '@/types/api'
 import { useUiStore, type ThemeMode } from '@/stores/ui'
 import { useWorkspaceStore } from '@/stores/workspace'
 
@@ -36,13 +37,22 @@ const workspaceName = ref('')
 const migrateTargetPath = ref('')
 const isMigrating = ref(false)
 
+// Preparation cache settings are owned by the server so cleanup can run at
+// startup without relying on the browser having opened Settings first.
+const cacheSettings = ref<CacheSettings>({ autoCleanup: true, retentionDays: 30, maxEntries: 100 })
+const cacheStats = ref<CacheStats | null>(null)
+const cacheAvailable = ref(true)
+const cacheSaving = ref(false)
+let cacheSaveSeq = 0
+
 // Tab navigation
-type TabKey = 'general' | 'workspace' | 'viewer' | 'render' | 'surface'
+type TabKey = 'general' | 'workspace' | 'cache' | 'viewer' | 'render' | 'surface'
 const activeTab = ref<TabKey>('general')
 
 const tabs = computed<{ key: TabKey; label: string; icon: typeof Setting }[]>(() => [
   { key: 'general', label: t('settings.general'), icon: Setting },
   { key: 'workspace', label: t('workspace.settings.title'), icon: FolderOpened },
+  { key: 'cache', label: t('settings.cache.title'), icon: Delete },
   { key: 'viewer', label: t('settings.viewer'), icon: View },
   { key: 'render', label: t('settings.renderQuality'), icon: Monitor },
   { key: 'surface', label: t('settings.surface'), icon: Grid },
@@ -67,6 +77,61 @@ function open(): void {
   visible.value = true
   activeTab.value = 'general'
   workspaceName.value = workspace.workspaceName
+  void loadCacheState()
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KiB`
+  if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MiB`
+  return `${(bytes / 1024 ** 3).toFixed(2)} GiB`
+}
+
+async function loadCacheState(): Promise<void> {
+  try {
+    const state = await api.cacheState()
+    cacheSettings.value = state.settings
+    cacheStats.value = state.stats
+    cacheAvailable.value = true
+  } catch {
+    cacheAvailable.value = false
+  }
+}
+
+async function saveCacheSettings(): Promise<void> {
+  const sequence = ++cacheSaveSeq
+  cacheSaving.value = true
+  try {
+    const state = await api.updateCacheSettings(cacheSettings.value)
+    if (sequence !== cacheSaveSeq) return
+    cacheSettings.value = state.settings
+    cacheStats.value = state.stats
+    cacheAvailable.value = true
+  } catch {
+    if (sequence === cacheSaveSeq) ElMessage.error(t('settings.cache.saveFailed'))
+  } finally {
+    if (sequence === cacheSaveSeq) cacheSaving.value = false
+  }
+}
+
+async function clearCache(): Promise<void> {
+  if (!cacheStats.value || cacheStats.value.entries === 0) return
+  try {
+    await ElMessageBox.confirm(
+      t('settings.cache.clearConfirm'),
+      t('settings.cache.clearTitle'),
+      { type: 'warning', confirmButtonText: t('common.clear') },
+    )
+  } catch {
+    return
+  }
+  try {
+    const result = await api.clearCache()
+    ElMessage.success(t('settings.cache.cleared', { n: result.removed }))
+    await loadCacheState()
+  } catch {
+    ElMessage.error(t('settings.cache.clearFailed'))
+  }
 }
 
 function handleThemeChange(val: string | number | boolean | undefined): void {
@@ -360,6 +425,93 @@ defineExpose({ open })
               </ElButton>
               <p class="workspace-migrate__hint">{{ t('workspace.settings.migrateHint') }}</p>
             </div>
+          </div>
+        </div>
+
+        <!-- Preparation cache -->
+        <div v-show="activeTab === 'cache'" class="settings-section">
+          <ElAlert
+            v-if="!cacheAvailable"
+            :title="t('settings.cache.unavailable')"
+            type="warning"
+            :closable="false"
+            show-icon
+            class="settings-update-alert"
+          />
+
+          <label class="settings-item">
+            <div class="settings-item__info">
+              <span class="settings-item__label">{{ t('settings.cache.autoCleanup') }}</span>
+              <span class="settings-item__desc">{{ t('settings.cache.autoCleanupDesc') }}</span>
+            </div>
+            <ElSwitch
+              v-model="cacheSettings.autoCleanup"
+              size="small"
+              :disabled="cacheSaving"
+              @change="saveCacheSettings"
+            />
+          </label>
+
+          <div class="settings-item">
+            <div class="settings-item__info">
+              <span class="settings-item__label">{{ t('settings.cache.retentionDays') }}</span>
+              <span class="settings-item__desc">{{ t('settings.cache.retentionDaysDesc') }}</span>
+            </div>
+            <ElInputNumber
+              v-model="cacheSettings.retentionDays"
+              :min="0"
+              :max="3650"
+              size="small"
+              :disabled="cacheSaving"
+              @change="saveCacheSettings"
+            />
+          </div>
+
+          <div class="settings-item">
+            <div class="settings-item__info">
+              <span class="settings-item__label">{{ t('settings.cache.maxEntries') }}</span>
+              <span class="settings-item__desc">{{ t('settings.cache.maxEntriesDesc') }}</span>
+            </div>
+            <ElInputNumber
+              v-model="cacheSettings.maxEntries"
+              :min="1"
+              :max="100000"
+              size="small"
+              :disabled="cacheSaving"
+              @change="saveCacheSettings"
+            />
+          </div>
+
+          <div class="settings-item">
+            <div class="settings-item__info">
+              <span class="settings-item__label">{{ t('settings.cache.statsTitle') }}</span>
+              <span class="settings-item__desc">{{ t('settings.cache.protectedNote') }}</span>
+            </div>
+            <span class="settings-item__value">
+              {{ cacheStats
+                ? t('settings.cache.summary', {
+                    entries: cacheStats.entries,
+                    size: formatBytes(cacheStats.bytes),
+                    protected: cacheStats.protectedEntries,
+                  })
+                : '—' }}
+            </span>
+          </div>
+
+          <div class="settings-item">
+            <div class="settings-item__info">
+              <span class="settings-item__label">{{ t('settings.cache.clear') }}</span>
+              <span class="settings-item__desc">{{ t('settings.cache.clearDesc') }}</span>
+            </div>
+            <ElButton
+              type="warning"
+              size="small"
+              :disabled="!cacheStats || cacheStats.entries === 0"
+              @click="clearCache"
+            >
+              <el-icon><Delete /></el-icon>
+              {{ t('settings.cache.clear') }}
+            </ElButton>
           </div>
         </div>
 

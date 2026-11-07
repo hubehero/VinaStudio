@@ -12,6 +12,18 @@ entries about the product — no internal task ids or workflow narration.
 
 ## [Unreleased]
 
+### 新增
+
+- **准备缓存**：相同源文件与准备选项再次准备时直接复用 PDBQT/PDB/SDF 与报告，不再重复运行 Meeko；命中状态通过 `run.cached` 返回。
+- **缓存管理**：设置新增「准备缓存」，可配置启动自动清理、保留天数、最大缓存数量，查看占用统计并手动清理；被分子清单、项目、Catalog 或库索引引用的准备结果不会被删除。
+- **准备库**：Catalog 新增只读动态「准备库」，只收录已有准备产物的受体/配体；支持取消准备，从动态库移除并释放未引用的准备缓存，源文件保留。
+
+### Added
+
+- **Preparation cache**: preparing the same source with the same options reuses the PDBQT/PDB/SDF and report instead of running Meeko again; hits are reported as `run.cached`.
+- **Cache management**: Settings → Preparation cache controls startup cleanup, retention days and the entry cap, shows usage, and offers manual clearing; preparations referenced by molecules, projects, Catalog or libraries are never removed.
+- **Prepared library**: Catalog gains a read-only dynamic Prepared library containing only receptors/ligands with prepared artifacts. Cancel preparation removes a molecule from it and releases its unreferenced cache; the source file stays.
+
 ## [0.6.9] - 2026-11-06
 
 ### 修复

@@ -149,6 +149,7 @@ export interface Artifact {
 export interface RunInfo {
   runId: string
   directory: string
+  cached: boolean
 }
 
 export interface FileFilters {
@@ -1731,6 +1732,7 @@ export interface CatalogSummary {
   studies: number
   collections: number
   libraries: number
+  prepared: number
 }
 
 export interface CatalogCollectionMember {
@@ -1906,4 +1908,29 @@ export interface MoleculeVerifyResponse {
   missing: string[]
   missingArtifacts: Record<string, string[]>
   mtimes: Record<string, number>
+}
+
+export interface CacheSettings {
+  autoCleanup: boolean
+  retentionDays: number
+  maxEntries: number
+}
+
+export interface CacheStats {
+  entries: number
+  bytes: number
+  protectedEntries: number
+  protectedBytes: number
+  oldestDays: number | null
+}
+
+export interface CacheState {
+  settings: CacheSettings
+  stats: CacheStats
+}
+
+export interface CacheClearResult {
+  removed: number
+  bytes: number
+  skippedProtected: number
 }

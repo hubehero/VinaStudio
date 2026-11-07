@@ -21,6 +21,7 @@ from starlette.types import Scope
 
 from vinastudio import __version__
 from vinastudio.config import APP_NAME, STATIC_DIR, dev_server_url, max_upload_bytes
+from vinastudio.core import prep_cache
 from vinastudio.core.errors import ReceptorTemplateError, VinaStudioError
 from vinastudio.core.paths import cleanup_orphan_workspaces, resolve_artifact, workspace_root
 from vinastudio.core.workspace import referenced_workspace_dirs
@@ -34,6 +35,7 @@ from vinastudio.server.origin import (
 )
 from vinastudio.server.routers import (
     box,
+    cache,
     catalog,
     chem,
     docking,
@@ -78,6 +80,10 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
             exc_info=True,
         )
     else:
+        cache_settings = prep_cache.load_settings()
+        cache_result = prep_cache.cleanup(cache_settings, protected=protected)
+        if cache_result["removed"]:
+            log.info("removed %d preparation-cache entries", cache_result["removed"])
         removed = cleanup_orphan_workspaces(protected=protected)
         if removed:
             log.info("removed %d orphan preparation directories", removed)
@@ -166,7 +172,7 @@ def create_app(token: str | None = None) -> FastAPI:
     app.include_router(ws_router)
 
     # Domain routers; each new phase adds one here.
-    for router in (system.router, files.router, ligand.router, receptor.router, box.router, catalog.router, docking.router, project.router, interactions.router, workspace.router, library.router, library_compounds.router, molecules.router, chem.router, results.router, screening.router, sites.router):
+    for router in (system.router, files.router, ligand.router, receptor.router, box.router, cache.router, catalog.router, docking.router, project.router, interactions.router, workspace.router, library.router, library_compounds.router, molecules.router, chem.router, results.router, screening.router, sites.router):
         app.include_router(router, prefix="/api")
 
     _add_docs_endpoint(app)

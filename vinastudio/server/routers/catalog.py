@@ -14,6 +14,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, Response
 
+from vinastudio.core import prep_cache
 from vinastudio.core.catalog import db, migrate, query, store, suggest
 from vinastudio.core.catalog.identity import identity_for_file
 from vinastudio.core.catalog.library import invalidate_library_materialization, materialize_library
@@ -21,6 +22,7 @@ from vinastudio.core.chem.detect import detect_kind
 from vinastudio.core.chem.preview import renderable_ligand_3d
 from vinastudio.core.errors import InvalidInputError
 from vinastudio.core.paths import resolve_within
+from vinastudio.core.workspace import referenced_workspace_dirs
 from vinastudio.schemas.catalog import (
     CatalogMoleculeOut,
     CatalogPrepareRequest,
@@ -323,6 +325,33 @@ def prepare_molecule(
     if workspace is not None:
         for library_id in affected_libraries:
             invalidate_library_materialization(workspace, library_id)
+    return detail
+
+
+@router.post("/molecules/{molecule_id}/unprepare", response_model=CatalogMoleculeOut)
+def unprepare_molecule(molecule_id: str) -> dict[str, Any]:
+    """Remove prepared artifacts and release their cache when unreferenced."""
+    from vinastudio.server.routers.workspace import get_active_workspace
+
+    workspace = get_active_workspace()
+    with db.transaction(_ready()) as conn:
+        affected_libraries = store.libraries_for_molecule(conn, molecule_id)
+        removed_paths = store.unprepare_molecule(conn, molecule_id)
+        detail = _detail(conn, molecule_id)
+    if workspace is not None:
+        for library_id in affected_libraries:
+            invalidate_library_materialization(workspace, library_id)
+        root = workspace / "jobs"
+        directories = {
+            Path(path).parent
+            for path in removed_paths
+            if Path(path).parent.is_relative_to(root)
+        }
+        try:
+            protected = referenced_workspace_dirs(root)
+        except ValueError:
+            protected = set()
+        prep_cache.release_directories(directories, protected=protected)
     return detail
 
 

@@ -37,6 +37,8 @@ class Artifact(BaseModel):
 class RunInfo(BaseModel):
     runId: str
     directory: str
+    cached: bool = False
+    """True when the preparation was answered from the local cache."""
 
 
 class FileFilters(BaseModel):

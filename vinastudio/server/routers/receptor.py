@@ -6,6 +6,7 @@ import logging
 
 from fastapi import APIRouter
 
+from vinastudio.core import prep_cache
 from vinastudio.core.chem.receptor_prep import (
     ReceptorPrepOptions,
     inspect_receptor,
@@ -21,7 +22,7 @@ from vinastudio.schemas.preparation import (
     ReceptorReport,
     ReceptorSequence,
 )
-from vinastudio.server.routers.artifacts import artifact, run_info
+from vinastudio.server.routers.artifacts import artifact, cached_artifacts, run_info
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/receptor", tags=["receptor"])
@@ -89,10 +90,20 @@ def prepare(request: ReceptorPrepareRequest) -> ReceptorPreparationResponse:
     renderer needs them.
     """
     chosen = request.options
-    workspace = create_workspace(
-        f"receptor-{request.path}",
-        reuse_key=file_reuse_key(request.path, extra=chosen),
-    )
+    reuse_key = file_reuse_key(request.path, extra=chosen)
+    workspace = create_workspace(f"receptor-{request.path}", reuse_key=reuse_key)
+
+    cached = prep_cache.load_entry(workspace, kind="receptor", key=reuse_key)
+    if cached is not None:
+        written = cached_artifacts(workspace, cached)
+        if written is not None:
+            log.info("receptor cache hit %s", request.path)
+            return ReceptorPreparationResponse(
+                run=run_info(workspace, cached=True),
+                report=ReceptorReport.model_validate(cached["report"]),
+                artifacts=written,
+                hasFlexibleSidechains=bool(cached.get("hasFlexibleSidechains", False)),
+            )
 
     result = prepare_receptor(
         request.path,
@@ -127,9 +138,22 @@ def prepare(request: ReceptorPrepareRequest) -> ReceptorPreparationResponse:
         result.report.output_atoms,
     )
 
-    return ReceptorPreparationResponse(
+    response = ReceptorPreparationResponse(
         run=run_info(workspace),
         report=_to_report(result.report),
         artifacts=written,
         hasFlexibleSidechains=result.flex_pdbqt is not None,
     )
+    try:
+        prep_cache.save_entry(
+            workspace,
+            kind="receptor",
+            source=request.path,
+            key=reuse_key,
+            report=response.report.model_dump(),
+            artifacts=[item.model_dump() for item in written],
+            extra={"hasFlexibleSidechains": response.hasFlexibleSidechains},
+        )
+    except OSError:
+        log.warning("could not write receptor cache marker for %s", request.path, exc_info=True)
+    return response

@@ -69,6 +69,9 @@ import type {
   CatalogSelection,
   CatalogSelectionCreate,
   CatalogSavedView,
+  CacheClearResult,
+  CacheSettings,
+  CacheState,
   CatalogStudy,
   CatalogStudyInput,
   CatalogStudyMemberInput,
@@ -204,6 +207,13 @@ export const api = {
   capabilities: () => request<Capabilities>('/api/system/capabilities'),
   citations: () => request<CitationResponse>('/api/system/citation'),
   updateCheck: () => request<UpdateCheck>('/api/system/update-check'),
+  cacheState: () => request<CacheState>('/api/cache'),
+  updateCacheSettings: (settings: CacheSettings) =>
+    request<CacheState>('/api/cache/settings', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    }),
+  clearCache: () => request<CacheClearResult>('/api/cache/clear', { method: 'POST' }),
 
   // -- files ---------------------------------------------------------------
   fileFilters: () => request<FileFilters>('/api/files/filters'),
@@ -674,6 +684,10 @@ export const api = {
   catalogDeleteMolecule: (id: string) =>
     request<{ deleted: boolean }>(`/api/catalog/molecules/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+    }),
+  catalogUnprepareMolecule: (id: string) =>
+    request<CatalogMolecule>(`/api/catalog/molecules/${encodeURIComponent(id)}/unprepare`, {
+      method: 'POST',
     }),
   catalogPrepareMolecule: (id: string, options?: CatalogPrepareOptions) =>
     request<CatalogMolecule>(`/api/catalog/molecules/${encodeURIComponent(id)}/prepare`, {
