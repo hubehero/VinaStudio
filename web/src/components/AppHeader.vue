@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { FolderOpened, RefreshLeft, Search, Setting } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import brandUrl from '@/assets/brand.svg'
@@ -13,10 +13,12 @@ import StatusPill from '@/components/StatusPill.vue'
 import { useSystemStore } from '@/stores/system'
 import { useUndoStore } from '@/stores/undo'
 import { useUiStore } from '@/stores/ui'
+import { useUpdateStore } from '@/stores/updates'
 
 const system = useSystemStore()
 const ui = useUiStore()
 const undo = useUndoStore()
+const updates = useUpdateStore()
 const { t } = useI18n()
 
 const projectDialogRef = ref<InstanceType<typeof ProjectDialog>>()
@@ -37,6 +39,17 @@ async function undoLast(): Promise<void> {
     ElMessage.success(t('undo.done'))
   }
 }
+
+onMounted(() => {
+  void updates.restoreDownload()
+})
+
+const updatePercent = computed(() => Math.round(updates.download?.percent ?? 0))
+const updateLabel = computed(() =>
+  updates.downloaded
+    ? t('settings.updateReadyShort')
+    : t('settings.updateProgressShort', { percent: updatePercent.value }),
+)
 
 const serviceState = computed<'ok' | 'warn' | 'error' | 'idle'>(() => {
   if (system.reachable) return 'ok'
@@ -109,6 +122,18 @@ const channelLabel = computed(() => {
         <el-icon><FolderOpened /></el-icon>
         <span>{{ t('project.openProject') }}</span>
       </el-button>
+      <el-tooltip
+        v-if="updates.updateAttention"
+        :content="updateLabel"
+        placement="bottom"
+      >
+        <button type="button" class="header__update" @click="openSettings">
+          <span>{{ updateLabel }}</span>
+          <span class="header__update-bar">
+            <span :style="{ width: `${updatePercent}%` }" />
+          </span>
+        </button>
+      </el-tooltip>
       <el-tooltip :content="t('settings.title')" placement="bottom">
         <el-button text size="small" @click="openSettings">
           <el-icon><Setting /></el-icon>
@@ -189,4 +214,41 @@ const channelLabel = computed(() => {
     display: none;
   }
 }
+.header__update {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  min-width: 112px;
+  padding: 4px 8px;
+  border: 1px solid var(--vs-border);
+  border-radius: var(--vs-radius-sm);
+  background: var(--vs-bg-sunken);
+  color: var(--vs-text-muted);
+  font: inherit;
+  font-size: 10.5px;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.header__update:hover {
+  border-color: var(--vs-accent);
+  color: var(--vs-accent);
+}
+
+.header__update-bar {
+  display: block;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--vs-border);
+}
+
+.header__update-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--vs-accent);
+  transition: width 180ms linear;
+}
+
 </style>

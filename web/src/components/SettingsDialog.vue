@@ -9,7 +9,7 @@ import {
   Sunny,
   View,
 } from '@element-plus/icons-vue'
-import { ElAlert, ElButton, ElDialog, ElInput, ElInputNumber, ElMessage, ElMessageBox, ElRadio, ElRadioGroup, ElSlider, ElSwitch } from 'element-plus'
+import { ElAlert, ElButton, ElDialog, ElInput, ElInputNumber, ElMessage, ElMessageBox, ElProgress, ElRadio, ElRadioGroup, ElSlider, ElSwitch } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -17,20 +17,20 @@ import { api } from '@/api/http'
 import { openInBrowser, pickDirectory } from '@/api/bridge'
 import { rendererInfo } from '@/composables/use3Dmol'
 import { useSettingsStore } from '@/stores/settings'
-import type { CacheSettings, CacheStats, UpdateCheck } from '@/types/api'
+import type { CacheSettings, CacheStats } from '@/types/api'
 import { useUiStore, type ThemeMode } from '@/stores/ui'
 import { useWorkspaceStore } from '@/stores/workspace'
+import { useUpdateStore } from '@/stores/updates'
 
 const { t, locale, te } = useI18n()
 const settings = useSettingsStore()
 const ui = useUiStore()
 const workspace = useWorkspaceStore()
+const updates = useUpdateStore()
 
 const visible = ref(false)
 const uploadLimitMb = ref(100)
 const currentVersion = ref('')
-const updateChecking = ref(false)
-const updateResult = ref<UpdateCheck | null>(null)
 
 // Workspace settings
 const workspaceName = ref('')
@@ -78,6 +78,7 @@ function open(): void {
   activeTab.value = 'general'
   workspaceName.value = workspace.workspaceName
   void loadCacheState()
+  void updates.restoreDownload()
 }
 
 function formatBytes(bytes: number): string {
@@ -149,35 +150,42 @@ function handleReset(): void {
 }
 
 async function checkForUpdates(): Promise<void> {
-  updateChecking.value = true
-  try {
-    const result = await api.updateCheck()
-    updateResult.value = result
-    if (result.current) currentVersion.value = result.current
-  } catch {
-    updateResult.value = {
-      current: currentVersion.value,
-      latest: null,
-      updateAvailable: false,
-      url: '',
-      publishedAt: null,
-      error: 'unavailable',
-    }
-  } finally {
-    updateChecking.value = false
-  }
+  const result = await updates.check()
+  if (result?.current) currentVersion.value = result.current
 }
 
 function openReleasePage(): void {
-  const url = updateResult.value?.url
+  const url = updates.result?.url
   if (url) void openInBrowser(url)
 }
 
 const updateErrorText = computed(() => {
-  const code = updateResult.value?.error
+  const code = updates.result?.error
   if (!code) return ''
   const key = `settings.updateError.${code}`
   return te(key) ? t(key) : t('settings.updateError.unavailable')
+})
+
+const updateDownloadText = computed(() => {
+  const state = updates.download
+  if (!state) return ''
+  if (state.state === 'starting') return t('settings.updateStarting')
+  if (state.state === 'downloading') {
+    return t('settings.updateDownloading', { percent: Math.round(state.percent) })
+  }
+  if (state.state === 'verifying') return t('settings.updateVerifying')
+  if (state.state === 'ready') return t('settings.updateReady')
+  if (state.state === 'error' && state.error) {
+    const key = `settings.updateDownloadError.${state.error}`
+    return te(key) ? t(key) : t('settings.updateDownloadError.download_failed')
+  }
+  return ''
+})
+
+const updateDownloadStatus = computed<'success' | 'exception' | undefined>(() => {
+  if (updates.download?.state === 'ready') return 'success'
+  if (updates.download?.state === 'error') return 'exception'
+  return undefined
 })
 
 async function handleWorkspaceNameSave() {
@@ -316,13 +324,21 @@ defineExpose({ open })
             </div>
             <div class="settings-link-group">
               <span class="settings-item__value vs-mono">{{ currentVersion ? 'v' + currentVersion : '—' }}</span>
-              <ElButton size="small" :loading="updateChecking" @click="checkForUpdates">
+              <ElButton size="small" :loading="updates.checking" @click="checkForUpdates">
                 {{ t('settings.checkUpdates') }}
               </ElButton>
               <ElButton
-                v-if="updateResult?.updateAvailable"
+                v-if="updates.result?.updateAvailable"
                 size="small"
                 type="primary"
+                :loading="updates.downloadActive"
+                @click="updates.startDownload()"
+              >
+                {{ t('settings.downloadUpdate') }}
+              </ElButton>
+              <ElButton
+                v-if="updates.result?.updateAvailable"
+                size="small"
                 @click="openReleasePage"
               >
                 {{ t('settings.openReleasePage') }}
@@ -331,15 +347,15 @@ defineExpose({ open })
           </div>
 
           <ElAlert
-            v-if="updateResult?.updateAvailable"
-            :title="t('settings.updateAvailable', { version: updateResult.latest ?? '' })"
+            v-if="updates.result?.updateAvailable"
+            :title="t('settings.updateAvailable', { version: updates.result.latest ?? '' })"
             type="success"
             :closable="false"
             show-icon
             class="settings-update-alert"
           />
           <ElAlert
-            v-else-if="updateResult && !updateResult.error"
+            v-else-if="updates.result && !updates.result.error"
             :title="t('settings.upToDate')"
             type="info"
             :closable="false"
@@ -347,13 +363,38 @@ defineExpose({ open })
             class="settings-update-alert"
           />
           <ElAlert
-            v-else-if="updateResult?.error"
+            v-else-if="updates.result?.error"
             :title="updateErrorText"
             type="warning"
             :closable="false"
             show-icon
             class="settings-update-alert"
           />
+
+          <div
+            v-if="updates.downloadActive || updates.downloaded || updates.download?.state === 'error'"
+            class="settings-update-download"
+          >
+            <ElProgress
+              :percentage="updates.download?.percent ?? 0"
+              :status="updateDownloadStatus"
+              :stroke-width="8"
+            />
+            <div class="settings-update-download__row">
+              <span class="settings-item__desc">{{ updateDownloadText }}</span>
+              <ElButton
+                v-if="updates.downloaded"
+                size="small"
+                type="primary"
+                @click="updates.installDownloaded()"
+              >
+                {{ t('settings.installUpdate') }}
+              </ElButton>
+            </div>
+            <span v-if="updates.downloadActive" class="settings-item__desc">
+              {{ t('settings.updateBackgroundHint') }}
+            </span>
+          </div>
 
           <div class="settings-item">
             <div class="settings-item__info">

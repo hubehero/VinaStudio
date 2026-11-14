@@ -100,7 +100,8 @@ QtWebEngine 6 在 Windows 上的 WebGL 合成器存在已知的无规律闪屏�
 - 首次运行会触发 SmartScreen；这是默认未签名的正常表现。
 - 配置 `WINDOWS_SIGNING_PFX_BASE64` 与 `WINDOWS_SIGNING_PFX_PASSWORD` 仓库
   secret 后，CI 会同时签署 bundle 可执行文件和安装器；仓库不保存证书。
-- 应用不检查更新；升级请下载新安装包覆盖安装。
+- 应用不会自动检查更新；可在「设置 → 通用 → 检查更新」中后台下载 Windows
+  安装包、校验 SHA-256 后打开安装程序；没有静默或无人值守更新。
 - 安装包按机器安装（`Program Files`），需要管理员权限；卸载走“应用和功能”。
 
 ### 4.4 安装器界面只有英文

@@ -36,7 +36,7 @@
 源码安装可用以下命令检查实际解析版本：
 
 ```bash
-uv export --format requirements-txt --no-dev --no-hashes
+uv export --frozen --format requirements-txt --no-dev --no-hashes --no-emit-project
 ```
 
 新增或升级依赖时，对该导出运行 `pip-audit` 或 OSV 扫描；只有存在应用内可达路径

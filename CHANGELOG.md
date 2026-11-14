@@ -15,9 +15,11 @@ entries about the product — no internal task ids or workflow narration.
 ### 新增
 
 - **发布核验**：GitHub Release 附带 `BUILD-MANIFEST.json`，记录 tag、commit、CI run、构建环境与每个资产的 SHA-256；新增中英文《可复现性与发布核验》，说明发布树与开发树的测试边界。
+- **应用内更新**：设置 → 通用 → 检查更新 发现新版本后，桌面版可在后台下载匹配的安装包，显示下载进度，校验 `SHA256SUMS` 后直接打开安装程序；失败或当前平台无包时回退发布页。
 
 ### Added
 
+- **In-app updates**: after Settings → General → Check for updates finds a release, the desktop app can download the matching installer in the background, show progress, verify `SHA256SUMS`, and open the installer; unsupported platforms and failures fall back to the release page.
 - **Release verification**: GitHub Releases carry `BUILD-MANIFEST.json` with the tag, commit, CI run, build environment and per-asset SHA-256 values; a bilingual Reproducibility and release verification page documents the release-tree/development-tree test boundary.
 
 ### 修复

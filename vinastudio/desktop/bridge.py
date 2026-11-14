@@ -17,7 +17,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QUrl, Signal, Slot
+from PySide6.QtCore import QObject, QProcess, QUrl, Signal, Slot
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget
 
@@ -195,6 +195,33 @@ class Bridge(QObject):
     def openUrl(self, url: str) -> bool:
         """Open a URL in the system default browser."""
         return QDesktopServices.openUrl(QUrl(url))
+
+    @Slot(str, result=bool)
+    def installUpdate(self, path: str) -> bool:
+        """Launch a verified installer downloaded under the app home.
+
+        The frontend only supplies a path; containment in ``updates/`` prevents
+        this slot from becoming a generic "run any file" primitive.
+        """
+        target = Path(path).expanduser()
+        updates = (app_home() / "updates").resolve()
+        try:
+            target = target.resolve(strict=True)
+        except OSError:
+            return False
+        if not target.is_relative_to(updates) or not target.is_file():
+            return False
+        if platform.system() == "Windows" and target.suffix.lower() == ".exe":
+            return QProcess.startDetached(str(target), [], str(target.parent)) or QDesktopServices.openUrl(
+                QUrl.fromLocalFile(str(target))
+            )
+        if platform.system() == "Linux" and target.suffix.lower() == ".deb":
+            return QProcess.startDetached("xdg-open", [str(target)]) or QDesktopServices.openUrl(
+                QUrl.fromLocalFile(str(target))
+            )
+        if target.suffix.lower() in {".tar.gz", ".tgz"}:
+            return self.revealInFileManager(str(target))
+        return QDesktopServices.openUrl(QUrl.fromLocalFile(str(target)))
 
     # -- misc --------------------------------------------------------------
     @Slot()

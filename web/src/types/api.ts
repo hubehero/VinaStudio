@@ -132,6 +132,28 @@ export interface UpdateCheck {
   error: UpdateCheckError | null
 }
 
+export type UpdateDownloadState =
+  | 'idle'
+  | 'starting'
+  | 'downloading'
+  | 'verifying'
+  | 'ready'
+  | 'error'
+  | 'cancelled'
+
+export interface UpdateDownload {
+  state: UpdateDownloadState
+  version: string | null
+  assetName: string | null
+  installKind: 'windows-installer' | 'debian-package' | 'archive' | null
+  bytes: number
+  totalBytes: number
+  percent: number
+  path: string | null
+  sha256: string | null
+  error: string | null
+}
+
 // --------------------------------------------------------------------------
 // preparation
 // --------------------------------------------------------------------------
@@ -1286,6 +1308,8 @@ export interface DesktopBridge {
   writeTextFile(path: string, content: string): Promise<boolean>
   revealInFileManager(path: string): Promise<boolean>
   openUrl(url: string): Promise<boolean>
+  /** Optional in older hosts: launch a verified update asset. */
+  installUpdate?(path: string): Promise<boolean>
   notify(title: string, message: string): void
   quit(): void
 }

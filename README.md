@@ -136,7 +136,7 @@ VinaStudio 是 [AutoDock Vina](https://github.com/ccsb-scripps/AutoDock-Vina) �
 
 安装器按机器安装，需要管理员权限，且**未签名**，SmartScreen 会要求确认。安装包已经带上 Python、科学计算依赖和 Vina 1.2.7 命令行引擎；支持 Windows 10 1809+ / 11 x64。
 
-Windows 的边界见 [Windows 支持](docs/WINDOWS.zh-CN.md)：AutoDock4 需要外部地图、抗锯齿默认关闭、只支持 x64，没有自动更新。
+Windows 的边界见 [Windows 支持](docs/WINDOWS.zh-CN.md)：AutoDock4 需要外部地图、抗锯齿默认关闭、只支持 x64；没有静默自动更新，可在应用内手动检查并下载安装。
 
 ### Linux
 

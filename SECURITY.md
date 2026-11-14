@@ -42,7 +42,7 @@ Two advisories need to be read by affected library, not by package name alone:
 For a source install, review the resolved set with:
 
 ```bash
-uv export --format requirements-txt --no-dev --no-hashes
+uv export --frozen --format requirements-txt --no-dev --no-hashes --no-emit-project
 ```
 
 Run `pip-audit` or an OSV scan against that export when adding or updating a

@@ -32,6 +32,7 @@ import type {
   Health,
   ImportBundleResponse,
   UpdateCheck,
+  UpdateDownload,
   IfpGroupRequest,
   PocketsRequest,
   PocketsResult,
@@ -208,6 +209,11 @@ export const api = {
   capabilities: () => request<Capabilities>('/api/system/capabilities'),
   citations: () => request<CitationResponse>('/api/system/citation'),
   updateCheck: () => request<UpdateCheck>('/api/system/update-check'),
+  startUpdateDownload: () =>
+    request<UpdateDownload>('/api/system/update-download', { method: 'POST' }),
+  updateDownloadStatus: () => request<UpdateDownload>('/api/system/update-download'),
+  cancelUpdateDownload: () =>
+    request<UpdateDownload>('/api/system/update-download/cancel', { method: 'POST' }),
   cacheState: () => request<CacheState>('/api/cache'),
   updateCacheSettings: (settings: CacheSettings) =>
     request<CacheState>('/api/cache/settings', {

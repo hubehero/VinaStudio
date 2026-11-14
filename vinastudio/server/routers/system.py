@@ -35,6 +35,7 @@ from vinastudio.config import (
 from vinastudio.core.diagnostics import repair_diagnostics, run_diagnostics
 from vinastudio.core.engines import backend_report
 from vinastudio.schemas.diagnostics import DiagnosticReport
+from vinastudio.server.updater import update_manager
 
 log = logging.getLogger(__name__)
 router = APIRouter(tags=["system"])
@@ -335,6 +336,27 @@ def get_upload_limit() -> dict[str, Any]:
     }
 
 
+@router.post("/system/update-download")
+def start_update_download() -> dict[str, Any]:
+    """Start the verified installer download and return immediately."""
+    try:
+        release = _fetch_latest_release()
+    except Exception as exc:  # noqa: BLE001 - return a translated download state
+        log.info("update download unavailable: %s", exc)
+        return update_manager.error(_update_error(exc))
+    return update_manager.start(release)
+
+
+@router.get("/system/update-download")
+def update_download_status() -> dict[str, Any]:
+    return update_manager.status()
+
+
+@router.post("/system/update-download/cancel")
+def cancel_update_download() -> dict[str, Any]:
+    return update_manager.cancel()
+
+
 @router.get("/system/update-check")
 def update_check() -> dict[str, Any]:
     """Compare this build with the latest public release.
@@ -342,8 +364,8 @@ def update_check() -> dict[str, Any]:
     This is deliberately *not* called at startup: the user asks when they want
     it. The response is always HTTP 200 so an offline machine or a GitHub rate
     limit cannot break the settings dialog; ``error`` carries the machine-
-    readable reason and the UI translates it. No download or install path exists
-    here — the only action is opening the release page.
+    readable reason and the UI translates it. A separate download endpoint owns
+    the verified background transfer; this endpoint never downloads by itself.
     """
     result: dict[str, Any] = {
         "current": __version__,

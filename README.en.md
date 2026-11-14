@@ -135,7 +135,7 @@ The release also provides `BUILD-MANIFEST.json` with the tag, commit, CI run and
 
 The installer is per-machine, needs administrator rights and is **unsigned**, so SmartScreen asks for confirmation. It bundles Python, the scientific dependencies and the Vina 1.2.7 command-line engine. Windows 10 1809+ / 11 x64 is supported.
 
-See [Windows support](docs/WINDOWS.md) for the boundaries: AutoDock4 needs external maps, antialiasing is off by default, only x64 is supported, and there is no auto-update.
+See [Windows support](docs/WINDOWS.md) for the boundaries: AutoDock4 needs external maps, antialiasing is off by default, only x64 is supported, and there is no silent auto-update; updates can be checked and downloaded manually in the app.
 
 ### Linux
 

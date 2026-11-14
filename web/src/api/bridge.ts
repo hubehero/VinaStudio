@@ -127,6 +127,16 @@ export async function pickDirectory(title: string): Promise<string | null> {
  * which reliably opens the system browser even when QWebEngine blocks popups.
  * In a plain browser, falls back to window.open().
  */
+export async function installUpdate(path: string): Promise<boolean> {
+  const bridge = await desktopBridge()
+  if (!bridge?.installUpdate) return false
+  try {
+    return Boolean(await bridge.installUpdate(path))
+  } catch {
+    return false
+  }
+}
+
 export async function openInBrowser(url: string): Promise<void> {
   const bridge = await desktopBridge()
   if (bridge) {

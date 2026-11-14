@@ -115,8 +115,9 @@ makes it worse. **Antialiasing is therefore off by default**:
 - CI signs both the bundled executable and the installer when
   `WINDOWS_SIGNING_PFX_BASE64` and `WINDOWS_SIGNING_PFX_PASSWORD` are configured as
   repository secrets; no certificate is stored in the repository.
-- The application does not check for updates; install a newer package over the
-  old one.
+- The application does not check for updates automatically. **Settings → General
+  → Check for updates** can download the Windows installer in the background,
+  verify its SHA-256, and open it; there is no silent or unattended update.
 - The installer is per-machine (`Program Files`) and needs administrator rights;
   uninstall through “Apps & features”.
 
