@@ -77,6 +77,7 @@ import type {
   CatalogStudyMemberInput,
   CatalogSummary,
   CatalogSuggestion,
+  CatalogUnprepareResult,
   LigandOptions,
   LigandPreparation,
   LigandFromSmilesItem,
@@ -685,8 +686,10 @@ export const api = {
     request<{ deleted: boolean }>(`/api/catalog/molecules/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     }),
+  catalogVerifyPrepared: () =>
+    request<{ repaired: number }>('/api/catalog/prepared/verify', { method: 'POST' }),
   catalogUnprepareMolecule: (id: string) =>
-    request<CatalogMolecule>(`/api/catalog/molecules/${encodeURIComponent(id)}/unprepare`, {
+    request<CatalogUnprepareResult>(`/api/catalog/molecules/${encodeURIComponent(id)}/unprepare`, {
       method: 'POST',
     }),
   catalogPrepareMolecule: (id: string, options?: CatalogPrepareOptions) =>

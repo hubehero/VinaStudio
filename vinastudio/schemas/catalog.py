@@ -62,6 +62,12 @@ class CatalogMoleculeOut(_CatalogModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class CatalogUnprepareOut(_CatalogModel):
+    molecule: CatalogMoleculeOut
+    cache_released_bytes: int = 0
+    cache_retained_bytes: int = 0
+
+
 class CatalogSearchOut(_CatalogModel):
     items: list[CatalogMoleculeOut]
     total: int

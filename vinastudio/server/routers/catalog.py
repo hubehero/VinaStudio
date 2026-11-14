@@ -27,6 +27,7 @@ from vinastudio.schemas.catalog import (
     CatalogMoleculeOut,
     CatalogPrepareRequest,
     CatalogSearchOut,
+    CatalogUnprepareOut,
     CollectionCreate,
     CollectionOut,
     CollectionPatch,
@@ -86,6 +87,13 @@ def _detail(conn, molecule_id: str) -> dict[str, Any]:
 def summary() -> dict[str, Any]:
     with db.transaction(_ready()) as conn:
         return store.summary(conn)
+
+
+@router.post("/prepared/verify")
+def verify_prepared() -> dict[str, int]:
+    """Remove stale Prepared-library entries whose artifacts disappeared."""
+    with db.transaction(_ready()) as conn:
+        return {"repaired": store.verify_prepared_molecules(conn)}
 
 
 @router.get("/molecules", response_model=CatalogSearchOut)
@@ -328,7 +336,7 @@ def prepare_molecule(
     return detail
 
 
-@router.post("/molecules/{molecule_id}/unprepare", response_model=CatalogMoleculeOut)
+@router.post("/molecules/{molecule_id}/unprepare", response_model=CatalogUnprepareOut)
 def unprepare_molecule(molecule_id: str) -> dict[str, Any]:
     """Remove prepared artifacts and release their cache when unreferenced."""
     from vinastudio.server.routers.workspace import get_active_workspace
@@ -351,8 +359,14 @@ def unprepare_molecule(molecule_id: str) -> dict[str, Any]:
             protected = referenced_workspace_dirs(root)
         except ValueError:
             protected = set()
-        prep_cache.release_directories(directories, protected=protected)
-    return detail
+        stats = prep_cache.release_directories(directories, protected=protected)
+    else:
+        stats = {"released_bytes": 0, "retained_bytes": 0}
+    return {
+        "molecule": detail,
+        "cache_released_bytes": stats["released_bytes"],
+        "cache_retained_bytes": stats["retained_bytes"],
+    }
 
 
 def _preview_path(detail: dict[str, Any], kind: str) -> Path | None:

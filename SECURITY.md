@@ -22,6 +22,37 @@ A useful report includes the version, the operating system, the steps to
 reproduce, the impact you believe it has, and a minimal proof of concept. Please
 avoid testing against systems or data you do not own.
 
+## Dependency review
+
+`uv.lock` is the source of truth for the versions that ship. The release
+pre-flight checks open Dependabot and CodeQL alerts; that check is a gate, not a
+complete vulnerability audit. As of 2026-11-08 the lock contains PySide6 6.12.0
+and httpx 0.28.1, and does not contain `brotli` or `brotlicffi`.
+
+Two advisories need to be read by affected library, not by package name alone:
+
+- **CVE-2026-84975** is a libxml2 arbitrary-code-execution advisory. PySide6
+  appears in distribution rebuilds because it can link libxml2; whether a
+  bundle is affected depends on the libxml2 it actually carries. Inspect the
+  packaged libraries rather than inferring exposure from the PySide6 version.
+- **CVE-2026-111497** is an out-of-bounds write in Brotli 1.0.3 through 1.2.0.
+  The project does not lock Brotli today; if a future dependency adds it, require
+  a fixed release above 1.2.0.
+
+For a source install, review the resolved set with:
+
+```bash
+uv export --format requirements-txt --no-dev --no-hashes
+```
+
+Run `pip-audit` or an OSV scan against that export when adding or updating a
+dependency, and treat an advisory as reachable only with a path through the
+application.
+On 2026-11-08, `pip-audit --no-deps` against that export (excluding the `vina`
+source package, which has no wheel to audit) reported no known vulnerabilities.
+This is a dated record, not a permanent guarantee; rerun it after dependency
+changes.
+
 ## Scope
 
 The application runs locally: a Qt window, a FastAPI service bound to loopback,

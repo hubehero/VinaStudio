@@ -24,12 +24,12 @@ gh release list
 前端、Debian control、`uv.lock`）：
 
 ```bash
-python packaging/ci/bump-version.py --version 0.6.9
+python packaging/ci/bump-version.py --version 0.7.0
 ```
 
 ### 2. 写 CHANGELOG 小节
 
-把 `## [Unreleased]` 下的条目移到新的 `## [0.6.9] - YYYY-MM-DD` 小节，
+把 `## [Unreleased]` 下的条目移到新的 `## [0.7.0] - YYYY-MM-DD` 小节，
 `[Unreleased]` 留空；补上遗漏的用户可见变化。标题沿用 Keep a Changelog 的
 `Added` / `Changed` / `Fixed`，需要时加 `Out of scope`。中英双语都写。
 
@@ -71,8 +71,8 @@ gh workflow run release.yml
 ### 5. 打附注 tag 并推送
 
 ```bash
-git tag -a v0.6.9 -m "VinaStudio 0.6.9"
-git push origin v0.6.9
+git tag -a v0.7.0 -m "VinaStudio 0.7.0"
+git push origin v0.7.0
 ```
 
 ### 6. 核对发布结果

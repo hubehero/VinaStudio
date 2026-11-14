@@ -25,7 +25,7 @@
 | Graphics | A Direct3D 11 GPU (Intel, NVIDIA or AMD); WebGL goes through ANGLE onto D3D11 |
 | Docking engine | The bundled **AutoDock Vina 1.2.7 command-line binary** (Apache-2.0) |
 | Availability | **0.4.0+**; 0.7.0 is the current release, CI-built. The real-machine walkthrough covered the 0.3.0 development build |
-| Code signing | **Unsigned**, so SmartScreen asks for confirmation on first run (see §2) |
+| Code signing | **Unsigned by default**, so SmartScreen asks for confirmation on first run; CI can sign when certificate secrets are configured (see §4.3) |
 
 The installer carries the Python runtime, the scientific stack and the Vina
 engine. **Users do not need Python, uv, Node.js or pnpm.**
@@ -111,7 +111,10 @@ makes it worse. **Antialiasing is therefore off by default**:
 
 ### 4.3 Unsigned installer, no auto-update
 
-- SmartScreen prompts on first run because the installer is unsigned.
+- SmartScreen prompts on first run because the installer is unsigned by default.
+- CI signs both the bundled executable and the installer when
+  `WINDOWS_SIGNING_PFX_BASE64` and `WINDOWS_SIGNING_PFX_PASSWORD` are configured as
+  repository secrets; no certificate is stored in the repository.
 - The application does not check for updates; install a newer package over the
   old one.
 - The installer is per-machine (`Program Files`) and needs administrator rights;

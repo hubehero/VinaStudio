@@ -7,6 +7,9 @@ contact_links:
   - name: Windows support and limits / Windows 支持与边界
     url: https://github.com/hubehero/VinaStudio/blob/main/docs/WINDOWS.zh-CN.md
     about: Supported versions, known boundaries and troubleshooting.
+  - name: Reproduction report / 复现报告
+    url: https://github.com/hubehero/VinaStudio/issues/new?template=reproduction.yml
+    about: Report an independent run, including a failed one.
   - name: Security report / 安全问题
     url: https://github.com/hubehero/VinaStudio/security/advisories/new
     about: Please report vulnerabilities privately, not in a public issue.

@@ -580,6 +580,43 @@ def unprepare_molecule(conn: sqlite3.Connection, molecule_id: str) -> list[str]:
     return paths
 
 
+def verify_prepared_molecules(conn: sqlite3.Connection) -> int:
+    """Downgrade prepared molecules whose PDBQT artifacts no longer exist.
+
+    ``prep_status`` is a stored summary; a file deleted outside the application
+    must not leave a molecule in the Prepared library. Missing rows are kept so
+    the molecule can still be re-prepared and its source remains visible.
+    """
+    rows = conn.execute(
+        """SELECT m.id, mf.path
+           FROM molecules m
+           LEFT JOIN molecule_files mf
+             ON mf.molecule_id = m.id
+            AND mf.kind IN ('pdbqt', 'flex_pdbqt')
+           WHERE m.prep_status = 'prepared'"""
+    ).fetchall()
+    paths: dict[str, list[str]] = {}
+    for row in rows:
+        molecule_id = str(row["id"])
+        paths.setdefault(molecule_id, [])
+        if row["path"] is not None:
+            paths[molecule_id].append(str(row["path"]))
+    repaired = 0
+    for molecule_id, artifacts in paths.items():
+        if any(Path(path).is_file() for path in artifacts):
+            continue
+        conn.execute(
+            "UPDATE molecules SET prep_status = 'unprepared', updated_at = ? WHERE id = ?",
+            (_now(), molecule_id),
+        )
+        conn.execute(
+            "UPDATE library_members SET prepared_path = NULL WHERE molecule_id = ?",
+            (molecule_id,),
+        )
+        repaired += 1
+    return repaired
+
+
 def summary(conn: sqlite3.Connection) -> Json:
     def count(table: str) -> int:
         return int(conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])

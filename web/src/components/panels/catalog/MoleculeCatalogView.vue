@@ -524,8 +524,12 @@ async function unprepareActive(): Promise<void> {
     return
   }
   try {
-    await store.unprepareMolecule(mol.id)
-    ElMessage.success(t('catalog.unprepareDone'))
+    const result = await store.unprepareMolecule(mol.id)
+    ElMessage.success(
+      result.cacheRetainedBytes > 0
+        ? t('catalog.unprepareRetained')
+        : t('catalog.unprepareDone'),
+    )
   } catch (cause) {
     ElMessage.error(cause instanceof Error ? cause.message : t('catalog.unprepareFailed'))
   }

@@ -986,6 +986,7 @@ export default {
     unprepare: '取消准备',
     unprepareConfirm: '取消“{name}”的准备并移除其准备产物？源文件会保留在 Catalog。',
     unprepareDone: '已取消准备',
+    unprepareRetained: '已取消准备；部分缓存仍被引用，已保留。',
     unprepareFailed: '取消准备失败',
     prepareFailed: '准备失败',
     addTag: '添加标签',

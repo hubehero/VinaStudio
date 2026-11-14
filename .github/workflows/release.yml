@@ -168,6 +168,7 @@ jobs:
   build-windows:
     needs: [preflight]
     uses: ./.github/workflows/windows-build.yml
+    secrets: inherit
 
   # ---------------------------------------------------------------------------
   # Create GitHub Release
@@ -202,6 +203,12 @@ jobs:
           sha256sum vinastudio_*_amd64.deb vinastudio-*-linux-amd64.tar.gz vinastudio-*-setup.exe > SHA256SUMS
           cat SHA256SUMS
 
+      - name: Write build manifest
+        run: |
+          python scripts/write_build_manifest.py \
+            --dist dist \
+            --output dist/BUILD-MANIFEST.json
+
       - name: Release notes from CHANGELOG.md
         run: |
           # Curated notes, not auto-generated: GitHub's generator needs pull
@@ -220,3 +227,4 @@ jobs:
             dist/vinastudio-*-linux-amd64.tar.gz
             dist/vinastudio-*-setup.exe
             dist/SHA256SUMS
+            dist/BUILD-MANIFEST.json

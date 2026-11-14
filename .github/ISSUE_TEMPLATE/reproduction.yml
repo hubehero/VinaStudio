@@ -1,0 +1,71 @@
+name: Reproduction report / 复现报告
+description: Report an independent run of a release or a validation case.
+title: "[reproduction] "
+labels: ["reproduction"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is the public channel for independent reproduction. Paste commands and
+        results, not screenshots alone. Remove personal paths, tokens and private data.
+        A failed reproduction is useful; say what differed.
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / tag
+      description: The release tag and version shown on the About page.
+      placeholder: "v0.7.0 / 0.7.0"
+    validations:
+      required: true
+
+  - type: input
+    id: commit
+    attributes:
+      label: Commit and BUILD-MANIFEST
+      description: The commit from BUILD-MANIFEST.json, or the source checkout SHA.
+      placeholder: "6bc7f93…"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: How it was installed
+      options:
+        - Linux .deb
+        - Linux portable tar.gz
+        - Windows installer
+        - Source checkout
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: Operating system
+      placeholder: "Ubuntu 24.04 / Windows 11 23H2 / macOS 15"
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Command and input
+      description: Exact command, target, seed, box and preparation options. Keep it reproducible.
+    validations:
+      required: true
+
+  - type: textarea
+    id: result
+    attributes:
+      label: Result
+      description: Observed output, top pose, affinity or validation result, and the expected value.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and deviations
+      description: Logs, checksums, environment differences, or a link to a sanitized archive.

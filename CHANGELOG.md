@@ -12,6 +12,34 @@ entries about the product — no internal task ids or workflow narration.
 
 ## [Unreleased]
 
+### 新增
+
+- **发布核验**：GitHub Release 附带 `BUILD-MANIFEST.json`，记录 tag、commit、CI run、构建环境与每个资产的 SHA-256；新增中英文《可复现性与发布核验》，说明发布树与开发树的测试边界。
+
+### Added
+
+- **Release verification**: GitHub Releases carry `BUILD-MANIFEST.json` with the tag, commit, CI run, build environment and per-asset SHA-256 values; a bilingual Reproducibility and release verification page documents the release-tree/development-tree test boundary.
+
+### 修复
+
+- **准备缓存**：复用键加入源文件内容 SHA-256，避免 mtime 和大小相同但内容被替换时误用旧准备结果。
+- **准备库**：进入准备库前检查 PDBQT 产物是否仍存在，缺失时自动退回未准备，不再显示失效条目。
+- **取消准备**：返回实际释放和保留的缓存字节数；被其他清单或项目引用的缓存会明确保留。
+
+### 变更
+
+- **Windows 发布**：CI 支持通过 `WINDOWS_SIGNING_PFX_BASE64` 与 `WINDOWS_SIGNING_PFX_PASSWORD` 可选签署 bundle 和安装器；未配置证书时仍保持未签名。
+
+### Fixed
+
+- **Preparation cache**: the reuse key now includes a SHA-256 of the source content, so a replacement that preserves mtime and size cannot reuse a stale preparation.
+- **Prepared library**: preparing to enter it verifies that PDBQT artifacts still exist and moves missing entries back to unprepared.
+- **Cancel preparation**: reports the bytes actually released and retained; cache still referenced by a manifest or project is explicitly kept.
+
+### Changed
+
+- **Windows release**: CI can optionally sign the bundle and installer when `WINDOWS_SIGNING_PFX_BASE64` and `WINDOWS_SIGNING_PFX_PASSWORD` are configured; without a certificate the installer remains unsigned.
+
 ## [0.7.0] - 2026-11-07
 
 ### 新增

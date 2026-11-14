@@ -13,6 +13,7 @@ import type {
   CatalogSavedView,
   CatalogSuggestion,
   CatalogSummary,
+  CatalogUnprepareResult,
 } from '@/types/api'
 
 export type CatalogScope =
@@ -84,6 +85,12 @@ export const useCatalogStore = defineStore('catalog', () => {
     }
   }
 
+  async function verifyPrepared(): Promise<number> {
+    const result = await api.catalogVerifyPrepared()
+    if (result.repaired > 0) await loadContext()
+    return result.repaired
+  }
+
   async function setScope(next: CatalogScope): Promise<void> {
     scope.value = next
     selectedIds.value = []
@@ -97,6 +104,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     status.value = ''
     sourceFilter.value = ''
     tagFilter.value = ''
+    if (next.kind === 'prepared') await verifyPrepared()
     await Promise.all([loadScopeDetail(), search(true)])
   }
 
@@ -211,12 +219,13 @@ export const useCatalogStore = defineStore('catalog', () => {
     if (index >= 0) molecules.value[index] = updated
   }
 
-  async function unprepareMolecule(id: string): Promise<void> {
-    const updated = await api.catalogUnprepareMolecule(id)
+  async function unprepareMolecule(id: string): Promise<CatalogUnprepareResult> {
+    const result = await api.catalogUnprepareMolecule(id)
     const index = molecules.value.findIndex((item) => item.id === id)
-    if (index >= 0) molecules.value[index] = updated
+    if (index >= 0) molecules.value[index] = result.molecule
     await loadContext()
     if (scope.value.kind === 'prepared') await search()
+    return result
   }
 
   async function deleteMolecule(id: string): Promise<void> {
@@ -534,6 +543,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     patchMolecule,
     prepareMolecule,
     unprepareMolecule,
+    verifyPrepared,
     adoptPreparedForPipeline,
     deleteMolecule,
     bulkTag,

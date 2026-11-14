@@ -1727,6 +1727,12 @@ export interface CatalogSearchResponse {
   facets: CatalogSearchFacets
 }
 
+export interface CatalogUnprepareResult {
+  molecule: CatalogMolecule
+  cacheReleasedBytes: number
+  cacheRetainedBytes: number
+}
+
 export interface CatalogSummary {
   molecules: number
   studies: number

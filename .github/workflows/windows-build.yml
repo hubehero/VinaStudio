@@ -17,6 +17,9 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
+    env:
+      WINDOWS_SIGNING_PFX_BASE64: ${{ secrets.WINDOWS_SIGNING_PFX_BASE64 }}
+      WINDOWS_SIGNING_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
     steps:
       - uses: actions/checkout@v7
 
@@ -61,6 +64,23 @@ jobs:
 
       - name: Build with PyInstaller
         run: pyinstaller packaging/pyinstaller/vinastudio.spec --noconfirm
+
+      - name: Sign the bundled executable (optional)
+        if: env.WINDOWS_SIGNING_PFX_BASE64 != ''
+        shell: pwsh
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP "vinastudio-signing.pfx"
+          try {
+            [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_SIGNING_PFX_BASE64))
+            $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |
+              Sort-Object FullName -Descending | Select-Object -First 1
+            if (-not $signtool) { throw "signtool.exe was not found" }
+            & $signtool.FullName sign /fd SHA256 /f $pfx /p $env:WINDOWS_SIGNING_PFX_PASSWORD `
+              /tr http://timestamp.digicert.com /td SHA256 "dist/vinastudio/vinastudio.exe"
+            if ($LASTEXITCODE -ne 0) { throw "signing the executable failed" }
+          } finally {
+            Remove-Item $pfx -Force -ErrorAction SilentlyContinue
+          }
 
       # The bundle is only useful on Windows if the engine actually travelled with
       # it and still runs there, so this is checked rather than assumed.
@@ -408,6 +428,25 @@ jobs:
           }
           & $iscc "/DVERSION=$version" "packaging/windows/vinastudio.iss"
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed" }
+
+      - name: Sign the installer (optional)
+        if: env.WINDOWS_SIGNING_PFX_BASE64 != ''
+        shell: pwsh
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP "vinastudio-signing.pfx"
+          try {
+            [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_SIGNING_PFX_BASE64))
+            $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" |
+              Sort-Object FullName -Descending | Select-Object -First 1
+            if (-not $signtool) { throw "signtool.exe was not found" }
+            $installer = Get-ChildItem "dist/vinastudio-*-setup.exe" | Select-Object -First 1
+            if (-not $installer) { throw "installer was not found" }
+            & $signtool.FullName sign /fd SHA256 /f $pfx /p $env:WINDOWS_SIGNING_PFX_PASSWORD `
+              /tr http://timestamp.digicert.com /td SHA256 $installer.FullName
+            if ($LASTEXITCODE -ne 0) { throw "signing the installer failed" }
+          } finally {
+            Remove-Item $pfx -Force -ErrorAction SilentlyContinue
+          }
 
       - name: Report the artifact
         run: |

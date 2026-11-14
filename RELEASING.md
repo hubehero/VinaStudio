@@ -28,12 +28,12 @@ One script keeps every file in step (`pyproject.toml`, the package, the frontend
 the Debian control file, `uv.lock`):
 
 ```bash
-python packaging/ci/bump-version.py --version 0.6.9
+python packaging/ci/bump-version.py --version 0.7.0
 ```
 
 ### 2. Write the changelog section
 
-Move the entries under `## [Unreleased]` into a new `## [0.6.9] - YYYY-MM-DD`
+Move the entries under `## [Unreleased]` into a new `## [0.7.0] - YYYY-MM-DD`
 section (Keep a Changelog's flow), leaving `[Unreleased]` empty behind them, and
 add anything the section is still missing. Use the usual
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) headings: `Added`,
@@ -88,8 +88,8 @@ attaches it automatically. To test the installer alone, dispatch
 An annotated tag, so the tag carries an author and a message:
 
 ```bash
-git tag -a v0.6.9 -m "VinaStudio 0.6.9"
-git push origin v0.6.9
+git tag -a v0.7.0 -m "VinaStudio 0.7.0"
+git push origin v0.7.0
 ```
 
 ### 6. Verify what was published
@@ -165,6 +165,7 @@ cannot be published.
 | `vinastudio-X.Y.Z-linux-amd64.tar.gz` | portable; unpack and run `vinastudio/vinastudio` |
 | `vinastudio-X.Y.Z-setup.exe` | Windows 10 1809+ / 11, x64 (from 0.4.0) |
 | `SHA256SUMS` | Checksums for all three artifacts; verify before running |
+| `BUILD-MANIFEST.json` | Tag, commit, CI run and per-artifact SHA-256; provenance, not a signature |
 
 The Linux build needs an OpenGL desktop session. The Windows build needs Direct3D 11
 and installs per-machine (administrator); it is unsigned, so SmartScreen prompts on

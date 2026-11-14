@@ -310,26 +310,53 @@ def cleanup(
         }
 
 
+def _directory_bytes(directory: Path) -> int:
+    total = 0
+    try:
+        for path in directory.rglob("*"):
+            if path.is_file():
+                total += path.stat().st_size
+    except OSError:
+        return total
+    return total
+
+
 def release_directories(
     directories: set[Path], *, protected: set[Path] | None = None
-) -> int:
+) -> dict[str, int]:
     """Drop explicit cache directories that are complete and unreferenced.
 
     Used by "cancel preparation", where the caller already removed the catalog
     rows.  A directory with no marker is not a cache entry and is left alone;
-    a protected directory still serves another persisted reference.
+    a protected directory still serves another persisted reference.  Returned
+    byte counts let the caller report a partial release instead of implying that
+    every preparation directory was removed.
     """
     protected_paths = {path.resolve() for path in (protected or ())}
-    removed = 0
+    released = 0
+    released_bytes = 0
+    retained = 0
+    retained_bytes = 0
     with _LOCK:
         for directory in directories:
             if not (directory / PREP_CACHE_MARKER).is_file():
                 continue
+            size = _directory_bytes(directory)
             if directory.resolve() in protected_paths:
+                retained += 1
+                retained_bytes += size
                 continue
             try:
                 shutil.rmtree(directory)
             except OSError:
+                retained += 1
+                retained_bytes += size
                 continue
-            removed += 1
-    return removed
+            released += 1
+            released_bytes += size
+    return {
+        "released": released,
+        "released_bytes": released_bytes,
+        "retained": retained,
+        "retained_bytes": retained_bytes,
+    }

@@ -12,6 +12,7 @@ is indexed under [`validation/`](../validation/README.md).
 | Runtime, docking flow, code map and Catalog model | [Structure map](STRUCTURE.md) · [简体中文](STRUCTURE.zh-CN.md) |
 | Interactive tour from principles to features | [Interactive field guide](https://hubehero.github.io/VinaStudio/experience/) |
 | Scientific validation and limits | [Academic validation](ACADEMIC_VALIDATION.md) · [简体中文](ACADEMIC_VALIDATION.zh-CN.md) |
+| Release verification and independent reproduction | [Reproducibility](REPRODUCIBILITY.md) · [简体中文](REPRODUCIBILITY.zh-CN.md) |
 | Built-in ligands and receptors | [Ligands](BUILTIN_LIBRARY.md) · [Receptors](BUILTIN_RECEPTORS.md) |
 | Molecule catalog | [Catalog](MOLECULE_CATALOG.md) · [简体中文](MOLECULE_CATALOG.zh-CN.md) |
 | Validation baseline | [Validation](VALIDATION.md) |

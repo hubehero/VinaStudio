@@ -116,16 +116,29 @@ class Workspace:
         return target.relative_to(workspace_root()).as_posix()
 
 
+def _content_digest(target: Path) -> str:
+    digest = hashlib.sha256()
+    try:
+        with target.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+    except OSError:
+        return "missing"
+    return digest.hexdigest()
+
+
 def file_reuse_key(path: str | Path, *, extra: object = None) -> str:
     """Stable key for a source file plus its options.
 
-    mtime and size change when the user edits the file; the resolved path keeps
-    two different files with the same stem apart.
+    mtime and size are a fast guard, but a replace-in-place can preserve both
+    while changing bytes; the content digest prevents a stale preparation from
+    being reused in that case. The resolved path keeps files with the same stem
+    apart.
     """
     target = Path(path)
     try:
         stat = target.stat()
-        signature = f"{stat.st_mtime_ns}:{stat.st_size}"
+        signature = f"{stat.st_mtime_ns}:{stat.st_size}:{_content_digest(target)}"
     except OSError:
         signature = "missing"
     return f"{target.resolve()}:{signature}:{extra!r}"

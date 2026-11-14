@@ -131,6 +131,7 @@ The interactive field guide covers preparation, the box, job lifecycle, Catalog 
 ### Windows
 
 Download `vinastudio-<version>-setup.exe` and `SHA256SUMS` from [Releases](https://github.com/hubehero/VinaStudio/releases), verify the SHA-256, then run the installer.
+The release also provides `BUILD-MANIFEST.json` with the tag, commit, CI run and per-asset SHA-256. It is a provenance record, not a signature.
 
 The installer is per-machine, needs administrator rights and is **unsigned**, so SmartScreen asks for confirmation. It bundles Python, the scientific dependencies and the Vina 1.2.7 command-line engine. Windows 10 1809+ / 11 x64 is supported.
 

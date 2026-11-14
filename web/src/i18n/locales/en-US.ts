@@ -986,6 +986,7 @@ export default {
     unprepare: 'Cancel preparation',
     unprepareConfirm: 'Cancel preparation for “{name}” and release its prepared files when unreferenced? The source file stays in the Catalog.',
     unprepareDone: 'Preparation cancelled',
+    unprepareRetained: 'Preparation cancelled; some cache is still referenced and was kept.',
     unprepareFailed: 'Could not cancel preparation',
     prepareFailed: 'Preparation failed',
     addTag: 'Add tag',

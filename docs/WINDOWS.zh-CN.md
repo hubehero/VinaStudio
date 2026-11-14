@@ -24,7 +24,7 @@
 | 显卡 | 支持 Direct3D 11 的 GPU（Intel / NVIDIA / AMD 均可）；WebGL 经 ANGLE 走 D3D11 |
 | 对接后端 | 随包的 **AutoDock Vina 1.2.7 命令行二进制**（Apache-2.0） |
 | 发布状态 | **0.4.0 起**；0.7.0 为当前发布，由 CI 构建；真机走查覆盖的是 0.3.0 开发包 |
-| 代码签名 | **未签名**（首次运行会触发 SmartScreen 提示，见 §2） |
+| 代码签名 | **默认未签名**（首次运行会触发 SmartScreen 提示）；配置证书 secret 后 CI 会签名，见 §4.3 |
 
 安装包内已经包含 Python 运行时、科学计算栈和 Vina 引擎，**用户不需要安装
 Python、uv、Node.js 或 pnpm**。
@@ -97,7 +97,9 @@ QtWebEngine 6 在 Windows 上的 WebGL 合成器存在已知的无规律闪屏�
 
 ### 4.3 安装包未签名，也没有自动更新
 
-- 首次运行会触发 SmartScreen；这是未签名的正常表现。
+- 首次运行会触发 SmartScreen；这是默认未签名的正常表现。
+- 配置 `WINDOWS_SIGNING_PFX_BASE64` 与 `WINDOWS_SIGNING_PFX_PASSWORD` 仓库
+  secret 后，CI 会同时签署 bundle 可执行文件和安装器；仓库不保存证书。
 - 应用不检查更新；升级请下载新安装包覆盖安装。
 - 安装包按机器安装（`Program Files`），需要管理员权限；卸载走“应用和功能”。
 

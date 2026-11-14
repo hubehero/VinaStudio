@@ -132,6 +132,7 @@ VinaStudio 是 [AutoDock Vina](https://github.com/ccsb-scripps/AutoDock-Vina) �
 
 从 [Releases](https://github.com/hubehero/VinaStudio/releases) 下载
 `vinastudio-<version>-setup.exe` 和 `SHA256SUMS`，核对 SHA-256 后运行。
+发布页同时提供 `BUILD-MANIFEST.json`，记录 tag、commit、CI 运行和每个资产的 SHA-256；它是来源记录，不是签名。
 
 安装器按机器安装，需要管理员权限，且**未签名**，SmartScreen 会要求确认。安装包已经带上 Python、科学计算依赖和 Vina 1.2.7 命令行引擎；支持 Windows 10 1809+ / 11 x64。
 

@@ -12,6 +12,7 @@ this directory.
 | `fetch_vina_cli.py` | Fetch the official Vina command-line binary |
 | `build_1iep_reference.py` | Rebuild the 1IEP crystal-ligand reference |
 | `build_web.py` | Build the Vue SPA into `vinastudio/server/static/` |
+| `write_build_manifest.py` | Write `BUILD-MANIFEST.json` for a release directory |
 | `dev.py` | Hot-reload development: API + Vite + Qt |
 
 ## Validation and benchmark
