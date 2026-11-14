@@ -4,7 +4,7 @@
 
 **Report version:** 1.1
 **Report target:** 0.6.5 (historical control; see addenda below)
-**Current release:** 0.7.0
+**Current release:** 0.7.1
 
 **Report date:** 2026-11-02
 **Status:** reproducible software-validation report, not a peer-reviewed
@@ -14,8 +14,9 @@ benchmark paper.
 > 0.6.6 added the open multi-target benchmark; 0.6.7 and 0.6.8 changed security,
 > onboarding, documentation and CI, not docking. 0.6.9 refines interaction
 > classification, Catalog selectors and artifact cleanup; 0.7.0 adds preparation
-> caching and a read-only Prepared library. Neither changes the docking engine.
-> No new docking result is claimed for 0.7.0.
+> caching and a read-only Prepared library; 0.7.1 adds verified in-app update
+> downloads. None changes the docking engine. No new docking result is claimed
+> for 0.7.1.
 
 > **Development addendum (2026-11-02, 0.6.6 worktree).** An open PoseBusters
 > 4-target pilot was run as a plumbing check: v1 1/4, v2 3/4 (5SIS remains a

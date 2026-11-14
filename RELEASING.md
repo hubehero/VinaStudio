@@ -28,7 +28,7 @@ One script keeps every file in step (`pyproject.toml`, the package, the frontend
 the Debian control file, `uv.lock`):
 
 ```bash
-python packaging/ci/bump-version.py --version 0.7.0
+python packaging/ci/bump-version.py --version 0.7.1
 ```
 
 ### 2. Write the changelog section

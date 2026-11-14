@@ -12,6 +12,8 @@ entries about the product — no internal task ids or workflow narration.
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-14
+
 ### 新增
 
 - **发布核验**：GitHub Release 附带 `BUILD-MANIFEST.json`，记录 tag、commit、CI run、构建环境与每个资产的 SHA-256；新增中英文《可复现性与发布核验》，说明发布树与开发树的测试边界。

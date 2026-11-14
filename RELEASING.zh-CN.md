@@ -24,7 +24,7 @@ gh release list
 前端、Debian control、`uv.lock`）：
 
 ```bash
-python packaging/ci/bump-version.py --version 0.7.0
+python packaging/ci/bump-version.py --version 0.7.1
 ```
 
 ### 2. 写 CHANGELOG 小节
