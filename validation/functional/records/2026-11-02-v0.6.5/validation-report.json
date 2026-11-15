@@ -69,19 +69,19 @@
       "provenance": {
         "inputs": {
           "receptor": {
-            "path": "/home/hubehero/SELF_PROJECT/AutoDock_Vina/vinastudio/resources/sample/1iep/1iep_receptorH.pdb",
+            "path": "<repo>/vinastudio/resources/sample/1iep/1iep_receptorH.pdb",
             "exists": true,
             "bytes": 357444,
             "sha256": "5f6aee6029f9a2a2c2be32d4eb948ae70808690573e1b69a0850cdffd7048ca7"
           },
           "ligand": {
-            "path": "/home/hubehero/SELF_PROJECT/AutoDock_Vina/vinastudio/resources/sample/1iep/1iep_ligand.sdf",
+            "path": "<repo>/vinastudio/resources/sample/1iep/1iep_ligand.sdf",
             "exists": true,
             "bytes": 6621,
             "sha256": "051b8742c32adc05c07fb486a4e7c9327f84e131cee33ac4e6a568d07553eb38"
           },
           "reference": {
-            "path": "/home/hubehero/SELF_PROJECT/AutoDock_Vina/vinastudio/resources/sample/1iep/1iep_reference.sdf",
+            "path": "<repo>/vinastudio/resources/sample/1iep/1iep_reference.sdf",
             "exists": true,
             "bytes": 3242,
             "sha256": "1bcc3920c107e60300fb7ac7fbe4d332c0ae2eb9b75baf2f7b7978f124343700"

@@ -18,7 +18,6 @@
 <p align="center">
   <a href="https://hubehero.github.io/VinaStudio/experience/">交互式体验</a> ·
   <a href="docs/USER_GUIDE.zh-CN.md">用户手册</a> ·
-  <a href="docs/ARCHITECTURE.zh-CN.md">架构</a> ·
   <a href="docs/ACADEMIC_VALIDATION.zh-CN.md">验证</a> ·
   <a href="https://github.com/hubehero/VinaStudio/releases">Releases</a>
 </p>
@@ -164,6 +163,22 @@ uv run python -m vinastudio
 
 如果只改界面，也可以先运行 `pnpm -C web dev`，用 Vite 的热更新连接本地 API。
 
+### 无界面 CLI
+
+基础包 = core + CLI + 本地 API 服务；桌面外壳是 `desktop` extra。
+`vinastudio-cli` 与界面共用同一套 `core`，不 import Qt 或 FastAPI：
+
+```bash
+uv run vinastudio-cli version --json
+uv run vinastudio-cli prepare ligand -i ligand.sdf -o prep --json
+uv run vinastudio-cli dock --config job.json --out out/result.json --json
+uv run vinastudio-cli screen --config screen.json --out ranking.csv --json
+uv run vinastudio-cli validate --manifest validation/manifest.json --case 1iep --out report --json
+```
+
+`job.json`/`result.json` 契约、退出码和 1IEP 示例见
+[CLI 指南](docs/CLI.zh-CN.md)。`vinastudio` 无子命令仍启动桌面应用。
+
 ## 跑通 1IEP
 
 [1IEP](https://www.rcsb.org/structure/1IEP) 是项目一直使用的对照样例：c-Abl 激酶与伊马替尼。它能完整走通准备、盒子、对接、结果和报告。
@@ -213,7 +228,6 @@ VinaStudio 分为四层，边界是刻意画死的：
 2. **对接在 spawn 子进程中运行。** Vina 没有取消接口，终止进程是唯一可靠的停止方式；父进程持有 Qt 和 asyncio 循环，不能用 `fork`。
 3. **PDBQT 不直接渲染。** 3Dmol 不解析 PDBQT，也没有键级；姿态由 Meeko 转成 SDF 后再显示。
 
-完整的运行结构、进程边界和对接生命周期见[架构文档](docs/ARCHITECTURE.zh-CN.md)与[结构图谱](https://hubehero.github.io/VinaStudio/structure.html)。
 
 ## 项目结构
 
@@ -238,7 +252,7 @@ web/                  Vue 3 SPA
 ├── src/components/   面板、3D 视口、对话框、画板
 └── src/api/          HTTP、WebSocket、QWebChannel
 
-docs/                 用户、架构、Catalog、Windows 文档和结构图谱
+docs/                 用户、CLI、Catalog、Windows 文档和验证记录
 docs/experience/      可交互的 Pages 体验文档
 validation/           1IEP 对照、功能矩阵、开放基准和 PoseBusters 记录
 scripts/              构建、样本、验证和诊断工具
@@ -252,8 +266,6 @@ tests/                单元测试与集成测试
 | 主题 | 文档 |
 |---|---|
 | 安装、准备、对接、分析和导出 | [用户手册](docs/USER_GUIDE.zh-CN.md) · [English](docs/USER_GUIDE.md) |
-| 运行结构、进程和对接生命周期 | [结构图谱](https://hubehero.github.io/VinaStudio/structure.html) · [文字版](docs/STRUCTURE.zh-CN.md) |
-| 四层架构与三条硬约束 | [架构](docs/ARCHITECTURE.zh-CN.md) · [English](docs/ARCHITECTURE.md) |
 | 分子、文件、Study、集合和筛选库 | [Catalog](docs/MOLECULE_CATALOG.zh-CN.md) |
 | 方法、结果、失败记录和参考 | [学术验证](docs/ACADEMIC_VALIDATION.zh-CN.md) · [English](docs/ACADEMIC_VALIDATION.md) |
 | Windows 安装、限制和诊断 | [Windows 支持](docs/WINDOWS.zh-CN.md) · [English](docs/WINDOWS.md) |
@@ -269,7 +281,7 @@ PDBQT 只保留重原子和极性氢，非极性氢会被去掉。准备报告�
 
 ### 为什么 AutoDock4 不能直接开始对接？
 
-AutoDock4 需要 AutoGrid4 预先生成的亲和力地图。项目不捆绑 AutoGrid4，也不会在后台伪造地图；没有地图时请使用 Vina 或 Vinardo。详见 [Windows 限制](docs/WINDOWS.zh-CN.md) 和[架构文档](docs/ARCHITECTURE.zh-CN.md)。
+AutoDock4 需要 AutoGrid4 预先生成的亲和力地图。项目不捆绑 AutoGrid4，也不会在后台伪造地图；没有地图时请使用 Vina 或 Vinardo。详见 [Windows 限制](docs/WINDOWS.zh-CN.md)。
 
 ### 对接分数可以当作结合自由能吗？
 

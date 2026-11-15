@@ -142,8 +142,8 @@
     { title: 'Catalog 图谱', sub: '06 / catalog', href: '#catalog', keys: 'molecule study collection library identity' },
     { title: '验证与边界', sub: '07 / validation', href: '#validation', keys: '1iep posebusters rmsd 60/60 置信区间' },
     { title: '限制与文档', sub: '08 / boundaries', href: '#limits', keys: 'ad4 地图 progress pdbqt 限制 文档' },
-    { title: '结构图谱 HTML', sub: 'tree map', href: '../structure.html', keys: '结构 目录 树 html' },
-    { title: '架构文档', sub: 'document', href: '../ARCHITECTURE.zh-CN.md', keys: 'architecture 约束 设计' },
+    { title: '用户手册 HTML', sub: 'tree map', href: '../USER_GUIDE.zh-CN.md', keys: '结构 目录 树 html' },
+    { title: 'CLI 指南', sub: 'document', href: '../CLI.zh-CN.md', keys: 'architecture 约束 设计' },
     { title: '学术验证', sub: 'document', href: '../ACADEMIC_VALIDATION.zh-CN.md', keys: 'validation 证据 论文 参考' }
   ];
 

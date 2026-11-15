@@ -1,4 +1,4 @@
-$ /home/hubehero/.local/bin/pnpm run build
+$ <local-bin>/pnpm run build
 $ vite build
 vite v8.3.4 building client environment for production...
 transforming...
@@ -31,4 +31,4 @@ swagger: swagger-ui-bundle.js already exists, skipping
 swagger: swagger-ui.css already exists, skipping
 pruning stale asset index-DCYiwqbn.css
 pruning stale asset index-UcQkAk4u.js
-Interface built into /home/hubehero/SELF_PROJECT/AutoDock_Vina/vinastudio/server/static
+Interface built into <repo>/vinastudio/server/static

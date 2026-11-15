@@ -237,6 +237,7 @@ async function startBatch(): Promise<void> {
     flexReceptorPath: molecules.flexReceptorPath,
     center: box.center as [number, number, number],
     size: box.size as [number, number, number],
+    boxSource: box.source,
     // The batch API forbids extra fields; qed/lipinskiViolations are queue-only.
     ...(selection.value
       ? { selectionId: selection.value.id }

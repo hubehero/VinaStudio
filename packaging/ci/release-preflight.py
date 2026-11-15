@@ -307,7 +307,10 @@ def declared_dependencies() -> set[str]:
     """Distribution names declared as runtime dependencies in pyproject.toml."""
     metadata = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     names: set[str] = set()
-    for requirement in metadata.get("project", {}).get("dependencies", []):
+    declared: list[str] = list(metadata.get("project", {}).get("dependencies", []))
+    for requirements in metadata.get("project", {}).get("optional-dependencies", {}).values():
+        declared.extend(requirements)
+    for requirement in declared:
         match = re.match(r"\s*([A-Za-z0-9][A-Za-z0-9._-]*)", requirement)
         if match is not None:
             names.add(_normalise_distribution(match.group(1)))

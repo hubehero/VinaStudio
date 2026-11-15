@@ -1,16 +1,19 @@
 <script setup lang="ts">
 import { Aim, Document, MagicStick, Refresh, WarningFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import { ApiError, api } from '@/api/http'
 import HelpLink from '@/components/HelpLink.vue'
 import StatusPill from '@/components/StatusPill.vue'
 import MoleculeSelect from '@/components/common/MoleculeSelect.vue'
+import SequenceView from '@/components/panels/SequenceView.vue'
 import { useBoxStore } from '@/stores/box'
 import { useMoleculeStore } from '@/stores/molecules'
 import { useSiteScreeningStore } from '@/stores/site-screening'
-import type { PocketCandidate, SiteRow } from '@/types/api'
+import type { PocketCandidate, ReceptorSequence, SiteRow } from '@/types/api'
+import { addResidueRange, residueKeys, toggleResidueKey } from '@/utils/residue-selection'
 
 /**
  * The search box panel.
@@ -59,13 +62,64 @@ async function autoboxFromLigand(): Promise<void> {
   }
 }
 
-async function autoboxFromReceptor(): Promise<void> {
+// -- residue-based autobox ---------------------------------------------------
+const showResiduePicker = ref(false)
+const sequence = ref<ReceptorSequence | null>(null)
+const sequenceLoading = ref(false)
+const sequenceError = ref<string | null>(null)
+const selectedResidues = ref<Set<string>>(new Set())
+
+watch(residueSource, () => {
+  sequence.value = null
+  sequenceError.value = null
+  selectedResidues.value = new Set()
+})
+
+async function openResiduePicker(): Promise<void> {
+  showResiduePicker.value = true
+  if (sequence.value !== null || sequenceLoading.value) return
   const path = residueSource.value
-  if (!path) {
-    return
+  if (!path) return
+
+  sequenceLoading.value = true
+  sequenceError.value = null
+  try {
+    const preview = await api.inspectReceptor(path)
+    sequence.value = preview.sequence ?? null
+    if (sequence.value === null) {
+      sequenceError.value = t('box.noSequence')
+    }
+  } catch (cause) {
+    sequenceError.value = cause instanceof ApiError ? cause.message : String(cause)
+  } finally {
+    sequenceLoading.value = false
   }
-  // No residue selection yet, so this boxes the whole receptor; the residue
-  // picker arrives with the pocket-selection work in a later phase.
+}
+
+function toggleSequenceResidue(key: string): void {
+  selectedResidues.value = toggleResidueKey(selectedResidues.value, key)
+}
+
+function toggleSequenceRange(from: string, to: string): void {
+  selectedResidues.value = addResidueRange(selectedResidues.value, sequence.value, from, to)
+}
+
+function clearSequenceSelection(): void {
+  selectedResidues.value = new Set()
+}
+
+async function autoboxFromSelectedResidues(): Promise<void> {
+  const path = residueSource.value
+  const residues = residueKeys(selectedResidues.value)
+  if (!path || residues.length === 0) return
+  if (await box.autoboxFromResidues(path, residues, extend.value)) {
+    ElMessage.success(t('box.autoboxDone', { n: box.autoboxPoints ?? 0 }))
+  }
+}
+
+async function autoboxFromWholeReceptor(): Promise<void> {
+  const path = residueSource.value
+  if (!path) return
   if (await box.autoboxFromResidues(path, [], extend.value)) {
     ElMessage.success(t('box.autoboxDone', { n: box.autoboxPoints ?? 0 }))
   }
@@ -322,12 +376,59 @@ function warningText(warning: string): string {
             size="small"
             :icon="MagicStick"
             :disabled="!residueSource"
-            :loading="box.measuring"
-            data-test="autobox-receptor"
-            @click="autoboxFromReceptor"
+            data-test="autobox-residues"
+            @click="openResiduePicker"
           >
-            {{ t('box.fromReceptor') }}
+            {{ t('box.fromResidues') }}
           </el-button>
+          <el-button
+            size="small"
+            :icon="MagicStick"
+            :disabled="!residueSource"
+            :loading="box.measuring"
+            data-test="autobox-whole-receptor"
+            @click="autoboxFromWholeReceptor"
+          >
+            {{ t('box.wholeReceptor') }}
+          </el-button>
+        </div>
+        <div v-if="showResiduePicker" class="autobox__residues">
+          <p class="vs-faint autobox__note">{{ t('box.residueHint') }}</p>
+          <p v-if="sequenceLoading" class="vs-faint">{{ t('box.sequenceLoading') }}</p>
+          <el-alert
+            v-else-if="sequenceError"
+            type="warning"
+            :closable="false"
+            show-icon
+            :title="sequenceError"
+          />
+          <SequenceView
+            v-else-if="sequence"
+            :chains="sequence.chains"
+            :selected="selectedResidues"
+            @toggle="toggleSequenceResidue"
+            @toggle-range="toggleSequenceRange"
+          />
+          <div class="autobox__actions">
+            <el-button
+              size="small"
+              type="primary"
+              :disabled="selectedResidues.size === 0"
+              :loading="box.measuring"
+              data-test="autobox-selected"
+              @click="autoboxFromSelectedResidues"
+            >
+              {{ t('box.useSelectedResidues', { n: selectedResidues.size }) }}
+            </el-button>
+            <el-button
+              size="small"
+              text
+              :disabled="selectedResidues.size === 0"
+              @click="clearSequenceSelection"
+            >
+              {{ t('box.clearSelection') }}
+            </el-button>
+          </div>
         </div>
         <div v-if="box.autoboxSource" class="vs-faint autobox__source">
           <el-icon><WarningFilled /></el-icon>

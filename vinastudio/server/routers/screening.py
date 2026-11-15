@@ -30,7 +30,20 @@ from vinastudio.core.chem.library import (
     load_detail,
 )
 from vinastudio.core.errors import InvalidInputError, JobNotFoundError
+from vinastudio.core.paths import resolve_within, workspace_root
+from vinastudio.core.screening_metrics import (
+    EnrichmentMetrics,
+    compute_metrics,
+    labels_from_items,
+    load_labels_path,
+    parse_labels_text,
+)
 from vinastudio.schemas.screening import (
+    EnrichmentExportResponse,
+    EnrichmentMetricModel,
+    EnrichmentPoint,
+    EnrichmentRequest,
+    EnrichmentResponse,
     ImportedFailure,
     LibraryDetail,
     LibraryImportResult,
@@ -262,7 +275,8 @@ def start_run(request: ScreeningStartRequest) -> ScreeningRunCreated:
     """Start a screening run over a legacy library, catalog library or selection."""
     if request.scoring == "ad4":
         raise InvalidInputError(
-            "screening supports vina/vinardo; AD4 maps are not part of this request"
+            "screening supports vina/vinardo; ad4 maps must be generated "
+            "outside VinaStudio and are not accepted here"
         )
     library_name = request.library
     library_dir_value: str
@@ -417,6 +431,7 @@ def start_run(request: ScreeningStartRequest) -> ScreeningRunCreated:
         "cpu": request.cpu,
         "seed": request.seed,
         "no_refine": request.noRefine,
+        "box_source": request.boxSource,
         "engine": request.engine,
     }
     if request.selectionId:
@@ -498,6 +513,105 @@ def get_ranking(
     ranked, total = _ranked_rows(job_id, sortBy, top)
     return RankingResponse(
         total=total, rows=[_ranking_row(rank, row) for rank, row in ranked]
+    )
+
+
+def _labels_from_request(request: EnrichmentRequest):
+    if request.labelsPath:
+        root = workspace_root()
+        # Labels belong to the workspace, not to its jobs/ artifact root.
+        base = root.parent if root.name == "jobs" else root
+        try:
+            path = resolve_within(base, request.labelsPath)
+        except ValueError as exc:
+            raise InvalidInputError(str(exc)) from exc
+        return load_labels_path(path)
+    if request.labelsText:
+        return parse_labels_text(request.labelsText)
+    return labels_from_items([item.model_dump() for item in request.labels or []])
+
+
+def _metric_model(value: float | None, ci: tuple[float, float] | None) -> EnrichmentMetricModel:
+    return EnrichmentMetricModel(
+        value=value,
+        ciLow=ci[0] if ci is not None else None,
+        ciHigh=ci[1] if ci is not None else None,
+    )
+
+
+def _enrichment_response(metrics: EnrichmentMetrics) -> EnrichmentResponse:
+    return EnrichmentResponse(
+        nTotal=metrics.n_total,
+        nScored=metrics.n_scored,
+        nFailed=metrics.n_failed,
+        nLabeled=metrics.n_labeled,
+        nActives=metrics.n_actives,
+        nDecoys=metrics.n_decoys,
+        nUnlabeled=metrics.n_unlabeled,
+        ef1=_metric_model(metrics.ef1, metrics.bootstrap.get("ef1")),
+        ef5=_metric_model(metrics.ef5, metrics.bootstrap.get("ef5")),
+        rocAuc=_metric_model(metrics.roc_auc, metrics.bootstrap.get("roc_auc")),
+        bedroc=_metric_model(metrics.bedroc, metrics.bootstrap.get("bedroc")),
+        alpha=metrics.alpha,
+        roc=[EnrichmentPoint(x=x, y=y) for x, y in metrics.roc],
+        enrichment=[EnrichmentPoint(x=x, y=y) for x, y in metrics.enrichment],
+    )
+
+
+def _finished_metrics(job_id: str, request: EnrichmentRequest) -> EnrichmentMetrics:
+    state = _require_run(job_id)
+    if state.status == "running":
+        raise HTTPException(status_code=409, detail="run is still running")
+    labels = _labels_from_request(request)
+    return compute_metrics(read_screening_rows(job_id), labels, alpha=request.alpha)
+
+
+@router.post("/runs/{job_id}/metrics", response_model=EnrichmentResponse)
+def run_metrics(job_id: str, request: EnrichmentRequest) -> EnrichmentResponse:
+    """EF/ROC-AUC/BEDROC for a finished run and a caller-supplied label set.
+
+    Failed and unlabeled ligands are excluded from the metric and counted in
+    the response; the result describes only the labelled set that was supplied.
+    """
+    return _enrichment_response(_finished_metrics(job_id, request))
+
+
+@router.post("/runs/{job_id}/metrics/export", response_model=EnrichmentExportResponse)
+def export_metrics(job_id: str, request: EnrichmentRequest) -> EnrichmentExportResponse:
+    metrics = _finished_metrics(job_id, request)
+
+    def value(value: float | None) -> str:
+        return "" if value is None else f"{value:.6g}"
+
+    def interval(ci: tuple[float, float] | None) -> tuple[str, str]:
+        return (value(ci[0]), value(ci[1])) if ci is not None else ("", "")
+
+    lines = [["metric", "value", "ci_low", "ci_high"]]
+    for name, value_ in (
+        ("n_total", metrics.n_total),
+        ("n_scored", metrics.n_scored),
+        ("n_failed", metrics.n_failed),
+        ("n_labeled", metrics.n_labeled),
+        ("n_actives", metrics.n_actives),
+        ("n_decoys", metrics.n_decoys),
+        ("n_unlabeled", metrics.n_unlabeled),
+    ):
+        lines.append([name, str(value_), "", ""])
+    for name, value_, ci in (
+        ("ef1", metrics.ef1, metrics.bootstrap.get("ef1")),
+        ("ef5", metrics.ef5, metrics.bootstrap.get("ef5")),
+        ("roc_auc", metrics.roc_auc, metrics.bootstrap.get("roc_auc")),
+        ("bedroc", metrics.bedroc, metrics.bootstrap.get("bedroc")),
+    ):
+        low, high = interval(ci)
+        lines.append([name, value(value_), low, high])
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerows(lines)
+    return EnrichmentExportResponse(
+        csv=output.getvalue(),
+        filename=f"screening_{job_id}_enrichment.csv",
     )
 
 

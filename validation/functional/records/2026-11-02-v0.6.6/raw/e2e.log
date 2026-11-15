@@ -17,7 +17,7 @@ $ playwright test
 [WebServer] - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
 [WebServer] [INEFFECTIVE_DYNAMIC_IMPORT] node_modules/.pnpm/3dmol@2.5.5/node_modules/3dmol/build/3Dmol.es6.js is dynamically imported by src/components/panels/MoleculeLibraryDialog.vue?vue&type=script&setup=true&lang.ts but also statically imported by src/composables/use3Dmol.ts, dynamic import will not move module into another chunk.
 [WebServer] 
-[WebServer] $ /home/hubehero/.local/bin/pnpm run build
+[WebServer] $ <local-bin>/pnpm run build
 [WebServer] $ vite build
 [WebServer] [EVAL] Use of direct `eval` function is strongly discouraged as it poses security risks and may cause issues with minification.
 [WebServer]        ╭─[ node_modules/.pnpm/3dmol@2.5.5/node_modules/3dmol/build/3Dmol.es6.js:42893:20 ]
@@ -38,7 +38,7 @@ $ playwright test
 [WebServer] 
 [WebServer] swagger: swagger-ui-bundle.js already exists, skipping
 [WebServer] swagger: swagger-ui.css already exists, skipping
-[WebServer] Interface built into /home/hubehero/SELF_PROJECT/AutoDock_Vina/vinastudio/server/static
+[WebServer] Interface built into <repo>/vinastudio/server/static
 
 Running 2 tests using 1 worker
 

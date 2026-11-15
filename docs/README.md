@@ -8,8 +8,7 @@ is indexed under [`validation/`](../validation/README.md).
 |---|---|
 | Install, dock, analyse and export | [User guide](USER_GUIDE.md) · [简体中文](USER_GUIDE.zh-CN.md) |
 | Windows support and limits | [Windows](WINDOWS.md) · [简体中文](WINDOWS.zh-CN.md) |
-| Architecture and the three hard constraints | [Architecture](ARCHITECTURE.md) · [简体中文](ARCHITECTURE.zh-CN.md) |
-| Runtime, docking flow, code map and Catalog model | [Structure map](STRUCTURE.md) · [简体中文](STRUCTURE.zh-CN.md) |
+| Headless CLI and JSON contracts | [CLI](CLI.md) · [简体中文](CLI.zh-CN.md) |
 | Interactive tour from principles to features | [Interactive field guide](https://hubehero.github.io/VinaStudio/experience/) |
 | Scientific validation and limits | [Academic validation](ACADEMIC_VALIDATION.md) · [简体中文](ACADEMIC_VALIDATION.zh-CN.md) |
 | Release verification and independent reproduction | [Reproducibility](REPRODUCIBILITY.md) · [简体中文](REPRODUCIBILITY.zh-CN.md) |

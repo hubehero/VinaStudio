@@ -37,6 +37,7 @@ from vinastudio.core.chem.pdb_lines import (
     scan_residues,
     split_solvent,
 )
+from vinastudio.core.chem.residue_templates import expected_heavy_atoms
 from vinastudio.core.errors import (
     InvalidInputError,
     PreparationError,
@@ -69,6 +70,17 @@ class ReceptorPrepOptions:
     """Water/hetero residue keys to keep even when the delete switches are on."""
 
 
+@dataclass(frozen=True, slots=True)
+class MissingAtomReport:
+    """A standard residue whose heavy-atom inventory is incomplete."""
+
+    chain: str
+    res_seq: str
+    res_name: str
+    missing: tuple[str, ...]
+    present: tuple[str, ...]
+
+
 @dataclass(slots=True)
 class ReceptorReport:
     """What actually happened, in a shape the interface can display."""
@@ -99,6 +111,13 @@ class ReceptorReport:
     """Explicit HIS -> HID/HIE/HIP decisions, as ``A:42 HIE`` strings."""
     assumptions: list[str] = field(default_factory=list)
     """Stable codes for science that was *not* modelled (protonation, missing atoms)."""
+    missing_atoms: list[MissingAtomReport] = field(default_factory=list)
+    """Standard residues whose expected heavy atoms are not all present."""
+    incomplete_residues: int = 0
+    not_assessed_residues: list[str] = field(default_factory=list)
+    """Non-standard polymer residues; atom completeness was not assessed."""
+    completeness_policy: str = "report-only"
+    """What was done about missing atoms; P0 reports, it does not rebuild."""
 
 
 @dataclass(slots=True)
@@ -693,6 +712,39 @@ def _receptor_pose(rigid_pdbqt: str, file_path: Path) -> Any:
     return pose
 
 
+def _missing_atom_report(
+    residues: dict[str, ResidueSummary],
+) -> tuple[list[MissingAtomReport], list[str]]:
+    """Find standard polymer residues whose heavy-atom inventory is incomplete.
+
+    Only the input inventory is inspected. Waters and HETATM groups are not
+    assessed; non-standard polymer residues are listed as not assessed rather
+    than guessed at. Nothing is rebuilt here.
+    """
+    missing: list[MissingAtomReport] = []
+    not_assessed: list[str] = []
+    for key, summary in residues.items():
+        if summary.hetero or summary.is_water:
+            continue
+        expected = expected_heavy_atoms(summary.name)
+        if expected is None:
+            not_assessed.append(f"{key} {summary.name}")
+            continue
+        absent = tuple(sorted(expected - summary.atom_names))
+        if absent:
+            chain, _, res_seq = key.partition(":")
+            missing.append(
+                MissingAtomReport(
+                    chain=chain,
+                    res_seq=res_seq,
+                    res_name=summary.name,
+                    missing=absent,
+                    present=tuple(sorted(summary.atom_names)),
+                )
+            )
+    return missing, sorted(not_assessed)
+
+
 def prepare_receptor(
     path: str | Path,
     options: ReceptorPrepOptions | None = None,
@@ -716,6 +768,7 @@ def prepare_receptor(
         polymer, options, file_path, warnings
     )
     pose = _receptor_pose(rigid_pdbqt, file_path)
+    missing_atoms, not_assessed = _missing_atom_report(prepared.residues)
 
     if ignored:
         warnings.append(
@@ -762,5 +815,9 @@ def prepare_receptor(
                 "charges_from_meeko_templates",
                 "missing_atoms_not_rebuilt",
             ],
+            missing_atoms=missing_atoms,
+            incomplete_residues=len(missing_atoms),
+            not_assessed_residues=not_assessed,
+            completeness_policy="report-only",
         ),
     )

@@ -123,6 +123,9 @@ class LigandPreview(BaseModel):
     propertiesError: str | None = None
 
 
+StateKind = Literal["protonation", "tautomer", "stereo"]
+
+
 class LigandOptions(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -132,6 +135,20 @@ class LigandOptions(BaseModel):
     flexibleAmides: bool = False
     hydrate: bool = False
     doubleBondPenalty: float = 50.0
+    enumerateStates: bool = False
+    stateKinds: list[StateKind] = Field(
+        default_factory=lambda: ["protonation", "tautomer", "stereo"]
+    )
+    phRange: tuple[float, float] = (7.0, 7.8)
+    maxStates: int = Field(default=8, ge=1, le=64)
+
+
+class LigandStateReport(BaseModel):
+    stateId: str
+    kind: Literal["input", "protonation", "tautomer", "stereo"]
+    smiles: str
+    charge: int
+    description: str
 
 
 class LigandReport(BaseModel):
@@ -149,6 +166,17 @@ class LigandReport(BaseModel):
     atomTypes: dict[str, int]
     smiles: str | None = None
     warnings: list[str] = Field(default_factory=list)
+    states: list[LigandStateReport] = Field(default_factory=list)
+    selectedState: str | None = None
+    statePolicy: str = "single-input"
+    stateTruncated: bool = False
+
+
+class LigandStatePreparation(BaseModel):
+    state: LigandStateReport
+    report: LigandReport
+    artifacts: list[Artifact] = Field(default_factory=list)
+    pdbqt: str
 
 
 class LigandPreparationResponse(BaseModel):
@@ -157,6 +185,22 @@ class LigandPreparationResponse(BaseModel):
     artifacts: list[Artifact]
     pdbqt: str
     """Also returned inline: it is a few kilobytes and the docking call wants it."""
+    states: list[LigandStatePreparation] | None = None
+    """Present only when ``enumerateStates`` was requested."""
+
+
+class LigandEnumerateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    path: str
+    options: LigandOptions = Field(default_factory=LigandOptions)
+
+
+class LigandEnumerateResponse(BaseModel):
+    states: list[LigandStateReport] = Field(default_factory=list)
+    truncated: bool = False
+    kinds: list[str] = Field(default_factory=list)
+    phRange: tuple[float, float] | None = None
 
 
 class LigandPrepareRequest(BaseModel):
@@ -252,6 +296,16 @@ class ReceptorOptions(BaseModel):
     keepResidues: list[str] = Field(default_factory=list)
 
 
+class MissingAtom(BaseModel):
+    """One standard residue with missing heavy atoms (reported, not rebuilt)."""
+
+    chain: str
+    resSeq: str
+    resName: str
+    missing: list[str] = Field(default_factory=list)
+    present: list[str] = Field(default_factory=list)
+
+
 class ReceptorReport(BaseModel):
     source: str
     inputFormat: str
@@ -274,6 +328,10 @@ class ReceptorReport(BaseModel):
     removedAltlocResidues: list[str] = Field(default_factory=list)
     histidineStates: list[str] = Field(default_factory=list)
     assumptions: list[str] = Field(default_factory=list)
+    missingAtoms: list[MissingAtom] = Field(default_factory=list)
+    incompleteResidues: int = 0
+    notAssessedResidues: list[str] = Field(default_factory=list)
+    completenessPolicy: str = "report-only"
 
 
 class ReceptorPreparationResponse(BaseModel):

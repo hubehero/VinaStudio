@@ -12,6 +12,9 @@ const DEFAULT_SIZE: [number, number, number] = [20, 20, 20]
 /** How long to wait after the last edit before asking the backend to measure. */
 const MEASURE_DEBOUNCE_MS = 180
 
+/** Where the current box came from; persisted with the job for Methods. */
+export type BoxSource = 'manual' | 'ligand' | 'residue' | 'pocket' | 'config' | 'unknown'
+
 export const useBoxStore = defineStore('box', () => {
   // `ref` rather than `reactive`: a tuple keeps its fixed length, so indexing it
   // stays `number` instead of widening to `number | undefined`.
@@ -33,6 +36,7 @@ export const useBoxStore = defineStore('box', () => {
   const error = ref<string | null>(null)
   const autoboxPoints = ref<number | null>(null)
   const autoboxSource = ref<string | null>(null)
+  const source = ref<BoxSource>('unknown')
 
   const style = reactive<ViewerStyle>({ ...DEFAULT_VIEWER_STYLE })
   const orthographic = ref(false)
@@ -105,12 +109,14 @@ export const useBoxStore = defineStore('box', () => {
 
   function setCenter(next: [number, number, number]): void {
     center.value = [round(next[0]), round(next[1]), round(next[2])]
+    source.value = 'manual'
     touched.value = true
   }
 
   function setCenterAxis(axis: Axis, value: number): void {
     // The centre may be negative; only the size has a lower bound.
     replaceAxis(center, axis, value, Number.NEGATIVE_INFINITY)
+    source.value = 'manual'
     touched.value = true
   }
 
@@ -120,6 +126,7 @@ export const useBoxStore = defineStore('box', () => {
       Math.max(round(next[1]), 1),
       Math.max(round(next[2]), 1),
     ]
+    source.value = 'manual'
     touched.value = true
   }
 
@@ -127,12 +134,20 @@ export const useBoxStore = defineStore('box', () => {
     // A zero or negative edge is not a box; clamping here also keeps the
     // viewport from drawing a degenerate shape while the backend would reject it.
     replaceAxis(size, axis, value, 1)
+    source.value = 'manual'
     touched.value = true
   }
 
   async function autoboxFromLigand(path: string, extend: number): Promise<boolean> {
-    return runAutobox(() =>
-      api.autoboxFromLigand({ path, extend, spacing: spacing.value, forceEvenVoxels: forceEvenVoxels.value }),
+    return runAutobox(
+      () =>
+        api.autoboxFromLigand({
+          path,
+          extend,
+          spacing: spacing.value,
+          forceEvenVoxels: forceEvenVoxels.value,
+        }),
+      'ligand',
     )
   }
 
@@ -141,25 +156,29 @@ export const useBoxStore = defineStore('box', () => {
     residues: string[],
     extend: number,
   ): Promise<boolean> {
-    return runAutobox(() =>
-      api.autoboxFromResidues({
-        path,
-        residues,
-        extend,
-        spacing: spacing.value,
-        forceEvenVoxels: forceEvenVoxels.value,
-      }),
+    return runAutobox(
+      () =>
+        api.autoboxFromResidues({
+          path,
+          residues,
+          extend,
+          spacing: spacing.value,
+          forceEvenVoxels: forceEvenVoxels.value,
+        }),
+      'residue',
     )
   }
 
   async function runAutobox(
     call: () => Promise<{ box: BoxMetrics; points: number; source: string }>,
+    kind: BoxSource,
   ): Promise<boolean> {
     measuring.value = true
     error.value = null
     try {
       const result = await call()
       applyMetrics(result.box)
+      source.value = kind
       touched.value = true
       autoboxPoints.value = result.points
       autoboxSource.value = result.source
@@ -210,6 +229,7 @@ export const useBoxStore = defineStore('box', () => {
 
   function applyPocket(candidate: PocketCandidate): void {
     applyMetrics(candidate.box)
+    source.value = 'pocket'
     touched.value = true
   }
 
@@ -229,6 +249,7 @@ export const useBoxStore = defineStore('box', () => {
     error.value = null
     try {
       applyMetrics(await api.boxFromConfig(text))
+      source.value = 'config'
       touched.value = true
       return true
     } catch (cause) {
@@ -242,6 +263,7 @@ export const useBoxStore = defineStore('box', () => {
   function reset(): void {
     setCenter([...DEFAULT_CENTER])
     setSize([...DEFAULT_SIZE])
+    source.value = 'unknown'
     autoboxPoints.value = null
     autoboxSource.value = null
   }
@@ -262,6 +284,7 @@ export const useBoxStore = defineStore('box', () => {
     canWriteMaps,
     autoboxPoints,
     autoboxSource,
+    source,
     style,
     orthographic,
     measure,

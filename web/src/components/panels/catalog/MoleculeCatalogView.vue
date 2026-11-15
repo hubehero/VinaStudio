@@ -16,7 +16,14 @@ import { useCatalogStore } from '@/stores/catalog'
 import { defaultReceptorOptions } from '@/stores/preparation-shared'
 import { chineseAlias } from '@/utils/catalog-name'
 import { CATALOG_COLUMNS, useSettingsStore } from '@/stores/settings'
-import type { CatalogLibraryMember, CatalogMolecule, CatalogStudyMember, SampleFile } from '@/types/api'
+import type {
+  CatalogLibraryMember,
+  CatalogMolecule,
+  CatalogStudyMember,
+  LigandStateReport,
+  MissingAtom,
+  SampleFile,
+} from '@/types/api'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -46,6 +53,39 @@ onMounted(() => {
 
 const active = computed(() => store.activeMolecule)
 const isReceptor = computed(() => active.value?.kindHint === 'receptor')
+
+const preparationReport = computed<Record<string, unknown> | null>(() => {
+  const raw = active.value?.metadata?.['preparationReport']
+  return raw && typeof raw === 'object' && !Array.isArray(raw)
+    ? (raw as Record<string, unknown>)
+    : null
+})
+const ligandStates = computed<LigandStateReport[]>(() => {
+  const raw = preparationReport.value?.['states']
+  return Array.isArray(raw) ? (raw as LigandStateReport[]) : []
+})
+const receptorMissingAtoms = computed<MissingAtom[]>(() => {
+  const raw = preparationReport.value?.['missingAtoms']
+  return Array.isArray(raw) ? (raw as MissingAtom[]) : []
+})
+const selectedState = computed<string>({
+  get: () => {
+    const raw = active.value?.metadata?.['selectedState']
+    return typeof raw === 'string' ? raw : (ligandStates.value[0]?.stateId ?? '')
+  },
+  set: (value: string) => {
+    void selectLigandState(value)
+  },
+})
+
+async function selectLigandState(value: string): Promise<void> {
+  if (!active.value) return
+  try {
+    await store.selectLigandState(active.value.id, value)
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : String(error))
+  }
+}
 
 function metadataText(key: string): string | null {
   const value = active.value?.metadata?.[key]
@@ -1241,6 +1281,34 @@ async function applySuggestion(id: string): Promise<void> {
               >{{ collection.name }}</button>
             </div>
           </section>
+          <section
+            v-if="preparationReport && (isReceptor ? receptorMissingAtoms.length > 0 : ligandStates.length > 0)"
+            class="catalog-preparation"
+          >
+            <h3>{{ t('catalog.preparationReport') }}</h3>
+            <template v-if="isReceptor">
+              <p class="muted">
+                {{ t('catalog.incompleteResidues', { n: receptorMissingAtoms.length }) }}
+              </p>
+              <ul class="catalog-missing-atoms">
+                <li v-for="item in receptorMissingAtoms" :key="`${item.chain}:${item.resSeq}`">
+                  {{ item.chain }}:{{ item.resSeq }} {{ item.resName }} —
+                  {{ item.missing.join(', ') }}
+                </li>
+              </ul>
+            </template>
+            <template v-else>
+              <p class="muted">{{ t('catalog.ligandStates', { n: ligandStates.length }) }}</p>
+              <el-select v-model="selectedState" size="small" style="width: 100%">
+                <el-option
+                  v-for="state in ligandStates"
+                  :key="state.stateId"
+                  :label="`${state.stateId} · ${state.kind} · q=${state.charge}`"
+                  :value="state.stateId"
+                />
+              </el-select>
+            </template>
+          </section>
           <h3>{{ t('catalog.files') }}</h3>
           <ul class="catalog-files">
             <li v-for="file in active.files" :key="`${file.kind}-${file.path}`">
@@ -1428,6 +1496,8 @@ async function applySuggestion(id: string): Promise<void> {
 .catalog-receptor-note { margin: 8px 0; padding: 7px 8px; border-left: 2px solid var(--vs-accent); background: var(--vs-bg-sunken); color: var(--vs-text-muted); font-size: 11px; line-height: 1.5; }
 .catalog-receptor-note--muted { border-left-color: var(--vs-border); }
 .catalog-detail__view { height: 180px; margin: 8px 0; }
+.catalog-preparation { margin-top: 10px; }
+.catalog-missing-atoms { margin: 4px 0; padding-left: 18px; font-size: 11.5px; }
 .catalog-detail dl { display: grid; grid-template-columns: 82px 1fr; gap: 4px 8px; font-size: 11.5px; }
 .catalog-detail dt { color: var(--vs-text-faint); }
 .catalog-detail dd { margin: 0; overflow-wrap: anywhere; }

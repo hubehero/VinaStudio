@@ -17,6 +17,16 @@ const docking = useDockingStore()
 const box = useBoxStore()
 const molecules = useMoleculeStore()
 
+/** Opt-in official suite; disabled until a reference SDF is available. */
+const officialValidation = ref(false)
+const official = computed(() => docking.validation?.official ?? null)
+
+function officialLabel(value: boolean | null | undefined): string {
+  if (value === true) return t('docking.validate.pass')
+  if (value === false) return t('docking.validate.fail')
+  return '—'
+}
+
 /** Prepared ligand SDF artifact path used as the geometric reference, if any. */
 const referenceSdfPath = computed<string | null>(() => {
   const mol = molecules.pipelineLigand
@@ -187,6 +197,7 @@ async function runValidation(): Promise<void> {
     center: box.center,
     size: box.size,
     referenceSdfPath: referenceSdfPath.value,
+    official: officialValidation.value,
   })
   if (docking.validationError) {
     ElMessage.error(t('docking.errorValidateFailed'))
@@ -335,6 +346,9 @@ async function handleExportCommand(command: 'csv' | 'bundle' | 'svg'): Promise<v
         >
           {{ t('docking.validate.run') }}
         </ElButton>
+        <ElCheckbox v-model="officialValidation" size="small" :disabled="!referenceSdfPath">
+          {{ t('docking.validate.official') }}
+        </ElCheckbox>
         <ElSelect
           v-if="referenceOptions.length > 0"
           v-model="selectedReference"
@@ -464,6 +478,48 @@ async function handleExportCommand(command: 'csv' | 'bundle' | 'svg'): Promise<v
       <p v-if="docking.validationError" class="validate-error">
         {{ t('docking.errorValidateFailed') }}
       </p>
+
+      <div v-if="official" class="official-validation">
+        <p class="vs-faint">
+          {{
+            t('docking.validate.officialStatus', {
+              status: official.status,
+              version: official.version ?? '—',
+            })
+          }}
+        </p>
+        <p v-if="official.error" class="validate-error">{{ official.error }}</p>
+        <p v-if="official.status === 'not-run'" class="vs-faint">
+          {{ t('docking.validate.officialHint') }}
+        </p>
+        <details v-if="official.status === 'run'" class="official-validation__details">
+          <summary>
+            {{
+              t('docking.validate.officialSummary', {
+                top: officialLabel(official.summary.topPassed),
+                all: officialLabel(official.summary.allPosesPassed),
+                n: official.summary.poseCount ?? official.poses.length,
+              })
+            }}
+          </summary>
+          <table class="official-validation__table">
+            <thead>
+              <tr>
+                <th>{{ t('docking.validate.pose') }}</th>
+                <th>{{ t('docking.validate.officialPassed') }}</th>
+                <th>{{ t('docking.validate.officialFailedChecks') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in official.poses" :key="row.pose">
+                <td>{{ row.pose + 1 }}</td>
+                <td>{{ officialLabel(row.passed) }}</td>
+                <td>{{ row.failedChecks.length ? row.failedChecks.join(', ') : '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </details>
+      </div>
 
       <p v-if="docking.rmsd" class="rmsd-note">
         {{
@@ -793,6 +849,30 @@ async function handleExportCommand(command: 'csv' | 'bundle' | 'svg'): Promise<v
   margin: 4px 0 8px;
   font-size: 12px;
   color: var(--vs-danger, #f56c6c);
+}
+
+.official-validation {
+  margin: 6px 0 10px;
+  font-size: 12px;
+}
+
+.official-validation__details summary {
+  cursor: pointer;
+  color: var(--vs-text-muted);
+}
+
+.official-validation__table {
+  width: 100%;
+  margin-top: 6px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.official-validation__table th,
+.official-validation__table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--vs-border);
+  text-align: left;
 }
 
 .rmsd-reference {

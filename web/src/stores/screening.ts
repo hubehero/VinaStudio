@@ -3,6 +3,9 @@ import { ref } from 'vue'
 
 import { api } from '@/api/http'
 import type {
+  EnrichmentExport,
+  EnrichmentRequest,
+  EnrichmentResponse,
   LibraryDetail,
   LibraryImportResult,
   LibrarySummary,
@@ -41,6 +44,12 @@ export const useScreeningStore = defineStore('screening', () => {
   const rankingError = ref(false)
   /** Dropped responses must not land after the user switched run/sort. */
   let rankingSeq = 0
+
+  // -- enrichment ------------------------------------------------------------
+  const enrichment = ref<EnrichmentResponse | null>(null)
+  const enrichmentLoading = ref(false)
+  const enrichmentError = ref<string | null>(null)
+  let enrichmentSeq = 0
 
   // -- actions: libraries ----------------------------------------------------
   async function loadLibraries(): Promise<void> {
@@ -109,6 +118,7 @@ export const useScreeningStore = defineStore('screening', () => {
       return
     }
     stopPolling()
+    if (activeRunId.value !== id) resetEnrichment()
     activeRunId.value = id
     runStatus.value = null
     await Promise.all([refreshRun(id), loadRanking()])
@@ -247,6 +257,47 @@ export const useScreeningStore = defineStore('screening', () => {
     return api.screeningExportRanking(id, rankingSortBy.value, rankingTop.value)
   }
 
+  // -- actions: enrichment ---------------------------------------------------
+  function resetEnrichment(): void {
+    enrichmentSeq += 1
+    enrichment.value = null
+    enrichmentLoading.value = false
+    enrichmentError.value = null
+  }
+
+  async function loadEnrichment(body: EnrichmentRequest): Promise<void> {
+    const id = activeRunId.value
+    if (id === null) {
+      resetEnrichment()
+      return
+    }
+    const seq = ++enrichmentSeq
+    enrichmentLoading.value = true
+    enrichmentError.value = null
+    try {
+      const response = await api.screeningMetrics(id, body)
+      if (seq !== enrichmentSeq) return
+      enrichment.value = response
+    } catch (error) {
+      if (seq === enrichmentSeq) {
+        enrichment.value = null
+        enrichmentError.value = error instanceof Error ? error.message : String(error)
+      }
+    } finally {
+      if (seq === enrichmentSeq) {
+        enrichmentLoading.value = false
+      }
+    }
+  }
+
+  function exportEnrichmentCsv(body: EnrichmentRequest): Promise<EnrichmentExport> {
+    const id = activeRunId.value
+    if (id === null) {
+      return Promise.reject(new Error('no active screening run'))
+    }
+    return api.screeningExportMetrics(id, body)
+  }
+
   return {
     libraries,
     librariesLoading,
@@ -266,6 +317,9 @@ export const useScreeningStore = defineStore('screening', () => {
     rankingTop,
     rankingLoading,
     rankingError,
+    enrichment,
+    enrichmentLoading,
+    enrichmentError,
     loadLibraries,
     importLibrary,
     selectLibrary,
@@ -279,5 +333,8 @@ export const useScreeningStore = defineStore('screening', () => {
     stopPolling,
     loadRanking,
     exportRankingCsv,
+    loadEnrichment,
+    exportEnrichmentCsv,
+    resetEnrichment,
   }
 })

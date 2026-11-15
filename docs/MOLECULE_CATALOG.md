@@ -40,6 +40,8 @@ in another.
 
 ## Built-in undergraduate library
 
+Built-in drug SDFs use CoordGen and canonical 2D orientation; a one-time workspace refresh fixes legacy cached depictions without recreating a deleted library. The detail viewer requests `/preview3d`, which generates and caches an ETKDG conformer when the stored source is 2D; it is an algorithmic conformation, not experimental data.
+
 A first workspace access seeds a versioned, editable teaching library with 125
 common undergraduate drugs (English/Chinese names, class, PubChem CID and
 InChIKey). It creates ordinary Catalog molecules, a Collection and a Library;
@@ -95,6 +97,34 @@ On first catalog access, the existing `<workspace>/molecules.json` and
 `molecules.json.pre-catalog` and left in place. Migration is idempotent and
 does not delete user files.
 
+## Source paths and preview boundary
+
+Native desktop file pickers may return absolute paths outside the workspace.
+That is an explicit user choice, not a path parameter accepted by preview: the
+Catalog records such files as `path_kind: external`, and `/molecules/{id}/preview`
+serves only a file already recorded for that molecule. No endpoint accepts a raw
+preview path. Imports from a browser must use `/api/files/upload`, which writes
+inside the workspace. The loopback API also refuses state-changing requests with
+a foreign `Origin`; see `SECURITY.md` and the local API security notes.
+External sources are kept in place for in-place workflows; copy them into the
+workspace if a project must remain portable on another machine.
+
+
+## Run snapshots and library invalidation
+
+A run selection is immutable: it stores the original `memberCount` and each
+member's identity. Deleting a molecule marks every affected selection
+`stale` (`invalidatedAt`, `invalidReason: member_deleted`) and batch/screening
+refuse to start it until the selection is recreated. The API exposes
+`liveMemberCount` and `stale`; the UI shows the reason instead of silently
+running fewer molecules.
+
+Catalog library membership is authoritative. Adding/removing a member,
+preparing a member, or deleting its molecule invalidates the derived
+`libraries/<id>/` materialisation; the next legacy library read needs a fresh
+materialisation rather than showing the old roster or a stale `prepared_path`.
+
+
 ## Known boundaries
 
 - Catalog preparation exposes receptor/ligand options and the sequence-based
@@ -114,17 +144,16 @@ does not delete user files.
   output directory).
 - The picker does not build a local fingerprint/ANN index or provide
   substructure/similarity search; that remains a separate product decision.
-- Catalog 1iep has been exercised through preparation, Study → docking and an
-  actual catalog-library virtual screening run. Individually prepared Catalog
-  molecules also enter the legacy receptor/ligand selectors at startup and
-  immediately after preparation; a Study is not required.
-
 - The **Prepared library** verifies PDBQT existence when opened; a missing artifact
   returns the molecule to `unprepared` instead of leaving a dead row. Cancel
   preparation reports released and retained cache bytes, and keeps referenced
   cache directories. It is a read-only dynamic scope (`prep=prepared`) listing
   receptors and ligands with prepared artifacts; the source file is retained and
   the library cannot be manually extended or renamed.
+- Catalog 1iep has been exercised through preparation, Study → docking and an
+  actual catalog-library virtual screening run. Individually prepared Catalog
+  molecules also enter the legacy receptor/ligand selectors at startup and
+  immediately after preparation; a Study is not required.
 
 ## For developers
 

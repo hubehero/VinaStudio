@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { ElButton, ElDialog, ElInput, ElInputNumber, ElMessage, ElSwitch } from 'element-plus'
+import {
+  ElButton,
+  ElCheckbox,
+  ElCheckboxGroup,
+  ElDialog,
+  ElInput,
+  ElInputNumber,
+  ElMessage,
+  ElSwitch,
+} from 'element-plus'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -110,8 +119,16 @@ async function run(): Promise<void> {
         }
       : undefined
     const ligandOptions = isReceptor.value ? undefined : { ...ligand.value }
-    await store.prepareMolecule(mol.id, { receptorOptions, ligandOptions })
-    ElMessage.success(t('catalog.prepared'))
+    const updated = await store.prepareMolecule(mol.id, { receptorOptions, ligandOptions })
+    const report = updated.metadata?.['preparationReport'] as
+      | { states?: unknown[] }
+      | undefined
+    const stateCount = Array.isArray(report?.states) ? report.states.length : 0
+    ElMessage.success(
+      stateCount > 0
+        ? t('catalog.preparedStates', { n: stateCount })
+        : t('catalog.prepared'),
+    )
     emit('prepared')
     open.value = false
   } catch (cause) {
@@ -183,6 +200,47 @@ async function run(): Promise<void> {
           <span>{{ t('molecules.optionSeed') }}</span>
           <ElInputNumber v-model="ligand.embedSeed" :min="0" :max="2147483647" size="small" />
         </label>
+        <div class="prepare-options__section">
+          <label class="prepare-options__row">
+            <span>{{ t('molecules.enumerateStates') }}</span>
+            <ElSwitch v-model="ligand.enumerateStates" size="small" />
+          </label>
+          <template v-if="ligand.enumerateStates">
+            <label class="prepare-options__row prepare-options__row--stack">
+              <span>{{ t('molecules.stateKinds') }}</span>
+              <ElCheckboxGroup v-model="ligand.stateKinds" size="small">
+                <ElCheckbox label="protonation">{{ t('molecules.stateProtonation') }}</ElCheckbox>
+                <ElCheckbox label="tautomer">{{ t('molecules.stateTautomer') }}</ElCheckbox>
+                <ElCheckbox label="stereo">{{ t('molecules.stateStereo') }}</ElCheckbox>
+              </ElCheckboxGroup>
+            </label>
+            <label class="prepare-options__row">
+              <span>{{ t('molecules.phRange') }}</span>
+              <div class="prepare-options__pair">
+                <ElInputNumber
+                  v-model="ligand.phRange[0]"
+                  :min="0"
+                  :max="14"
+                  :step="0.1"
+                  size="small"
+                />
+                <span>–</span>
+                <ElInputNumber
+                  v-model="ligand.phRange[1]"
+                  :min="0"
+                  :max="14"
+                  :step="0.1"
+                  size="small"
+                />
+              </div>
+            </label>
+            <label class="prepare-options__row">
+              <span>{{ t('molecules.maxStates') }}</span>
+              <ElInputNumber v-model="ligand.maxStates" :min="1" :max="64" size="small" />
+            </label>
+            <p class="vs-faint">{{ t('molecules.enumerateStatesHint') }}</p>
+          </template>
+        </div>
       </template>
     </div>
 
@@ -223,5 +281,17 @@ async function run(): Promise<void> {
 }
 .prepare-options__row--stack :deep(.el-input) {
   width: 100%;
+}
+.prepare-options__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--vs-border);
+}
+.prepare-options__pair {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 </style>

@@ -42,6 +42,8 @@ export interface MoleculeItem {
   error: PreparationFailure | null
   receptorOptions: ReceptorOptions
   ligandOptions: LigandOptions
+  /** Selected ligand state (e.g. `state-001`) when the catalog enumerated one. */
+  selectedState?: string | null
   /** Group ID — molecules from the same PDB entry share this. */
   groupId: string | null
   /** Display name for the group (e.g. PDB ID). */

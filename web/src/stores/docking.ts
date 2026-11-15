@@ -351,6 +351,7 @@ export const useDockingStore = defineStore('docking', () => {
     center?: [number, number, number] | null
     size?: [number, number, number] | null
     referenceSdfPath?: string | null
+    official?: boolean
   } = {}): Promise<void> {
     const id = activeJobId.value
     if (!id) return
@@ -361,6 +362,7 @@ export const useDockingStore = defineStore('docking', () => {
         center: options.center ?? null,
         size: options.size ?? null,
         referenceSdfPath: options.referenceSdfPath ?? null,
+        official: options.official ?? false,
       })
       if (activeJobId.value !== id) return
       validation.value = result

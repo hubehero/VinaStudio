@@ -19,6 +19,16 @@ from vinastudio.config import (
     ScoringFunction,
 )
 
+BoxSource = Literal[
+    "manual",
+    "ligand",
+    "residue",
+    "pocket",
+    "config",
+    "manifest",
+    "unknown",
+]
+
 #: The batch contract mirrors the library caps; a request cannot ask the server
 #: to carry more ligands or inline PDBQT text than an import may hold.
 BATCH_LIGAND_MAX = LIB_MAX_MOLS_DEFAULT
@@ -42,7 +52,7 @@ def _validate_weights(
             f"{scoring} requires {expected} weights, got {len(weights)}"
         )
     if map_paths:
-        raise ValueError("custom scoring weights cannot be combined with precomputed maps")
+        raise ValueError("custom scoring weights cannot be combined with external maps")
 
 
 def _validate_box_values(center: tuple[float, float, float], size: tuple[float, float, float]) -> None:
@@ -84,6 +94,10 @@ class DockingRequest(BaseModel):
     verbosity: int = Field(default=1, ge=0, le=2)
     spacing: float = Field(default=0.375, gt=0)
     forceEvenVoxels: bool = False
+    boxSource: BoxSource = Field(
+        default="unknown",
+        description="How the search box was chosen; recorded for Methods/provenance.",
+    )
     weights: list[float] | None = Field(
         default=None,
         description="Custom scoring weights. None means use Vina defaults.",
@@ -406,6 +420,41 @@ class ValidatePosesRequest(BaseModel):
         default=None,
         description="Subset of check codes to run; null runs all available checks.",
     )
+    official: bool = Field(
+        default=False,
+        description=(
+            "Also run the official PoseBusters suite when the optional package is "
+            "installed. Results are reported separately and never change the "
+            "project's six-check verdict."
+        ),
+    )
+    receptorPdbPath: str | None = Field(
+        default=None,
+        description=(
+            "Receptor PDB for official PoseBusters. Omit to use the prepared PDB "
+            "beside the job's receptor PDBQT."
+        ),
+    )
+
+
+class OfficialPoseResultModel(BaseModel):
+    """One pose's official PoseBusters outcome."""
+
+    pose: int
+    passed: bool
+    failedChecks: list[str] = Field(default_factory=list)
+
+
+class OfficialPoseBustersModel(BaseModel):
+    """Official PoseBusters result, kept separate from the six project checks."""
+
+    status: Literal["run", "not-run", "partial"]
+    config: str = "redock"
+    version: str | None = None
+    checks: list[str] = Field(default_factory=list)
+    poses: list[OfficialPoseResultModel] = Field(default_factory=list)
+    summary: dict[str, object] = Field(default_factory=dict)
+    error: str | None = None
 
 
 class PoseValidationItem(BaseModel):
@@ -426,6 +475,7 @@ class ValidatePosesResponse(BaseModel):
     poses: list[PoseValidationItem] = Field(default_factory=list)
     thresholds: dict[str, float] = Field(default_factory=dict)
     checksRun: list[str] = Field(default_factory=list)
+    official: OfficialPoseBustersModel | None = None
 
 
 class RmsdRequest(BaseModel):
@@ -635,6 +685,7 @@ class EnsembleDockingRequest(BaseModel):
     verbosity: int = 1
     spacing: float = 0.375
     forceEvenVoxels: bool = False
+    boxSource: BoxSource = "unknown"
     weights: list[float] | None = None
     mapPaths: list[str] | None = None
     engine: Literal["vina", "vina-cli"] = "vina"
@@ -686,6 +737,7 @@ class BatchDockingRequest(BaseModel):
     flexReceptorPath: str | None = None
     center: tuple[float, float, float]
     size: tuple[float, float, float]
+    boxSource: BoxSource = "unknown"
     ligands: list[BatchLigandItem] = Field(
         default_factory=list, max_length=BATCH_LIGAND_MAX
     )

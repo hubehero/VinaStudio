@@ -319,11 +319,54 @@ def prepare_molecule(
                 path_kind="workspace",
                 bytes_size=artifact.bytes,
             )
-        store.update_molecule(conn, molecule_id, {"prep_status": "prepared", "status": "active"})
-        pdbqt = next(
-            (item.path for item in result.artifacts if item.kind == "pdbqt"),
-            None,
+
+        # Ligand-state enumeration returns one artifact pair per state. The
+        # catalog keeps every pair so the UI can switch states without
+        # re-preparing, and records the selected state plus the full report in
+        # metadata (no extra columns; the report is JSON-shaped anyway).
+        state_preparations = getattr(result, "states", None)
+        selected_state = "state-000"
+        if state_preparations:
+            for state in state_preparations:
+                for artifact in state.artifacts:
+                    store.add_file(
+                        conn,
+                        molecule_id,
+                        kind=artifact.kind,
+                        path=artifact.path,
+                        path_kind="workspace",
+                        bytes_size=artifact.bytes,
+                    )
+            selected_state = state_preparations[0].state.stateId
+        metadata: dict[str, Any] = {
+            "preparationReport": result.report.model_dump(),
+        }
+        if state_preparations:
+            metadata["selectedState"] = selected_state
+        store.update_molecule(
+            conn,
+            molecule_id,
+            {
+                "prep_status": "prepared",
+                "status": "active",
+                "metadata": metadata,
+            },
         )
+        pdbqt = None
+        if state_preparations:
+            pdbqt = next(
+                (
+                    item.path
+                    for item in state_preparations[0].artifacts
+                    if item.kind == "pdbqt"
+                ),
+                None,
+            )
+        if pdbqt is None:
+            pdbqt = next(
+                (item.path for item in result.artifacts if item.kind == "pdbqt"),
+                None,
+            )
         if pdbqt:
             conn.execute(
                 "UPDATE library_members SET prepared_path = ? WHERE molecule_id = ?",

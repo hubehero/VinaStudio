@@ -137,6 +137,8 @@ function preparationSummary(): Record<string, unknown> | null {
     altlocPolicy: report.altlocPolicy ?? 'blank/default',
     removedAltlocResidues: report.removedAltlocResidues?.length ?? 0,
     assumptions: report.assumptions ?? [],
+    incompleteResidues: report.incompleteResidues ?? 0,
+    completenessPolicy: report.completenessPolicy ?? 'report-only',
   }
 }
 
@@ -174,6 +176,7 @@ async function startEnsemble(): Promise<void> {
     verbosity: verbosity.value,
     spacing: box.spacing,
     forceEvenVoxels: box.forceEvenVoxels,
+    boxSource: box.source,
     weights: weightsRaw.value.trim()
       ? weightsRaw.value.split(',').map((s) => parseFloat(s.trim())).filter((n) => !Number.isNaN(n))
       : null,
@@ -215,6 +218,7 @@ async function startDocking(): Promise<void> {
     verbosity: verbosity.value,
     spacing: box.spacing,
     forceEvenVoxels: box.forceEvenVoxels,
+    boxSource: box.source,
     weights: weightsRaw.value.trim()
       ? weightsRaw.value.split(',').map((s) => parseFloat(s.trim())).filter((n) => !Number.isNaN(n))
       : null,
@@ -364,6 +368,7 @@ function openReport(): void {
           <label class="form__label">{{ t('docking.mapPaths') }}</label>
           <ElInput v-model="mapPathsRaw" size="small" :placeholder="t('docking.mapPathsNote')" />
           <div class="form__hint">
+            <span>{{ t('docking.ad4ExternalMaps') }}</span>
             <HelpLink topic="ad4Maps" />
           </div>
         </div>

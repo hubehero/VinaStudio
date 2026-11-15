@@ -14,13 +14,9 @@ committed 1iep case without failing on optional local datasets.
 
 from __future__ import annotations
 
-import hashlib
-import importlib.metadata
 import json
-import os
-import platform
 import re
-import subprocess
+import statistics as statistics_module
 import time
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
@@ -35,6 +31,7 @@ from vinastudio.core.chem.receptor_prep import ReceptorPrepOptions, prepare_rece
 from vinastudio.core.chem.rmsd import reference_matches_poses, rmsd_vs_reference
 from vinastudio.core.docking import DockingParams, run_docking
 from vinastudio.core.errors import InvalidInputError
+from vinastudio.core.stats import bootstrap_ci, wilson_interval
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MANIFEST = REPO_ROOT / "validation" / "manifest.json"
@@ -42,7 +39,12 @@ DEFAULT_RMSD_THRESHOLD = 2.0
 
 LEGACY_MANIFEST_VERSION = "1.0"
 BENCHMARK_MANIFEST_VERSION = "1.1"
-REPORT_SCHEMA_VERSION = "2.1"
+CROSS_DOCKING_MANIFEST_VERSION = "1.2"
+REPORT_SCHEMA_VERSION = "2.2"
+#: A cross-docking receptor must be in the reference frame; the closest
+#: reference-ligand/receptor atom pair is a cheap sanity check, not proof that
+#: the pocket is correct.
+FRAME_MAX_MIN_DISTANCE = 5.0
 OPEN_LICENSES = frozenset({"CC0-1.0", "MIT", "CC-BY-3.0", "CC-BY-SA-3.0"})
 RESTRICTED_LICENSES = frozenset(
     {"PDBbind-User-Agreement", "DUD-E-Terms", "ZINC-Terms", "Unconfirmed"}
@@ -90,6 +92,11 @@ class ValidationCase:
     receptor: Path
     ligand: Path
     reference: Path
+    mode: str = "self"
+    """``self`` (one receptor) or ``cross`` (several pre-aligned receptors)."""
+    receptors: tuple[Path, ...] = ()
+    receptor_names: tuple[str, ...] = ()
+    structure_kinds: tuple[str, ...] = ()
     center: tuple[float, float, float] | None = None
     size: tuple[float, float, float] | None = None
     extend: float = 4.0
@@ -102,6 +109,8 @@ class ValidationCase:
     allow_bad_residues: bool = False
     default_altloc: str = ""
     keep_hetero: tuple[str, ...] = ()
+    box_source: str = ""
+    official_posebusters: bool = False
     reference_source: str = ""
     dataset: str = "legacy"
     source: str = ""
@@ -134,6 +143,8 @@ class ValidationCaseResult:
     receptor_warnings: list[str] = field(default_factory=list)
     ligand_warnings: list[str] = field(default_factory=list)
     provenance: dict[str, Any] = field(default_factory=dict)
+    official_posebusters: dict[str, Any] | None = None
+    cross_docking: dict[str, Any] | None = None
     elapsed_ms: int | None = None
 
     def as_dict(self) -> dict[str, Any]:
@@ -155,6 +166,8 @@ class ValidationCaseResult:
             "receptorWarnings": self.receptor_warnings,
             "ligandWarnings": self.ligand_warnings,
             "provenance": self.provenance,
+            "officialPoseBusters": self.official_posebusters,
+            "crossDocking": self.cross_docking,
             "elapsedMs": self.elapsed_ms,
             "seed": self.case.seed,
             "source": self.case.source,
@@ -162,7 +175,40 @@ class ValidationCaseResult:
             "redistributable": self.case.redistributable,
             "localOnly": self.case.local_only,
             "targetFamily": self.case.target_family,
+            "mode": self.case.mode,
+            "structureKinds": list(self.case.structure_kinds),
         }
+
+
+def _report_statistics(cases: list[ValidationCaseResult]) -> dict[str, Any]:
+    """Descriptive statistics for this dataset, not a universal accuracy claim."""
+    evaluable = [result for result in cases if result.status in {"passed", "failed"}]
+    rmsds = [
+        result.best_rmsd
+        for result in evaluable
+        if result.best_rmsd is not None
+    ]
+    passed = sum(1 for result in evaluable if result.status == "passed")
+    success_rate = passed / len(evaluable) if evaluable else None
+    wilson = wilson_interval(passed, len(evaluable)) if evaluable else None
+    bootstrap = bootstrap_ci(rmsds)
+    return {
+        "n": len(evaluable),
+        "passed": passed,
+        "successRate": round(success_rate, 4) if success_rate is not None else None,
+        "successRateWilson95": (
+            [round(value, 4) for value in wilson] if wilson is not None else None
+        ),
+        "meanRmsd": (
+            round(statistics_module.fmean(rmsds), 4) if rmsds else None
+        ),
+        "medianRmsd": (
+            round(statistics_module.median(rmsds), 4) if rmsds else None
+        ),
+        "bootstrap95": (
+            [round(value, 4) for value in bootstrap] if bootstrap is not None else None
+        ),
+    }
 
 
 @dataclass(slots=True)
@@ -191,81 +237,53 @@ class ValidationReport:
             license_summary=(),
             redistributable=None,
         )
+        summary: dict[str, Any] = {
+            "total": len(self.cases),
+            "passed": self.passed,
+            "failed": self.failed,
+            "skipped": self.skipped,
+        }
+        official = [
+            result.official_posebusters
+            for result in self.cases
+            if result.official_posebusters
+            and result.official_posebusters.get("status") == "run"
+        ]
+        if official:
+            summary["officialCases"] = len(official)
+            summary["officialTopPassed"] = sum(
+                1 for item in official if item.get("summary", {}).get("topPassed")
+            )
+            summary["officialAllPosesPassed"] = sum(
+                1 for item in official if item.get("summary", {}).get("allPosesPassed")
+            )
         return {
             "formatVersion": REPORT_SCHEMA_VERSION,
             "generatedAt": self.generated_at,
             "environment": self.environment,
             "dataset": dataset.as_dict(),
-            "summary": {
-                "total": len(self.cases),
-                "passed": self.passed,
-                "failed": self.failed,
-                "skipped": self.skipped,
-            },
+            "summary": summary,
+            "statistics": _report_statistics(self.cases),
             "cases": [result.as_dict() for result in self.cases],
         }
 
 
 def _git_metadata() -> dict[str, str | bool | None]:
-    """Repository identity for the report, without treating scratch as source."""
-    try:
-        commit = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=REPO_ROOT,
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=False,
-        )
-        status = subprocess.run(
-            [
-                "git",
-                "status",
-                "--porcelain",
-                "--untracked-files=no",
-                "--",
-                ".",
-                ":(exclude).commandcode",
-            ],
-            cwd=REPO_ROOT,
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=False,
-        )
-        return {
-            "commit": commit.stdout.strip() if commit.returncode == 0 else None,
-            "dirty": bool(status.stdout.strip()) if status.returncode == 0 else None,
-        }
-    except (OSError, subprocess.SubprocessError):
-        return {"commit": None, "dirty": None}
+    from vinastudio.core.provenance import git_metadata
+
+    return git_metadata(REPO_ROOT)
 
 
 def _display_path(path: Path, *, redact: bool) -> str:
-    if redact:
-        return "<local-restricted>"
-    try:
-        return str(path.resolve().relative_to(REPO_ROOT))
-    except ValueError:
-        return str(path)
+    from vinastudio.core.provenance import display_path
+
+    return display_path(path, redact=redact, relative_to_root=True)
 
 
 def _file_info(path: Path, *, redact: bool = False) -> dict[str, Any]:
-    if not path.is_file():
-        return {
-            "path": _display_path(path, redact=redact),
-            "exists": False,
-        }
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(chunk)
-    return {
-        "path": _display_path(path, redact=redact),
-        "exists": True,
-        "bytes": path.stat().st_size,
-        "sha256": digest.hexdigest(),
-    }
+    from vinastudio.core.provenance import file_info
+
+    return file_info(path, redact=redact, relative_to_root=True)
 
 
 def _docking_provenance(case: ValidationCase, params: DockingParams, box: Box) -> dict[str, Any]:
@@ -283,7 +301,8 @@ def _docking_provenance(case: ValidationCase, params: DockingParams, box: Box) -
         "noRefine": params.no_refine,
         "spacing": params.spacing,
         "forceEvenVoxels": params.force_even_voxels,
-        "boxSource": "explicit" if case.center is not None else "reference-autobox",
+        "boxSource": case.box_source
+        or ("explicit" if case.center is not None else "reference-autobox"),
         "box": box.summary(),
         "allowBadResidues": case.allow_bad_residues,
         "defaultAltloc": case.default_altloc,
@@ -292,35 +311,9 @@ def _docking_provenance(case: ValidationCase, params: DockingParams, box: Box) -
 
 
 def environment_info() -> dict[str, str]:
-    """Versions that can change a docking result; unknown is reported as such."""
-    from vinastudio import __version__
+    from vinastudio.core.provenance import environment_info as _environment_info
 
-    versions: dict[str, str] = {
-        "appVersion": str(__version__),
-        "python": platform.python_version(),
-        "platform": f"{platform.system()} {platform.release()} ({platform.machine()})",
-        "cpuCount": str(os.cpu_count() or 0),
-    }
-    for distribution in ("vina", "meeko", "rdkit", "numpy", "scipy", "gemmi"):
-        try:
-            versions[distribution] = importlib.metadata.version(distribution)
-        except importlib.metadata.PackageNotFoundError:
-            versions[distribution] = "unknown"
-    git = _git_metadata()
-    versions["gitCommit"] = str(git.get("commit") or "unknown")
-    versions["gitDirty"] = (
-        "unknown" if git.get("dirty") is None else ("yes" if git["dirty"] else "no")
-    )
-    try:
-        from vinastudio.core.engines import backend_report
-
-        backend = backend_report()
-        versions["engineBackend"] = str(backend.get("backend") or "unavailable")
-        versions["engineReason"] = str(backend.get("reason") or "")
-    except Exception:  # noqa: BLE001 - provenance must not hide a report
-        versions["engineBackend"] = "unknown"
-        versions["engineReason"] = "could not resolve backend"
-    return versions
+    return _environment_info()
 
 
 def _required_text(raw: dict[str, Any], key: str, case_id: str) -> str:
@@ -391,7 +384,7 @@ def load_manifest_document(
     *,
     root: str | Path = REPO_ROOT,
 ) -> ValidationManifest:
-    """Parse a 1.0 or 1.1 manifest, including dataset-level licence metadata."""
+    """Parse a 1.0, 1.1 or 1.2 manifest, including dataset-level metadata."""
     manifest_path = Path(path)
     if not manifest_path.is_file():
         raise InvalidInputError(f"validation manifest not found: {manifest_path}")
@@ -402,14 +395,22 @@ def load_manifest_document(
     if not isinstance(payload, dict):
         raise InvalidInputError("validation manifest must be a JSON object")
     version = str(payload.get("formatVersion", ""))
-    if version not in {LEGACY_MANIFEST_VERSION, BENCHMARK_MANIFEST_VERSION}:
+    if version not in {
+        LEGACY_MANIFEST_VERSION,
+        BENCHMARK_MANIFEST_VERSION,
+        CROSS_DOCKING_MANIFEST_VERSION,
+    }:
         raise InvalidInputError(
-            "validation manifest formatVersion must be '1.0' or '1.1'"
+            "validation manifest formatVersion must be '1.0', '1.1' or '1.2'"
         )
     raw_cases = payload.get("cases")
     if not isinstance(raw_cases, list) or not raw_cases:
         raise InvalidInputError("validation manifest must contain a non-empty cases list")
-    dataset = _dataset_from_dict(payload.get("dataset")) if version == BENCHMARK_MANIFEST_VERSION else None
+    dataset = (
+        _dataset_from_dict(payload.get("dataset"))
+        if version != LEGACY_MANIFEST_VERSION
+        else None
+    )
 
     base = Path(root)
     cases: list[ValidationCase] = []
@@ -452,6 +453,44 @@ def load_manifest(
     return load_manifest_document(path, root=root).cases
 
 
+def _receptors_from_dict(
+    raw: dict[str, Any],
+    base: Path,
+    case_id: str,
+) -> tuple[tuple[Path, ...], tuple[str, ...], tuple[str, ...]]:
+    entries = raw.get("receptors")
+    if entries is None:
+        return (), (), ()
+    if not isinstance(entries, list) or len(entries) < 2:
+        raise InvalidInputError(
+            f"validation case {case_id!r} receptors must list at least two receptors"
+        )
+    paths: list[Path] = []
+    names: list[str] = []
+    kinds: list[str] = []
+    for index, item in enumerate(entries, start=1):
+        if not isinstance(item, dict):
+            raise InvalidInputError(
+                f"validation case {case_id!r} receptor #{index} must be an object"
+            )
+        value = item.get("path")
+        if not isinstance(value, str) or not value.strip():
+            raise InvalidInputError(
+                f"validation case {case_id!r} receptor #{index} needs path"
+            )
+        candidate = Path(value)
+        paths.append(candidate if candidate.is_absolute() else (base / candidate).resolve())
+        names.append(str(item.get("name") or f"receptor-{index}"))
+        kind = str(item.get("structureKind", "holo"))
+        if kind not in {"holo", "apo", "predicted"}:
+            raise InvalidInputError(
+                f"validation case {case_id!r} receptor #{index} has unknown "
+                f"structureKind {kind!r}"
+            )
+        kinds.append(kind)
+    return tuple(paths), tuple(names), tuple(kinds)
+
+
 def _case_from_dict(
     raw: dict[str, Any],
     base: Path,
@@ -465,6 +504,26 @@ def _case_from_dict(
             raise InvalidInputError(f"validation case {case_id!r} needs {key}")
         candidate = Path(value)
         return candidate if candidate.is_absolute() else (base / candidate).resolve()
+
+    mode = str(raw.get("mode", "self"))
+    if mode not in {"self", "cross"}:
+        raise InvalidInputError(
+            f"validation case {case_id!r} mode must be 'self' or 'cross'"
+        )
+    receptors, receptor_names, structure_kinds = _receptors_from_dict(
+        raw, base, case_id
+    )
+    if mode == "cross" and len(receptors) < 2:
+        raise InvalidInputError(
+            f"validation case {case_id!r} cross mode needs at least two receptors"
+        )
+    receptor = (
+        path_value("receptor")
+        if isinstance(raw.get("receptor"), str) and raw.get("receptor", "").strip()
+        else (receptors[0] if receptors else None)
+    )
+    if receptor is None:
+        raise InvalidInputError(f"validation case {case_id!r} needs receptor")
 
     center = _triple(raw.get("center"), "center", case_id)
     size = _triple(raw.get("size"), "size", case_id)
@@ -488,7 +547,7 @@ def _case_from_dict(
     target_family = str(raw.get("targetFamily", ""))
     ligand_chain = str(raw.get("ligandChain", ""))
     ligand_residue = str(raw.get("ligandResidue", ""))
-    if version == BENCHMARK_MANIFEST_VERSION:
+    if version != LEGACY_MANIFEST_VERSION:
         source = _required_text(raw, "source", case_id)
         license_id = _required_text(raw, "license", case_id)
         redistributable = _required_bool(raw, "redistributable", case_id)
@@ -509,9 +568,13 @@ def _case_from_dict(
     return ValidationCase(
         id=case_id,
         name=str(raw.get("name") or case_id),
-        receptor=path_value("receptor"),
+        receptor=receptor,
         ligand=path_value("ligand"),
         reference=path_value("reference"),
+        mode=mode,
+        receptors=receptors,
+        receptor_names=receptor_names,
+        structure_kinds=structure_kinds,
         center=center,
         size=size,
         extend=_number(raw.get("extend", 4.0), "extend", case_id),
@@ -526,6 +589,8 @@ def _case_from_dict(
         allow_bad_residues=bool(raw.get("allowBadResidues", False)),
         default_altloc=str(raw.get("defaultAltloc", "")),
         keep_hetero=_string_tuple(raw.get("keepHetero"), "keepHetero", case_id),
+        box_source=str(raw.get("boxSource", "")),
+        official_posebusters=bool(raw.get("officialPoseBusters", False)),
         reference_source=str(raw.get("referenceSource", "")),
         dataset=dataset.id if dataset is not None else "legacy",
         source=source,
@@ -578,11 +643,31 @@ def _pair(value: Any, key: str, case_id: str) -> tuple[float, float] | None:
 
 
 def missing_files(case: ValidationCase) -> list[str]:
-    return [
-        str(path)
-        for path in (case.receptor, case.ligand, case.reference)
-        if not path.is_file()
-    ]
+    paths = [case.receptor, case.ligand, case.reference, *case.receptors]
+    unique = list(dict.fromkeys(paths))
+    return [str(path) for path in unique if not path.is_file()]
+
+
+def receptor_in_reference_frame(receptor_path: Path, reference: Path) -> bool:
+    """Cheap coordinate-frame check for cross-docking receptors.
+
+    The closest reference-ligand/receptor atom pair must be within
+    :data:`FRAME_MAX_MIN_DISTANCE`. This catches a translated/rotated or
+    unrelated receptor, but it is **not** proof that the pocket is the correct
+    binding site; it only says the two structures share a frame.
+    """
+    import numpy as np
+
+    from vinastudio.core.box import points_from_file
+
+    receptor_points = points_from_file(receptor_path)
+    reference_points = points_from_file(reference)
+    if not receptor_points or not reference_points:
+        return False
+    receptor_xyz = np.asarray(receptor_points, dtype=float)
+    reference_xyz = np.asarray(reference_points, dtype=float)
+    distances = ((reference_xyz[:, None, :] - receptor_xyz[None, :, :]) ** 2).sum(axis=2)
+    return float(np.sqrt(distances.min())) <= FRAME_MAX_MIN_DISTANCE
 
 
 def box_for_case(case: ValidationCase) -> Box:
@@ -632,6 +717,242 @@ def failure_reasons(
     return reasons
 
 
+def _run_cross_case(
+    case: ValidationCase,
+    case_dir: Path,
+    started: float,
+) -> ValidationCaseResult:
+    """Dock one ligand into each pre-aligned receptor and report per receptor."""
+    ligand = prepare_ligand(case.ligand)
+    ligand_path = case_dir / "ligand.pdbqt"
+    ligand_path.write_text(ligand.pdbqt, encoding="utf-8")
+    ligand_atoms = parse_pdbqt(ligand.pdbqt).first_pose.n_atoms
+    box = box_for_case(case)
+
+    receptors = case.receptors or (case.receptor,)
+    names = list(case.receptor_names)
+    kinds = list(case.structure_kinds)
+    while len(names) < len(receptors):
+        names.append(f"receptor-{len(names) + 1}")
+    while len(kinds) < len(receptors):
+        kinds.append("holo")
+
+    representative = DockingParams(
+        receptor_path=str(receptors[0]),
+        ligand_path=str(ligand_path),
+        box_source=case.box_source or "manifest",
+        center=box.center,
+        size=box.size,
+        exhaustiveness=case.exhaustiveness,
+        n_poses=case.n_poses,
+        seed=case.seed,
+        scoring=case.scoring,
+    )
+
+    rows: list[dict[str, Any]] = []
+    frame_failures: list[str] = []
+    for index, receptor_path in enumerate(receptors):
+        name = names[index]
+        kind = kinds[index]
+        row: dict[str, Any] = {
+            "index": index,
+            "name": name,
+            "structureKind": kind,
+            "status": "failed",
+            "bestRmsd": None,
+            "bestAffinity": None,
+            "poseCount": 0,
+            "errorPoses": 0,
+            "outDir": None,
+            "error": "",
+        }
+        rows.append(row)
+
+        if not receptor_in_reference_frame(receptor_path, case.reference):
+            frame_failures.append(name)
+            row["error"] = "receptor is not in the reference frame"
+            continue
+
+        try:
+            prepared = prepare_receptor(
+                receptor_path,
+                ReceptorPrepOptions(
+                    allow_bad_residues=case.allow_bad_residues,
+                    default_altloc=case.default_altloc,
+                    keep_residues=case.keep_hetero,
+                ),
+            )
+            run_dir = case_dir / f"receptor-{index:02d}"
+            run_dir.mkdir(parents=True, exist_ok=True)
+            receptor_pdbqt = run_dir / "receptor.pdbqt"
+            receptor_pdb = run_dir / "receptor.pdb"
+            receptor_pdbqt.write_text(prepared.pdbqt, encoding="utf-8")
+            receptor_pdb.write_text(prepared.pdb, encoding="utf-8")
+            row["outDir"] = str(run_dir)
+            row["receptorAtoms"] = parse_pdbqt(prepared.pdbqt).first_pose.n_atoms
+
+            params = replace(representative, receptor_path=str(receptor_pdbqt))
+            result = run_docking(params, str(run_dir / "docking"))
+            if not result.poses or not result.poses_sdf.strip():
+                row["error"] = "docking produced no poses"
+                row["warnings"] = list(prepared.report.warnings)
+                continue
+
+            poses_path = run_dir / "poses.sdf"
+            poses_path.write_text(result.poses_sdf, encoding="utf-8")
+            rmsds = rmsd_vs_reference(result.poses_sdf, case.reference)
+            findings = validate_poses(result.poses_sdf, reference=case.reference, box=box)
+            best_findings = findings[0]
+            best_rmsd = rmsds[0] if rmsds else None
+            best_error = worst_severity(best_findings) == "error"
+            reference_match = reference_matches_poses(result.poses_sdf, case.reference)
+            recovered = bool(
+                best_rmsd is not None
+                and best_rmsd <= case.rmsd_threshold
+                and not best_error
+                and reference_match is True
+            )
+            row.update(
+                {
+                    "status": "passed" if recovered else "failed",
+                    "bestRmsd": best_rmsd,
+                    "bestAffinity": result.best_affinity,
+                    "poseCount": len(result.poses),
+                    "errorPoses": sum(
+                        1 for pose in findings if worst_severity(pose) == "error"
+                    ),
+                    "warningPoses": sum(
+                        1 for pose in findings if worst_severity(pose) == "warning"
+                    ),
+                    "checks": [finding.as_dict() for finding in best_findings],
+                    "worstCheck": worst_severity(best_findings),
+                    "referenceMatched": reference_match,
+                    "warnings": list(prepared.report.warnings),
+                    "error": "" if reference_match is True else (
+                        "reference identity could not be verified"
+                    ),
+                }
+            )
+        except Exception as exc:  # noqa: BLE001 - one receptor must not stop the case
+            row["error"] = f"{type(exc).__name__}: {exc}"
+
+    evaluable = [row for row in rows if row["bestRmsd"] is not None]
+    recovered = [row for row in rows if row["status"] == "passed"]
+    best_row = min(evaluable, key=lambda row: row["bestRmsd"]) if evaluable else None
+
+    reasons: list[str] = []
+    if frame_failures:
+        reasons.append(
+            "receptor(s) not in the reference frame: " + ", ".join(frame_failures)
+        )
+    if not evaluable:
+        reasons.append("no receptor produced a dockable pose")
+    elif not recovered:
+        detail = ", ".join(
+            f"{row['name']}={row['bestRmsd']:.3f} Å" for row in evaluable
+        )
+        reasons.append(
+            f"no receptor recovered the pose within {case.rmsd_threshold:.3f} Å "
+            f"({detail})"
+        )
+    if (
+        best_row is not None
+        and case.affinity_range is not None
+        and best_row["bestAffinity"] is not None
+    ):
+        low, high = case.affinity_range
+        if not low <= best_row["bestAffinity"] <= high:
+            reasons.append(
+                f"best affinity {best_row['bestAffinity']:.3f} is outside "
+                f"[{low:.3f}, {high:.3f}]"
+            )
+
+    official = None
+    if case.official_posebusters:
+        from vinastudio.core.chem.posebusters_adapter import (
+            posebusters_version,
+            run_official_posebusters,
+        )
+
+        if best_row is not None and best_row.get("outDir"):
+            run_dir = Path(str(best_row["outDir"]))
+            official = run_official_posebusters(
+                (run_dir / "poses.sdf").read_text(encoding="utf-8"),
+                case.reference,
+                run_dir / "receptor.pdb",
+            ).as_dict()
+        else:
+            official = {
+                "status": "not-run",
+                "config": "redock",
+                "version": posebusters_version(),
+                "checks": [],
+                "poses": [],
+                "summary": {},
+                "error": "no evaluable receptor for official PoseBusters",
+            }
+
+    cross = {
+        "mode": "cross",
+        "receptors": rows,
+        "evaluable": len(evaluable),
+        "recovered": len(recovered),
+        "bestReceptor": best_row["name"] if best_row else None,
+    }
+    redact = case.redistributable is False
+    provenance = {
+        "inputs": {
+            "receptor": _file_info(case.receptor, redact=redact),
+            "receptors": [
+                {
+                    **_file_info(path, redact=redact),
+                    "name": names[index],
+                    "structureKind": kinds[index],
+                }
+                for index, path in enumerate(receptors)
+            ],
+            "ligand": _file_info(case.ligand, redact=redact),
+            "reference": _file_info(case.reference, redact=redact),
+        },
+        "reference": {
+            "source": case.reference_source,
+            "independentFromLigand": case.reference != case.ligand,
+            "matchesDockedPose": (
+                best_row.get("referenceMatched") if best_row else None
+            ),
+        },
+        "parameters": _docking_provenance(case, representative, box),
+        "receptor": {
+            "atoms": best_row.get("receptorAtoms") if best_row else None,
+            "warnings": best_row.get("warnings", []) if best_row else [],
+        },
+        "ligand": {"atoms": ligand_atoms, "warnings": list(ligand.report.warnings)},
+        "crossDocking": cross,
+    }
+
+    return ValidationCaseResult(
+        case=case,
+        status="failed" if reasons else "passed",
+        reason="; ".join(reasons),
+        best_affinity=best_row.get("bestAffinity") if best_row else None,
+        best_rmsd=best_row.get("bestRmsd") if best_row else None,
+        pose_count=sum(row.get("poseCount", 0) for row in rows),
+        receptor_atoms=best_row.get("receptorAtoms") if best_row else None,
+        ligand_atoms=ligand_atoms,
+        box=box.summary(),
+        checks=best_row.get("checks", []) if best_row else [],
+        worst_check=best_row.get("worstCheck") if best_row else None,
+        error_poses=best_row.get("errorPoses", 0) if best_row else 0,
+        warning_poses=best_row.get("warningPoses", 0) if best_row else 0,
+        receptor_warnings=best_row.get("warnings", []) if best_row else [],
+        ligand_warnings=list(ligand.report.warnings),
+        provenance=provenance,
+        official_posebusters=official,
+        cross_docking=cross,
+        elapsed_ms=int((time.monotonic() - started) * 1000),
+    )
+
+
 def run_case(
     case: ValidationCase,
     out_dir: str | Path,
@@ -653,6 +974,8 @@ def run_case(
     case_dir = Path(out_dir) / "cases" / (artifact_key or case.id)
     case_dir.mkdir(parents=True, exist_ok=True)
     started = time.monotonic()
+    if case.mode == "cross":
+        return _run_cross_case(case, case_dir, started)
     try:
         ligand = prepare_ligand(case.ligand)
         receptor = prepare_receptor(
@@ -667,11 +990,16 @@ def run_case(
         receptor_path = case_dir / "receptor.pdbqt"
         ligand_path.write_text(ligand.pdbqt, encoding="utf-8")
         receptor_path.write_text(receptor.pdbqt, encoding="utf-8")
+        # Official PoseBusters needs a protein structure, not PDBQT; keep the
+        # prepared PDB beside the artifacts so the case is self-contained.
+        (case_dir / "receptor.pdb").write_text(receptor.pdb, encoding="utf-8")
 
         box = box_for_case(case)
         params = DockingParams(
             receptor_path=str(receptor_path),
             ligand_path=str(ligand_path),
+            box_source=case.box_source
+            or ("explicit" if case.center is not None else "reference-autobox"),
             center=box.center,
             size=box.size,
             exhaustiveness=case.exhaustiveness,
@@ -725,6 +1053,19 @@ def run_case(
         error_poses = sum(1 for pose in findings if worst_severity(pose) == "error")
         warning_poses = sum(1 for pose in findings if worst_severity(pose) == "warning")
         best_rmsd = rmsds[0] if rmsds else None
+        official = None
+        if case.official_posebusters:
+            from vinastudio.core.chem.posebusters_adapter import (
+                run_official_posebusters,
+            )
+
+            official = run_official_posebusters(
+                result.poses_sdf,
+                case.reference,
+                case_dir / "receptor.pdb",
+                keep_hetero=case.keep_hetero,
+                ligand_residue=case.ligand_residue or None,
+            ).as_dict()
         reasons = failure_reasons(
             case,
             pose_count=len(result.poses),
@@ -752,6 +1093,7 @@ def run_case(
             receptor_warnings=list(receptor.report.warnings),
             ligand_warnings=list(ligand.report.warnings),
             provenance=provenance,
+            official_posebusters=official,
             elapsed_ms=int((time.monotonic() - started) * 1000),
         )
     except Exception as exc:  # noqa: BLE001 - a case failure must not stop the run
@@ -832,7 +1174,9 @@ def format_markdown(report: ValidationReport) -> str:
         f"Dataset licences: {license_summary}; redistributable: {redistribution}",
         "",
         "This is a reproducible redocking check, not an accuracy ranking. "
-        "The geometry checks are a PoseBusters-style subset, not the official suite.",
+        "The project's six geometry checks are a PoseBusters-style subset, not the "
+        "official suite. Official PoseBusters results appear separately when the "
+        "case enables them; they do not change the project's pass/fail verdict.",
         "",
         "## Environment",
         "",
@@ -845,6 +1189,23 @@ def format_markdown(report: ValidationReport) -> str:
         "",
         f"**Summary:** {report.passed} passed · {report.failed} failed · "
         f"{report.skipped} skipped",
+        "",
+        "## Statistics",
+        "",
+        "| Item | Value |",
+        "|---|---:|",
+    ]
+    stats = _report_statistics(report.cases)
+    lines += [
+        f"| Evaluable runs | {stats['n']} |",
+        f"| Passed | {stats['passed']} |",
+        f"| Success rate | {stats['successRate'] if stats['successRate'] is not None else '—'} |",
+        f"| Success rate Wilson 95% | {stats['successRateWilson95'] or '—'} |",
+        f"| Mean best RMSD (Å) | {stats['meanRmsd'] if stats['meanRmsd'] is not None else '—'} |",
+        f"| Median best RMSD (Å) | {stats['medianRmsd'] if stats['medianRmsd'] is not None else '—'} |",
+        f"| Mean RMSD bootstrap 95% | {stats['bootstrap95'] or '—'} |",
+        "",
+        "Descriptive statistics for this dataset; not a universal accuracy claim.",
         "",
         "## Cases",
         "",
@@ -860,6 +1221,71 @@ def format_markdown(report: ValidationReport) -> str:
             f"| {result.case.id} | {result.case.seed} | {result.status} | {affinity} | {rmsd} | "
             f"{result.pose_count} | {result.error_poses} | {licence} | {reason} |"
         )
+    cross_cases = [result for result in report.cases if result.cross_docking]
+    if cross_cases:
+        lines += [
+            "",
+            "## Cross-docking",
+            "",
+            "| Case | Seed | Receptor | Kind | Status | Best RMSD | Best affinity | Poses | Error |",
+            "|---|---:|---|---|---|---:|---:|---:|---|",
+        ]
+        for result in cross_cases:
+            cross = result.cross_docking or {}
+            for row in cross.get("receptors", []):
+                rmsd = (
+                    "—"
+                    if row.get("bestRmsd") is None
+                    else f"{row['bestRmsd']:.3f}"
+                )
+                affinity = (
+                    "—"
+                    if row.get("bestAffinity") is None
+                    else f"{row['bestAffinity']:.3f}"
+                )
+                error = str(row.get("error") or "").replace("|", "\\|")
+                lines.append(
+                    f"| {result.case.id} | {result.case.seed} | {row.get('name', '—')} | "
+                    f"{row.get('structureKind', '—')} | {row.get('status', '—')} | "
+                    f"{rmsd} | {affinity} | {row.get('poseCount', 0)} | {error} |"
+                )
+        lines += [
+            "",
+            "Cross-docking requires pre-aligned receptors; the frame check rejects "
+            "a receptor whose closest atom to the reference ligand is more than "
+            "5 Å away. It is a coordinate sanity check, not a pocket-correctness claim.",
+        ]
+
+    official_cases = [
+        result
+        for result in report.cases
+        if result.official_posebusters
+        and result.official_posebusters.get("status") == "run"
+    ]
+    if official_cases:
+        lines += [
+            "",
+            "## Official PoseBusters",
+            "",
+            "These results are the official suite, run on the same poses and "
+            "condition; they are not the project's six checks and do not feed "
+            "the pass/fail verdict above.",
+            "",
+            "| Case | Seed | Poses | Top pose | All poses | Failed checks (top pose) |",
+            "|---|---:|---:|---|---|---|",
+        ]
+        for result in official_cases:
+            official = result.official_posebusters or {}
+            summary = official.get("summary", {})
+            poses = official.get("poses", [])
+            top_pose = poses[0] if poses else {}
+            failed = ", ".join(top_pose.get("failedChecks", [])) or "—"
+            lines.append(
+                f"| {result.case.id} | {result.case.seed} | "
+                f"{summary.get('poseCount', 0)} | {summary.get('topPassed')} | "
+                f"{summary.get('allPosesPassed')} | {failed} |"
+            )
+
     provenance_rows = []
     for result in report.cases:
         prov = result.provenance or {}

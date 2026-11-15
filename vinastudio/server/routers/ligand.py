@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 from fastapi import APIRouter
 
@@ -13,11 +14,17 @@ from vinastudio.core.chem.ligand_prep import (
     parse_smiles,
     prepare_ligand,
     prepare_ligand_from_smiles,
+    prepare_ligand_states,
+    read_mol,
+    validate_ligand_file,
 )
+from vinastudio.core.chem.states import LigandState, enumerate_states
 from vinastudio.core.errors import InvalidInputError
 from vinastudio.core.paths import create_workspace, file_reuse_key, slugify
 from vinastudio.schemas.preparation import (
     FileRef,
+    LigandEnumerateRequest,
+    LigandEnumerateResponse,
     LigandFromSmilesItem,
     LigandFromSmilesRequest,
     LigandPreparationResponse,
@@ -25,6 +32,8 @@ from vinastudio.schemas.preparation import (
     LigandPreview,
     LigandProperties,
     LigandReport,
+    LigandStatePreparation,
+    LigandStateReport,
 )
 from vinastudio.server.routers.artifacts import artifact, cached_artifacts, run_info
 
@@ -48,6 +57,53 @@ def _to_report(report) -> LigandReport:  # type: ignore[no-untyped-def]
         atomTypes=report.atom_types,
         smiles=report.smiles,
         warnings=list(report.warnings),
+        states=[_to_state_report(state) for state in report.states],
+        selectedState=report.selected_state,
+        statePolicy=report.state_policy,
+        stateTruncated=report.state_truncated,
+    )
+
+
+def _to_state_report(state: LigandState) -> LigandStateReport:
+    return LigandStateReport(
+        stateId=state.state_id,
+        kind=state.kind,
+        smiles=state.smiles,
+        charge=state.charge,
+        description=state.description,
+    )
+
+
+def _prepare_states(path: str, options: LigandPrepOptions) -> LigandPreparationResponse:
+    """Prepare every enumerated state and write one artifact pair per state."""
+    result = prepare_ligand_states(path, options)
+    workspace = create_workspace(f"ligand-{path}")
+    states: list[LigandStatePreparation] = []
+    for item in result.states:
+        state = item.state
+        preparation = item.preparation
+        pdbqt_path = workspace.write(f"{state.state_id}.pdbqt", preparation.pdbqt)
+        sdf_path = workspace.write(f"{state.state_id}.sdf", preparation.sdf)
+        states.append(
+            LigandStatePreparation(
+                state=_to_state_report(state),
+                report=_to_report(preparation.report),
+                artifacts=[
+                    artifact(workspace, pdbqt_path, kind="pdbqt"),
+                    artifact(workspace, sdf_path, kind="sdf"),
+                ],
+                pdbqt=preparation.pdbqt,
+            )
+        )
+
+    first = states[0]
+    log.info("prepared %d ligand state(s) for %s", len(states), path)
+    return LigandPreparationResponse(
+        run=run_info(workspace),
+        report=first.report,
+        artifacts=first.artifacts,
+        pdbqt=first.pdbqt,
+        states=states,
     )
 
 
@@ -59,6 +115,10 @@ def _ligand_options(chosen) -> LigandPrepOptions:  # type: ignore[no-untyped-def
         flexible_amides=chosen.flexibleAmides,
         hydrate=chosen.hydrate,
         double_bond_penalty=chosen.doubleBondPenalty,
+        enumerate_states=chosen.enumerateStates,
+        state_kinds=tuple(chosen.stateKinds),
+        ph_range=tuple(chosen.phRange),
+        max_states=chosen.maxStates,
     )
 
 
@@ -119,6 +179,26 @@ def _unique_sdf_path(directory, slug: str):  # type: ignore[no-untyped-def]
     return candidate
 
 
+@router.post("/enumerate", response_model=LigandEnumerateResponse)
+def enumerate_states_endpoint(request: LigandEnumerateRequest) -> LigandEnumerateResponse:
+    """Preview ligand states before preparing each one."""
+    validate_ligand_file(Path(request.path))
+    mol, _records = read_mol(Path(request.path))
+    options = _ligand_options(request.options)
+    enumeration = enumerate_states(
+        mol,
+        kinds=options.state_kinds,
+        ph_range=options.ph_range,
+        max_states=options.max_states,
+    )
+    return LigandEnumerateResponse(
+        states=[_to_state_report(state) for state in enumeration.states],
+        truncated=enumeration.truncated,
+        kinds=list(enumeration.kinds),
+        phRange=enumeration.ph_range,
+    )
+
+
 @router.post("/from-smiles", response_model=list[LigandFromSmilesItem])
 def ligand_from_smiles(request: LigandFromSmilesRequest) -> list[LigandFromSmilesItem]:
     """Build 3D ligands from pasted SMILES (single or one-per-line batch).
@@ -130,6 +210,11 @@ def ligand_from_smiles(request: LigandFromSmilesRequest) -> list[LigandFromSmile
     """
     entries = _collect_smiles(request)
     options = _ligand_options(request.options)
+    if options.enumerate_states:
+        raise InvalidInputError(
+            "state enumeration is available for file/Catalog preparation; "
+            "the SMILES endpoint does not enumerate states yet"
+        )
 
     # Phase 1 — validate every string before any disk write (task §6: no residue).
     for text in entries:
@@ -198,6 +283,12 @@ def prepare(request: LigandPrepareRequest) -> LigandPreparationResponse:
     reproducible.
     """
     chosen = request.options
+    options = _ligand_options(chosen)
+    if options.enumerate_states:
+        # State enumeration writes one artifact pair per state; the single-file
+        # cache marker has no shape for that yet, so this path is not cached.
+        return _prepare_states(request.path, options)
+
     reuse_key = file_reuse_key(request.path, extra=chosen)
     workspace = create_workspace(f"ligand-{request.path}", reuse_key=reuse_key)
 
@@ -227,7 +318,7 @@ def prepare(request: LigandPrepareRequest) -> LigandPreparationResponse:
                     pdbqt=pdbqt,
                 )
 
-    result = prepare_ligand(request.path, _ligand_options(chosen))
+    result = prepare_ligand(request.path, options)
 
     stem = workspace.path.name
     pdbqt_path = workspace.write(f"{stem}.pdbqt", result.pdbqt)

@@ -16,6 +16,7 @@ from vinastudio.core.chem.sequence import extract_sequence
 from vinastudio.core.paths import create_workspace, file_reuse_key
 from vinastudio.schemas.preparation import (
     FileRef,
+    MissingAtom,
     ReceptorPreparationResponse,
     ReceptorPrepareRequest,
     ReceptorPreview,
@@ -51,6 +52,19 @@ def _to_report(report) -> ReceptorReport:  # type: ignore[no-untyped-def]
         removedAltlocResidues=list(report.removed_altloc_residues),
         histidineStates=list(report.histidine_states),
         assumptions=list(report.assumptions),
+        missingAtoms=[
+            MissingAtom(
+                chain=item.chain,
+                resSeq=item.res_seq,
+                resName=item.res_name,
+                missing=list(item.missing),
+                present=list(item.present),
+            )
+            for item in report.missing_atoms
+        ],
+        incompleteResidues=report.incomplete_residues,
+        notAssessedResidues=list(report.not_assessed_residues),
+        completenessPolicy=report.completeness_policy,
     )
 
 

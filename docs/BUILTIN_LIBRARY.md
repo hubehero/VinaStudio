@@ -32,7 +32,9 @@ structure browsing and docking practice**, not a clinical reference.
   equivalence claim.
 - The seeded source files are **2D SDF** records. They are deliberately not
   ready-to-dock 3D structures: use the normal Catalog preparation step to add
-  hydrogens and generate a 3D conformer/PDBQT.
+  hydrogens and generate a 3D conformer/PDBQT. The Catalog detail viewer requests
+  `/preview3d`, which generates and caches an ETKDG conformer for a 2D source;
+  that preview is algorithmic, not experimental.
 - Some compounds are controlled medicines or toxic reference compounds. They
   are present only as teaching structures; handle and use them according to
   local rules.

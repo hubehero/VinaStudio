@@ -30,6 +30,19 @@ benchmark paper.
 > Pilot evidence remains in
 > [`validation/benchmark/records/2026-11-02-open-pilot/`](../validation/benchmark/records/2026-11-02-open-pilot/).
 
+> **Development note (2026-11-14, current worktree).** The application and the
+> validation harness can now run the official PoseBusters suite directly
+> (optional `analysis` extra; `--posebusters` in the harness; the "Official
+> PoseBusters" checkbox in the docking result). This does not change the
+> recorded 0.6.5/0.6.6 results above; the project's six checks remain a separate
+> instrument and still decide the pass/fail verdict. The worktree can also
+> enumerate ligand protonation/tautomer/stereo states (optional `states` extra)
+> and report missing receptor heavy atoms. The recorded results used the input
+> ligand state and were not re-run with enumeration; they remain unchanged.
+> Cross-docking mode (manifest 1.2) is available for pre-aligned receptors, but
+> no cross-docking result is claimed here; the recorded results remain
+> self-docking.
+
 > **One-sentence scope.** This report tests whether VinaStudio's preparation,
 > docking, pose-recovery, geometry-check and reporting path is reproducible on
 > the committed 1IEP redocking control; it does **not** estimate general docking

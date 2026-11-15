@@ -21,13 +21,22 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { api } from '@/api/http'
+import { isDesktopHost, pickFileForUpload, pickFiles } from '@/api/bridge'
 import MoleculeSelect from '@/components/common/MoleculeSelect.vue'
 import CatalogSelectionDialog from '@/components/panels/catalog/CatalogSelectionDialog.vue'
+import EnrichmentCharts from '@/components/screening/EnrichmentCharts.vue'
 import ScreeningImportDialog from '@/components/screening/ScreeningImportDialog.vue'
 import { useBoxStore } from '@/stores/box'
 import { useMoleculeStore } from '@/stores/molecules'
 import { useScreeningStore } from '@/stores/screening'
-import type { CatalogSelection, RankingRow, RankingSortBy, ScoringFunction } from '@/types/api'
+import type {
+  CatalogSelection,
+  EnrichmentMetric,
+  EnrichmentRequest,
+  RankingRow,
+  RankingSortBy,
+  ScoringFunction,
+} from '@/types/api'
 import { downloadTextFile } from '@/utils/download'
 
 const { t } = useI18n()
@@ -134,6 +143,7 @@ async function startScreening(): Promise<void> {
       flexReceptorPath: molecules.flexReceptorPath,
       center: box.center as [number, number, number],
       size: box.size as [number, number, number],
+      boxSource: box.source,
       scoring: scoring.value,
       exhaustiveness: exhaustiveness.value,
       nPoses: nPoses.value,
@@ -368,6 +378,77 @@ async function exportRanking(): Promise<void> {
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : t('screening.rankingFailed'))
   }
+}
+
+// -- enrichment --------------------------------------------------------------
+const labelsPath = ref('')
+const labelsText = ref('')
+
+function enrichmentBody(): EnrichmentRequest | null {
+  if (labelsPath.value.trim() !== '') {
+    return { labelsPath: labelsPath.value.trim() }
+  }
+  if (labelsText.value.trim() !== '') {
+    return { labelsText: labelsText.value }
+  }
+  ElMessage.warning(t('screening.enrichmentRequired'))
+  return null
+}
+
+async function pickEnrichmentLabels(): Promise<void> {
+  if (isDesktopHost()) {
+    const picked = await pickFiles({
+      title: t('screening.enrichmentChoose'),
+      filters: 'Labels (*.csv *.json)',
+    })
+    if (picked.length > 0) {
+      labelsPath.value = picked[0] ?? ''
+      labelsText.value = ''
+    }
+    return
+  }
+  const files = await pickFileForUpload(['.csv', '.json'], false)
+  if (files.length > 0 && files[0] !== undefined) {
+    labelsText.value = await files[0].text()
+    labelsPath.value = ''
+  }
+}
+
+async function computeEnrichment(): Promise<void> {
+  const body = enrichmentBody()
+  if (body === null) return
+  await screening.loadEnrichment(body)
+}
+
+async function exportEnrichment(): Promise<void> {
+  const body = enrichmentBody()
+  if (body === null) return
+  try {
+    const result = await screening.exportEnrichmentCsv(body)
+    downloadTextFile(result.csv, result.filename, 'text/csv')
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : t('screening.enrichmentFailed'))
+  }
+}
+
+const metricCards = computed<{ key: string; label: string; metric: EnrichmentMetric }[]>(() => {
+  const metrics = screening.enrichment
+  if (metrics === null) return []
+  return [
+    { key: 'ef1', label: t('screening.ef1'), metric: metrics.ef1 },
+    { key: 'ef5', label: t('screening.ef5'), metric: metrics.ef5 },
+    { key: 'rocAuc', label: t('screening.rocAuc'), metric: metrics.rocAuc },
+    { key: 'bedroc', label: t('screening.bedroc'), metric: metrics.bedroc },
+  ]
+})
+
+function fmtMetric(value: number | null): string {
+  return value === null ? '—' : value.toFixed(2)
+}
+
+function fmtCi(metric: EnrichmentMetric): string {
+  if (metric.ciLow === null || metric.ciHigh === null) return '—'
+  return `${metric.ciLow.toFixed(2)}–${metric.ciHigh.toFixed(2)}`
 }
 
 // -- runs table --------------------------------------------------------------
@@ -835,6 +916,97 @@ function statusLabel(status: string): string {
       </div>
     </section>
 
+    <!-- ⑤ Enrichment card -->
+    <section class="vs-card">
+      <div class="vs-card__header">
+        <div class="vs-card__title">{{ t('screening.enrichment') }}</div>
+      </div>
+      <div class="vs-card__body" v-loading="screening.enrichmentLoading">
+        <p class="screening-enrichhint">{{ t('screening.enrichmentHint') }}</p>
+        <div class="screening-enrichform">
+          <div class="screening-enrichrow">
+            <ElInput
+              v-model="labelsPath"
+              size="small"
+              clearable
+              :placeholder="t('screening.enrichmentLabelsPath')"
+            />
+            <ElButton size="small" @click="pickEnrichmentLabels">
+              {{ t('screening.enrichmentChoose') }}
+            </ElButton>
+          </div>
+          <ElInput
+            v-model="labelsText"
+            type="textarea"
+            :rows="4"
+            :placeholder="t('screening.enrichmentPaste')"
+          />
+          <div class="screening-enrichrow">
+            <ElButton
+              size="small"
+              type="primary"
+              :disabled="!screening.activeRunId"
+              @click="computeEnrichment"
+            >
+              {{ t('screening.enrichmentCompute') }}
+            </ElButton>
+            <ElButton
+              size="small"
+              :icon="Download"
+              :disabled="!screening.enrichment"
+              @click="exportEnrichment"
+            >
+              {{ t('screening.enrichmentExport') }}
+            </ElButton>
+          </div>
+        </div>
+
+        <ElAlert
+          v-if="screening.enrichmentError"
+          type="error"
+          :closable="false"
+          show-icon
+          :title="t('screening.enrichmentFailed')"
+        >
+          <template #default>{{ screening.enrichmentError }}</template>
+        </ElAlert>
+
+        <template v-if="screening.enrichment">
+          <div class="screening-metrics">
+            <div v-for="card in metricCards" :key="card.key" class="screening-metric">
+              <div class="screening-metric__label">{{ card.label }}</div>
+              <div class="screening-metric__value">{{ fmtMetric(card.metric.value) }}</div>
+              <div class="screening-metric__ci">
+                {{ t('screening.ci') }} {{ fmtCi(card.metric) }}
+              </div>
+            </div>
+          </div>
+          <p class="screening-enrichhint">
+            {{
+              t('screening.enrichmentCounts', {
+                scored: screening.enrichment.nScored,
+                labeled: screening.enrichment.nLabeled,
+                actives: screening.enrichment.nActives,
+                decoys: screening.enrichment.nDecoys,
+                unlabeled: screening.enrichment.nUnlabeled,
+                failed: screening.enrichment.nFailed,
+              })
+            }}
+          </p>
+          <p class="screening-enrichhint">{{ t('screening.enrichmentCaveat') }}</p>
+          <EnrichmentCharts
+            :roc="screening.enrichment.roc"
+            :enrichment="screening.enrichment.enrichment"
+          />
+        </template>
+        <el-empty
+          v-else
+          :description="t('screening.enrichmentEmpty')"
+          :image-size="64"
+        />
+      </div>
+    </section>
+
     <ElDrawer v-model="detailOpen" :title="t('screening.detailTitle')" size="380px">
       <template v-if="detailRank">
         <p class="screening-detail-hint">{{ t('screening.detailHint') }}</p>
@@ -1030,6 +1202,61 @@ function statusLabel(status: string): string {
   font-size: 11px;
   color: var(--vs-warning);
   margin-left: auto;
+}
+
+/* Enrichment */
+.screening-enrichform {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.screening-enrichrow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.screening-enrichrow .el-input {
+  flex: 1;
+}
+
+.screening-enrichhint {
+  font-size: 11px;
+  color: var(--vs-text-faint);
+  margin: 6px 0;
+}
+
+.screening-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.screening-metric {
+  min-width: 118px;
+  padding: 8px 10px;
+  border: 1px solid var(--vs-border);
+  border-radius: 6px;
+  background: var(--el-fill-color-light);
+}
+
+.screening-metric__label {
+  font-size: 11px;
+  color: var(--vs-text-faint);
+}
+
+.screening-metric__value {
+  font-size: 20px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.screening-metric__ci {
+  font-size: 10px;
+  color: var(--vs-text-faint);
 }
 
 /* Virtual table containers: three states live outside the table body. */

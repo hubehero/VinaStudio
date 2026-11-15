@@ -23,6 +23,15 @@
 > 声明；官方 PoseBusters 0.6.5 `redock` 已对制备条件运行：top pose 60/60，全部 pose 7/60。证据见
 > [`validation/benchmark/records/2026-11-02-open-posebusters-v1/`](../validation/benchmark/records/2026-11-02-open-posebusters-v1/)。
 
+> **开发注记（2026-11-14，当前工作树）。** 应用与验证 harness 现在可直接运行
+> 官方 PoseBusters 套件（可选 `analysis` 依赖；harness 用 `--posebusters`；
+> 对接结果里的“官方 PoseBusters”复选框）。这不改变上面记录的 0.6.5/0.6.6
+> 结果；项目六项检查仍是独立仪器，并继续决定 passed/failed。当前工作树还可
+> 枚举配体质子化/互变异构/立体异构状态（可选 `states` 依赖），并报告受体缺失
+> 重原子；上面记录的结果使用输入配体状态，未用枚举重跑，结果不变。
+> 交叉对接模式（manifest 1.2）已可用于预对齐受体，但本报告不声明任何交叉对接
+> 结果；上面记录的结果仍是 self-docking。
+
 > **范围。** 本报告检验 VinaStudio 在已提交的 1IEP redocking 对照上，
 > 准备、对接、位姿恢复、几何检查和报告链路是否可复现；它**不**估计通用对接
 > 准确率、富集能力或结合自由能。

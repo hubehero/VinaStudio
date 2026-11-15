@@ -23,6 +23,10 @@ export const DEFAULT_LIGAND_OPTIONS: LigandOptions = {
   flexibleAmides: false,
   hydrate: false,
   doubleBondPenalty: 50,
+  enumerateStates: false,
+  stateKinds: ['protonation', 'tautomer', 'stereo'],
+  phRange: [7.0, 7.8],
+  maxStates: 8,
 }
 
 export const DEFAULT_RECEPTOR_OPTIONS: ReceptorOptions = {

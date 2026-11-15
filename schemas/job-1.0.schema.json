@@ -1,0 +1,362 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:vinastudio:job:1.0",
+  "$defs": {
+    "BoxConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "default": "manual",
+          "enum": [
+            "ligand",
+            "manual"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "center": {
+          "anyOf": [
+            {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Center"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Size"
+        },
+        "extend": {
+          "default": 4.0,
+          "minimum": 0,
+          "title": "Extend",
+          "type": "number"
+        },
+        "spacing": {
+          "default": 0.375,
+          "exclusiveMinimum": 0,
+          "title": "Spacing",
+          "type": "number"
+        },
+        "forceEvenVoxels": {
+          "default": false,
+          "title": "Forceevenvoxels",
+          "type": "boolean"
+        }
+      },
+      "title": "BoxConfig",
+      "type": "object"
+    },
+    "DockingParameters": {
+      "additionalProperties": false,
+      "properties": {
+        "scoring": {
+          "default": "vina",
+          "enum": [
+            "vina",
+            "vinardo",
+            "ad4"
+          ],
+          "title": "Scoring",
+          "type": "string"
+        },
+        "exhaustiveness": {
+          "default": 8,
+          "maximum": 512,
+          "minimum": 1,
+          "title": "Exhaustiveness",
+          "type": "integer"
+        },
+        "nPoses": {
+          "default": 9,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Nposes",
+          "type": "integer"
+        },
+        "energyRange": {
+          "default": 3.0,
+          "exclusiveMinimum": 0,
+          "title": "Energyrange",
+          "type": "number"
+        },
+        "minRmsd": {
+          "default": 1.0,
+          "minimum": 0,
+          "title": "Minrmsd",
+          "type": "number"
+        },
+        "maxEvals": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Maxevals",
+          "type": "integer"
+        },
+        "cpu": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Cpu",
+          "type": "integer"
+        },
+        "seed": {
+          "default": 42,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "noRefine": {
+          "default": false,
+          "title": "Norefine",
+          "type": "boolean"
+        },
+        "engine": {
+          "default": "vina",
+          "enum": [
+            "vina",
+            "vina-cli"
+          ],
+          "title": "Engine",
+          "type": "string"
+        },
+        "verbosity": {
+          "default": 1,
+          "maximum": 3,
+          "minimum": 0,
+          "title": "Verbosity",
+          "type": "integer"
+        },
+        "flexReceptorPath": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Flexreceptorpath"
+        }
+      },
+      "title": "DockingParameters",
+      "type": "object"
+    },
+    "LigandInput": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "preparation": {
+          "$ref": "#/$defs/LigandPreparationOptions"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "LigandInput",
+      "type": "object"
+    },
+    "LigandPreparationOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "optimiseGeometry": {
+          "default": true,
+          "title": "Optimisegeometry",
+          "type": "boolean"
+        },
+        "embedSeed": {
+          "default": 42,
+          "title": "Embedseed",
+          "type": "integer"
+        },
+        "rigidMacrocycles": {
+          "default": false,
+          "title": "Rigidmacrocycles",
+          "type": "boolean"
+        },
+        "flexibleAmides": {
+          "default": false,
+          "title": "Flexibleamides",
+          "type": "boolean"
+        },
+        "hydrate": {
+          "default": false,
+          "title": "Hydrate",
+          "type": "boolean"
+        },
+        "doubleBondPenalty": {
+          "default": 50.0,
+          "exclusiveMinimum": 0,
+          "title": "Doublebondpenalty",
+          "type": "number"
+        }
+      },
+      "title": "LigandPreparationOptions",
+      "type": "object"
+    },
+    "ReceptorInput": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "preparation": {
+          "$ref": "#/$defs/ReceptorPreparationOptions"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "ReceptorInput",
+      "type": "object"
+    },
+    "ReceptorPreparationOptions": {
+      "additionalProperties": false,
+      "properties": {
+        "deleteWaters": {
+          "default": true,
+          "title": "Deletewaters",
+          "type": "boolean"
+        },
+        "deleteHetero": {
+          "default": true,
+          "title": "Deletehetero",
+          "type": "boolean"
+        },
+        "allowBadResidues": {
+          "default": false,
+          "title": "Allowbadresidues",
+          "type": "boolean"
+        },
+        "normaliseAtomOrder": {
+          "default": true,
+          "title": "Normaliseatomorder",
+          "type": "boolean"
+        },
+        "defaultAltloc": {
+          "default": "",
+          "title": "Defaultaltloc",
+          "type": "string"
+        },
+        "keepResidues": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Keepresidues",
+          "type": "array"
+        },
+        "flexibleResidues": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Flexibleresidues",
+          "type": "array"
+        }
+      },
+      "title": "ReceptorPreparationOptions",
+      "type": "object"
+    },
+    "ReferenceConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "rmsdThreshold": {
+          "default": 2.0,
+          "exclusiveMinimum": 0,
+          "title": "Rmsdthreshold",
+          "type": "number"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "ReferenceConfig",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One headless docking job; the ``--config`` file in the CLI.",
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schemaversion",
+      "type": "string"
+    },
+    "receptor": {
+      "$ref": "#/$defs/ReceptorInput"
+    },
+    "ligand": {
+      "$ref": "#/$defs/LigandInput"
+    },
+    "box": {
+      "$ref": "#/$defs/BoxConfig"
+    },
+    "parameters": {
+      "$ref": "#/$defs/DockingParameters"
+    },
+    "reference": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ReferenceConfig"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "receptor",
+    "ligand"
+  ],
+  "title": "JobConfig",
+  "type": "object"
+}

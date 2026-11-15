@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 from vinastudio.core.validation import (
@@ -70,6 +71,14 @@ def main(argv: list[str] | None = None) -> int:
         help="comma-separated docking seeds (for example 42,43,44,45,46)",
     )
     parser.add_argument(
+        "--posebusters",
+        action="store_true",
+        help=(
+            "also run the official PoseBusters suite (optional dependency; "
+            "uv sync --extra analysis)"
+        ),
+    )
+    parser.add_argument(
         "--strict",
         action="store_true",
         help="also exit non-zero when any case is skipped",
@@ -85,6 +94,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.list:
         _list_cases(cases.cases)
         return 0
+    if args.posebusters:
+        # The manifest dataclass is frozen; the list it holds is not.
+        cases.cases[:] = [
+            replace(case, official_posebusters=True) for case in cases.cases
+        ]
 
     selected = set(args.cases) if args.cases else None
     seeds = None

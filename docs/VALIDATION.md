@@ -16,11 +16,17 @@ uv run python scripts/validate_benchmark.py --list
 uv run python scripts/validate_benchmark.py --case 1iep
 # optional local negative control (not part of default evidence)
 uv run python scripts/validate_benchmark.py --manifest validation/manifest.optional-2hyy.json --case 2hyy --out-dir validation-output
+
+# same harness through the headless CLI
+uv run vinastudio-cli validate --list --json
+uv run vinastudio-cli validate --case 1iep --out validation-output --json
 ```
 
 输出：
 
-- `validation-output/validation-report.json`（报告 schema 2.1，含数据集/逐 case 许可与 provenance）
+- `validation-output/validation-report.json`（报告 schema 2.2，含数据集/逐 case 许可、
+  provenance 与 `statistics`；启用官方 PoseBusters 时另含 `officialPoseBusters`，
+  cross-docking 时另含 `crossDocking`）
 - `validation-output/validation-report.md`
 - `validation-output/cases/<id>/`：配体/受体 PDBQT、dock 输出、SDF 等工件
 
@@ -68,6 +74,48 @@ uv run python scripts/validate_benchmark.py --manifest validation/manifest.optio
 通过率，也不能据此外推所有靶点。内部碰撞检查只检查重原子：PDBQT 省略非极性
 氢坐标，Meeko 在对接后重建氢；`internal_clash` 不把重建氢的位置当作碰撞证据。
 这条限制写在报告 §3.4。
+
+### 官方 PoseBusters（可选）
+
+官方套件是**独立仪器**，与项目六项检查并列，不改变本文件的 `passed` 判定：
+
+```bash
+# 安装可选依赖（不进入主依赖，桌面应用缺它也能启动）
+uv sync --extra analysis
+
+# harness 同时运行官方套件
+uv run python scripts/validate_benchmark.py --case 1iep --posebusters
+```
+
+- 报告新增 `officialPoseBusters`（status/version/config/checks/poses/summary/error）；
+  只有状态为 `run` 的 case 才计入 `summary.officialTopPassed` /
+  `officialAllPosesPassed`。
+- 桌面端：对接结果 → 几何体检旁的“官方 PoseBusters”复选框；没有参考 SDF 或
+  没有可选依赖时返回 `not-run` 并给出原因，不报 500。
+- 条件结构使用受体准备后的 PDB；已删除的水/非保留 HETATM 不会重新出现，
+  native ligand 在已知残基名时移除。官方的阈值/规则由 PoseBusters 自己决定，
+  本项目不改写其结果。
+- 历史记录里的 60/60（top）与 7/60（all poses）是 `posebusters==0.6.5` 的
+  运行结果；升级版本后应重新记录，不要把不同版本混在一起。
+
+### Cross-docking（manifest 1.2）
+
+- `formatVersion: "1.2"` 的 case 可用 `mode: "cross"` 和
+  `receptors: [{path, name, structureKind}]`（至少两个；`structureKind` 为
+  `holo`/`apo`/`predicted`）。
+- **所有受体必须预先对齐到参考配体的同一坐标系**；本项目不做自动受体叠合。
+- 对接前做坐标帧 sanity check：参考配体任一重原子到受体最近原子 > 5 Å 时拒绝
+  该受体；全部受体都失败则 case 直接 `failed`，不会给出 RMSD。该检查只证明
+  “同一坐标系”，**不证明口袋是正确结合位点**。
+- 同一 ligand/box 逐受体对接；报告 `crossDocking.receptors[]` 的
+  status/bestRmsd/bestAffinity/poseCount/error 和 `bestReceptor`。
+- 通过条件：至少一个受体的排名第一 pose ≤ RMSD 阈值，且该 pose 没有几何
+  error；`recovered/evaluable` 写入报告。单个受体失败不会阻止其他受体运行。
+- 报告新增 `statistics`：evaluable/passed/successRate/Wilson 95%/
+  mean/median best RMSD/bootstrap 95%。`scripts/summarize_benchmark.py`
+  另外输出按受体和按 structureKind 的汇总。
+- 官方 PoseBusters 在 cross case 上对 `bestReceptor` 运行；没有可评估受体时
+  记为 `not-run`。
 
 ## 4. 本机基线（2026-10-29）
 
@@ -205,8 +253,8 @@ PoseBusters 选靶/下载/参考提取工具。2026-11-02 的 4-target pilot 有
 - `6m2b`：passed，−10.179 kcal/mol，RMSD 1.630 Å。
 
 两版都只验证数据/报告链路和准备策略，不是 12-target 结果，也不支持通用准确率
-声明。原始 PDB/SDF 位于 gitignored `.benchmark-data/`，不进入仓库；报告 schema
-为 2.1。证据见
+声明。原始 PDB/SDF 位于 gitignored `.benchmark-data/`，不进入仓库；当时报告
+schema 为 2.1（当前为 2.2）。证据见
 [`records/2026-11-02-open-pilot/`](../validation/benchmark/records/2026-11-02-open-pilot/)
 和 [`records/2026-11-02-open-pilot-v2/`](../validation/benchmark/records/2026-11-02-open-pilot-v2/)。
 

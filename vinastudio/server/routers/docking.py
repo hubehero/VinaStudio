@@ -40,7 +40,7 @@ from vinastudio.core.chem.ifp import (
     residue_columns,
     tanimoto,
 )
-from vinastudio.core.docking import DockingParams
+from vinastudio.core.docking import DockingParams, validate_map_prefix
 from vinastudio.core.engines import CLI_BACKEND, resolve_backend
 from vinastudio.core.engines.vina_cli import optimize_cli, randomize_cli, score_cli
 from vinastudio.core.errors import (
@@ -89,6 +89,8 @@ from vinastudio.schemas.docking import (
     IfpJobResponse,
     IfpResidue,
     ImportBundleResponse,
+    OfficialPoseBustersModel,
+    OfficialPoseResultModel,
     OptimizeRequest,
     OptimizeResponse,
     PoseFindingModel,
@@ -259,17 +261,18 @@ def start_docking(request: DockingRequest) -> DockingJobCreated:
         if not flex.exists():
             raise InvalidInputError(f"flex receptor file not found: {request.flexReceptorPath}")
 
-    # Validate AD4 needs maps
+    # AutoDock4 cannot generate its own maps. Require the caller to point at
+    # AutoGrid4 output and reject a prefix that has no .map files behind it,
+    # so the job fails here with an actionable message instead of inside Vina.
     if request.scoring == "ad4" and not request.mapPaths:
-        raise InvalidInputError("ad4 scoring requires mapPaths")
+        raise InvalidInputError(
+            "ad4 scoring requires mapPaths; AutoGrid4 maps must be generated "
+            "outside VinaStudio"
+        )
     if request.mapPaths:
         if len(request.mapPaths) != 1:
-            raise InvalidInputError("mapPaths must contain one AutoGrid4 map prefix")
-        prefix = Path(request.mapPaths[0])
-        if prefix.suffix.lower() == ".map":
-            raise InvalidInputError(
-                "mapPaths expects the AutoGrid4 prefix, not an individual .map file"
-            )
+            raise InvalidInputError("mapPaths must contain one map prefix")
+        validate_map_prefix(request.mapPaths[0], scoring=request.scoring)
     if not request.mapPaths:
         _validate_box(request.receptorPath, request.center, request.size)
 
@@ -291,6 +294,7 @@ def start_docking(request: DockingRequest) -> DockingJobCreated:
         "verbosity": request.verbosity,
         "spacing": request.spacing,
         "force_even_voxels": request.forceEvenVoxels,
+        "box_source": request.boxSource,
         "weights": request.weights,
         "map_paths": request.mapPaths,
         "flex_pdbqt_path": request.flexReceptorPath,
@@ -314,7 +318,8 @@ def start_ensemble_docking(request: EnsembleDockingRequest) -> DockingJobCreated
         raise InvalidInputError("ensemble docking requires at least two receptors")
     if request.scoring == "ad4":
         raise InvalidInputError(
-            "ensemble docking currently supports vina/vinardo; AD4 maps are per-receptor"
+            "ensemble docking currently supports vina/vinardo; ad4 maps are "
+            "per-receptor and must be generated outside VinaStudio"
         )
     if not request.ligandPath and not request.ligandPdbqtString:
         raise InvalidInputError("either ligandPath or ligandPdbqtString must be provided")
@@ -346,6 +351,7 @@ def start_ensemble_docking(request: EnsembleDockingRequest) -> DockingJobCreated
         "verbosity": request.verbosity,
         "spacing": request.spacing,
         "force_even_voxels": request.forceEvenVoxels,
+        "box_source": request.boxSource,
         "weights": request.weights,
         "map_paths": request.mapPaths,
         "engine": request.engine,
@@ -359,7 +365,8 @@ def batch_docking(request: BatchDockingRequest) -> BatchJobCreated:
     """Start a batch docking job in a spawned child process."""
     if request.scoring == "ad4":
         raise InvalidInputError(
-            "batch docking supports vina/vinardo; AD4 maps are not part of this request"
+            "batch docking supports vina/vinardo; ad4 maps must be generated "
+            "outside VinaStudio and are not accepted here"
         )
     receptor = Path(request.receptorPath)
     if not receptor.exists():
@@ -431,6 +438,7 @@ def batch_docking(request: BatchDockingRequest) -> BatchJobCreated:
         "cpu": request.cpu,
         "seed": request.seed,
         "no_refine": request.noRefine,
+        "box_source": request.boxSource,
         "weights": request.weights,
         "engine": request.engine,
     }
@@ -677,11 +685,66 @@ def validate_job_poses(job_id: str, request: ValidatePosesRequest) -> ValidatePo
             }
         ]
 
+    official = None
+    if request.official:
+        from vinastudio.core.chem.posebusters_adapter import (
+            posebusters_version,
+            run_official_posebusters,
+        )
+
+        if reference is None:
+            official = OfficialPoseBustersModel(
+                status="not-run",
+                version=posebusters_version(),
+                error="official PoseBusters needs a reference SDF (referenceSdfPath)",
+            )
+        else:
+            receptor_pdb: Path | None = None
+            if request.receptorPdbPath:
+                candidate = Path(request.receptorPdbPath)
+                if candidate.is_file():
+                    receptor_pdb = candidate
+            if receptor_pdb is None:
+                job_receptor = state.params.get("receptor_path") if state.params else None
+                if isinstance(job_receptor, str) and job_receptor:
+                    candidate = Path(job_receptor).with_suffix(".pdb")
+                    if candidate.is_file():
+                        receptor_pdb = candidate
+            if receptor_pdb is None:
+                official = OfficialPoseBustersModel(
+                    status="not-run",
+                    version=posebusters_version(),
+                    error="receptor PDB not available for official PoseBusters",
+                )
+            else:
+                result = run_official_posebusters(
+                    state.poses_sdf,
+                    reference,
+                    receptor_pdb,
+                )
+                official = OfficialPoseBustersModel(
+                    status=result.status,
+                    config=result.config,
+                    version=result.version,
+                    checks=result.checks,
+                    poses=[
+                        OfficialPoseResultModel(
+                            pose=pose.pose,
+                            passed=pose.passed,
+                            failedChecks=pose.failed_checks,
+                        )
+                        for pose in result.poses
+                    ],
+                    summary=result.as_dict()["summary"],
+                    error=result.error,
+                )
+
     return ValidatePosesResponse(
         jobId=job_id,
         poses=poses,
         thresholds=dict(THRESHOLDS),
         checksRun=checks_run,
+        official=official,
     )
 
 

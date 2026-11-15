@@ -1,6 +1,6 @@
 [project]
 name = "vinastudio"
-version = "0.7.1"
+version = "0.7.2"
 description = "Modern desktop workbench for AutoDock Vina docking, built with PySide6 + Vue 3"
 readme = "README.en.md"
 requires-python = ">=3.12,<3.13"
@@ -55,9 +55,16 @@ dev = [
     "pytest-asyncio>=0.24",
     "ruff>=0.7",
 ]
+analysis = [
+    "posebusters>=0.6.5,<0.7",
+]
+states = [
+    "dimorphite-dl>=2.1,<3",
+]
 
 [project.scripts]
 vinastudio = "vinastudio.__main__:main"
+vinastudio-cli = "vinastudio.cli.main:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -68,6 +75,7 @@ packages = ["vinastudio"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "vinastudio/server/static" = "vinastudio/server/static"
+"schemas" = "vinastudio/contracts"
 
 # The wheel can also be built from the sdist (uv's default `uv build`, and
 # any pip install from sdist).  gitignore keeps the built assets out of the
@@ -75,12 +83,12 @@ packages = ["vinastudio"]
 # ship the assets in the sdist too so both paths stay buildable.
 [tool.hatch.build.targets.sdist.force-include]
 "vinastudio/server/static" = "vinastudio/server/static"
+"schemas" = "schemas"
 
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-# vina_simple is a nested, separately-versioned repo with its own tooling;
-# the root lint must not police it (coordinator ruling, TASK-22).
+# vina_simple is a nested, separately-versioned release tree with its own tooling.
 exclude = ["web", "vinastudio/server/static", ".venv", "vina_simple"]
 
 [tool.ruff.lint]

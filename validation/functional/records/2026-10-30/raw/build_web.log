@@ -1,4 +1,4 @@
-$ /home/hubehero/.local/bin/pnpm run build
+$ <local-bin>/pnpm run build
 $ vite build
 vite v8.3.4 building client environment for production...
 transforming...
@@ -115,4 +115,4 @@ pruning stale asset index-naScoPq3.css
 pruning stale asset index-oiUxqvZM.css
 pruning stale asset index-zUCq6nTH.js
 pruning stale asset index-zUWIlZID.js
-Interface built into /home/hubehero/SELF_PROJECT/AutoDock_Vina/vinastudio/server/static
+Interface built into <repo>/vinastudio/server/static

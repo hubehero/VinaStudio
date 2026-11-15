@@ -5,11 +5,12 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { api } from '@/api/http'
+import SequenceView from '@/components/panels/SequenceView.vue'
 import { RENDER_QUALITY_PRESETS } from '@/composables/use3Dmol'
 import { useDockingStore } from '@/stores/docking'
 import { useMoleculeStore } from '@/stores/molecules'
 import { useSettingsStore } from '@/stores/settings'
-import type { DepictData, InteractionData } from '@/types/api'
+import type { DepictData, InteractionData, ReceptorSequence } from '@/types/api'
 import { downloadTextFile } from '@/utils/download'
 
 import Interactions2D from './Interactions2D.vue'
@@ -56,9 +57,55 @@ const interactionError = ref<string | null>(null)
  */
 const depict = ref<DepictData | null>(null)
 const fullInteractions = ref<InteractionData[]>([])
-const view = ref<'table' | 'residues' | '2d'>('table')
+const view = ref<'table' | 'residues' | '2d' | 'sequence'>('table')
 const selectedResidue = ref<string | null>(null)
 const map2d = ref<{ exportSvg: () => void } | null>(null)
+
+/**
+ * The receptor used by the job, not necessarily the one currently in the
+ * pipeline: a history job can be open while another molecule is selected.
+ */
+const receptorPath = computed<string | null>(() => {
+  const jobReceptor = docking.jobResult?.params?.receptor_path
+  if (typeof jobReceptor === 'string' && jobReceptor.length > 0) return jobReceptor
+  return molecules.receptorPdbqtPath
+})
+
+const receptorSequence = ref<ReceptorSequence | null>(null)
+const sequenceLoading = ref(false)
+const sequenceError = ref<string | null>(null)
+const noSelection = new Set<string>()
+
+/** `CHAIN:SEQ` keys, the same keys `SequenceView` renders. */
+const contactResidues = computed(() => new Set(docking.contactResidueKeys))
+
+async function openSequence(): Promise<void> {
+  view.value = 'sequence'
+  if (receptorSequence.value !== null || sequenceLoading.value) return
+
+  const prepared = receptorPath.value
+  if (!prepared) {
+    sequenceError.value = t('docking.interactions.noSequence')
+    return
+  }
+
+  // `inspectReceptor` returns a sequence for PDB/mmCIF, not PDBQT. Receptor
+  // preparation writes a renderable PDB beside the PDBQT.
+  const pdbPath = prepared.replace(/\.pdbqt$/i, '.pdb')
+  sequenceLoading.value = true
+  sequenceError.value = null
+  try {
+    const preview = await api.inspectReceptor(pdbPath)
+    receptorSequence.value = preview.sequence ?? null
+    if (receptorSequence.value === null) {
+      sequenceError.value = t('docking.interactions.noSequence')
+    }
+  } catch (cause) {
+    sequenceError.value = cause instanceof Error ? cause.message : String(cause)
+  } finally {
+    sequenceLoading.value = false
+  }
+}
 
 async function analyzeInteractions(): Promise<void> {
   const jobId = docking.activeJobId
@@ -77,10 +124,8 @@ async function analyzeInteractions(): Promise<void> {
   try {
     // History inspection may be open while the pipeline names a different
     // receptor; contacts must be computed against the receptor the job used.
-    const jobReceptor = docking.jobResult?.params?.receptor_path
-    const receptorPath =
-      (typeof jobReceptor === 'string' && jobReceptor) || molecules.receptorPdbqtPath
-    if (!receptorPath) {
+    const jobReceptor = receptorPath.value
+    if (!jobReceptor) {
       throw new Error('Receptor PDBQT not found')
     }
 
@@ -89,7 +134,7 @@ async function analyzeInteractions(): Promise<void> {
     const pose = await api.exportPose(jobId, poseNumber)
 
     const result = await api.analyzeInteractions({
-      receptorPath,
+      receptorPath: jobReceptor,
       ligandPdbqtString: pose.pdbqt,
       distanceCutoff: INTERACTION_RADIUS,
     })
@@ -257,6 +302,14 @@ function clearInteractions(): void {
           {{ view === 'residues' ? t('docking.interactions.contactView') : t('docking.interactions.residueView') }}
         </ElButton>
         <ElButton
+          v-if="fullInteractions.length > 0"
+          size="small"
+          data-test="interaction-sequence"
+          @click="openSequence"
+        >
+          {{ view === 'sequence' ? t('docking.interactions.viewTable') : t('docking.interactions.viewSequence') }}
+        </ElButton>
+        <ElButton
           v-if="depict && interactions.length > 0"
           size="small"
           @click="view = view === '2d' ? 'table' : '2d'"
@@ -309,6 +362,28 @@ function clearInteractions(): void {
           :selected-key="selectedResidue"
           @select-residue="selectResidue"
         />
+        <div v-else-if="view === 'sequence'" class="interactions__sequence">
+          <p class="vs-faint">
+            {{ t('docking.interactions.sequenceHint', { n: contactResidues.size }) }}
+          </p>
+          <p v-if="sequenceLoading" class="vs-faint">
+            {{ t('docking.interactions.sequenceLoading') }}
+          </p>
+          <el-alert
+            v-else-if="sequenceError"
+            type="warning"
+            :closable="false"
+            show-icon
+            :title="sequenceError"
+          />
+          <SequenceView
+            v-else-if="receptorSequence"
+            :chains="receptorSequence.chains"
+            :selected="noSelection"
+            :contact-residues="contactResidues"
+            readonly
+          />
+        </div>
         <div v-else-if="view === 'residues'" class="interactions__table-wrap">
           <table class="interactions__table">
             <thead>

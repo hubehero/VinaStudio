@@ -101,10 +101,10 @@ def build_command(
         command.append("--force_even_voxels")
     if params.flex_pdbqt_path:
         command += ["--flex", params.flex_pdbqt_path]
-    if params.map_prefix or params.map_paths:
-        # ad4 (and any pre-computed vina maps) take the prefix the files are
+    if params.map_paths:
+        # ad4 (and any externally supplied maps) take the prefix the files are
         # named after; a box is ignored in that case, exactly as in the API.
-        command += ["--maps", params.map_prefix or params.map_paths[0]]
+        command += ["--maps", params.map_paths[0]]
     return command
 
 
@@ -213,8 +213,8 @@ def score_cli(params: DockingParams, work_dir: str) -> dict[str, float]:
     ]
     if params.force_even_voxels:
         command.append("--force_even_voxels")
-    if params.map_prefix or params.map_paths:
-        command += ["--maps", params.map_prefix or params.map_paths[0]]
+    if params.map_paths:
+        command += ["--maps", params.map_paths[0]]
 
     stdout = _run(command, capture=True).stdout or ""
     return parse_score_table(stdout)
@@ -267,8 +267,8 @@ def _pose_and_energy(
     ]
     if params.force_even_voxels:
         command.append("--force_even_voxels")
-    if params.map_prefix or params.map_paths:
-        command += ["--maps", params.map_prefix or params.map_paths[0]]
+    if params.map_paths:
+        command += ["--maps", params.map_paths[0]]
 
     stdout = _run(command, capture=True).stdout or ""
     if not out_pdbqt.is_file():

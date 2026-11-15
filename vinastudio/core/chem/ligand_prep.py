@@ -28,7 +28,7 @@ import re
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from rdkit import Chem, rdBase
@@ -38,6 +38,11 @@ from vinastudio.core.chem.formats import detect_format, is_supported
 from vinastudio.core.chem.pdbqt import PdbqtError, parse_pdbqt
 from vinastudio.core.chem.properties import compute_properties, lipinski_violations
 from vinastudio.core.chem.rdkit_io import mol_from_file, sdf_supplier
+from vinastudio.core.chem.states import (
+    LigandState,
+    StateEnumeration,
+    enumerate_states,
+)
 from vinastudio.core.errors import (
     InvalidInputError,
     PreparationError,
@@ -86,6 +91,13 @@ class LigandPrepOptions:
     hydrate: bool = False
     double_bond_penalty: float = 50.0
 
+    # Ligand-state enumeration. Off by default: the input state is the
+    # historical behaviour, and enabling this is a deliberate scientific choice.
+    enumerate_states: bool = False
+    state_kinds: tuple[str, ...] = ("protonation", "tautomer", "stereo")
+    ph_range: tuple[float, float] = (7.0, 7.8)
+    max_states: int = 8
+
 
 @dataclass(slots=True)
 class LigandReport:
@@ -105,6 +117,11 @@ class LigandReport:
     atom_types: dict[str, int]
     smiles: str | None
     warnings: list[str] = field(default_factory=list)
+    states: list[LigandState] = field(default_factory=list)
+    """All enumerated states when ``enumerate_states`` was requested."""
+    selected_state: str | None = None
+    state_policy: str = "single-input"
+    state_truncated: bool = False
 
 
 @dataclass(slots=True)
@@ -116,6 +133,22 @@ class LigandPreparation:
     sdf: str
     """Prepared molecule as SDF, for 3D preview (PDBQT itself is unrenderable)."""
     report: LigandReport
+
+
+@dataclass(slots=True)
+class LigandStatePreparation:
+    """One enumerated state and its own prepared artifacts/report."""
+
+    state: LigandState
+    preparation: LigandPreparation
+
+
+@dataclass(slots=True)
+class LigandStatesPreparation:
+    """The complete state set for one input file."""
+
+    states: list[LigandStatePreparation]
+    enumeration: StateEnumeration
 
 
 @dataclass(slots=True)
@@ -546,6 +579,20 @@ def _meeko_parameterise(
     return pdbqt, parsed
 
 
+def validate_ligand_file(file_path: Path) -> None:
+    if not file_path.is_file():
+        raise InvalidInputError(f"file not found: {file_path}")
+    if not is_supported(file_path, "ligand"):
+        raise UnsupportedFormatError(
+            f"unsupported ligand extension {file_path.suffix!r}; "
+            "expected one of .mol .sdf .mol2 .pdb .pdbqt"
+        )
+    if file_path.suffix.lower() not in PREPARABLE_SUFFIXES:
+        raise UnsupportedFormatError(
+            f"{file_path.name} is already PDBQT; it does not need parameterisation"
+        )
+
+
 def prepare_ligand(
     path: str | Path,
     options: LigandPrepOptions | None = None,
@@ -557,19 +604,12 @@ def prepare_ligand(
     :class:`PreparationError` when Meeko refuses the molecule.
     """
     options = options or LigandPrepOptions()
+    if options.enumerate_states:
+        raise InvalidInputError(
+            "prepare_ligand prepares one state; use prepare_ligand_states for enumeration"
+        )
     file_path = Path(path)
-    if not file_path.is_file():
-        raise InvalidInputError(f"file not found: {file_path}")
-
-    if not is_supported(file_path, "ligand"):
-        raise UnsupportedFormatError(
-            f"unsupported ligand extension {file_path.suffix!r}; "
-            "expected one of .mol .sdf .mol2 .pdb .pdbqt"
-        )
-    if file_path.suffix.lower() not in PREPARABLE_SUFFIXES:
-        raise UnsupportedFormatError(
-            f"{file_path.name} is already PDBQT; it does not need parameterisation"
-        )
+    validate_ligand_file(file_path)
 
     mol, records = read_mol(file_path)
     warnings: list[str] = []
@@ -651,6 +691,50 @@ def prepare_ligand_from_smiles(
         geometry_optimised=geometry_optimised,
         warnings=warnings,
     )
+
+
+def prepare_ligand_states(
+    path: str | Path,
+    options: LigandPrepOptions | None = None,
+) -> LigandStatesPreparation:
+    """Enumerate ligand states and prepare each one separately.
+
+    The input state is prepared through the file path so its original 3D
+    geometry is kept; the other states are regenerated from their SMILES. Every
+    per-state report carries the full state list, the selected state id and the
+    enumeration policy, so a caller can never mistake one state for the whole
+    chemical picture.
+    """
+    options = options or LigandPrepOptions()
+    file_path = Path(path)
+    validate_ligand_file(file_path)
+
+    mol, _records = read_mol(file_path)
+    enumeration = enumerate_states(
+        mol,
+        kinds=options.state_kinds,
+        ph_range=options.ph_range,
+        max_states=options.max_states,
+    )
+    base_options = replace(options, enumerate_states=False)
+
+    prepared: list[LigandStatePreparation] = []
+    for state in enumeration.states:
+        if state.kind == "input":
+            preparation = prepare_ligand(file_path, base_options)
+        else:
+            preparation = prepare_ligand_from_smiles(
+                state.smiles,
+                f"{file_path.stem}-{state.state_id}",
+                base_options,
+            )
+        preparation.report.states = list(enumeration.states)
+        preparation.report.selected_state = state.state_id
+        preparation.report.state_policy = "enumerated"
+        preparation.report.state_truncated = enumeration.truncated
+        prepared.append(LigandStatePreparation(state=state, preparation=preparation))
+
+    return LigandStatesPreparation(states=prepared, enumeration=enumeration)
 
 
 def _build_ligand_preparation(

@@ -1,0 +1,650 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:vinastudio:result:1.0",
+  "$defs": {
+    "Artifacts": {
+      "properties": {
+        "receptorPdbqt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Receptorpdbqt"
+        },
+        "receptorPdb": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Receptorpdb"
+        },
+        "ligandPdbqt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ligandpdbqt"
+        },
+        "ligandSdf": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ligandsdf"
+        },
+        "posesPdbqt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Posespdbqt"
+        },
+        "posesSdf": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Posessdf"
+        },
+        "flexPdbqt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Flexpdbqt"
+        }
+      },
+      "title": "Artifacts",
+      "type": "object"
+    },
+    "EngineInfo": {
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "backend": {
+          "title": "Backend",
+          "type": "string"
+        },
+        "scoring": {
+          "title": "Scoring",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "backend",
+        "scoring"
+      ],
+      "title": "EngineInfo",
+      "type": "object"
+    },
+    "FindingRecord": {
+      "properties": {
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "error",
+            "warning"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "message_key": {
+          "title": "Message Key",
+          "type": "string"
+        },
+        "detail": {
+          "additionalProperties": true,
+          "title": "Detail",
+          "type": "object"
+        }
+      },
+      "required": [
+        "code",
+        "severity",
+        "message_key"
+      ],
+      "title": "FindingRecord",
+      "type": "object"
+    },
+    "InputFile": {
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "title": "Sha256",
+          "type": "string"
+        },
+        "format": {
+          "title": "Format",
+          "type": "string"
+        },
+        "bytes": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bytes"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "format"
+      ],
+      "title": "InputFile",
+      "type": "object"
+    },
+    "InputFiles": {
+      "properties": {
+        "receptor": {
+          "$ref": "#/$defs/InputFile"
+        },
+        "ligand": {
+          "$ref": "#/$defs/InputFile"
+        },
+        "reference": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InputFile"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "receptor",
+        "ligand"
+      ],
+      "title": "InputFiles",
+      "type": "object"
+    },
+    "PoseRecord": {
+      "properties": {
+        "rank": {
+          "title": "Rank",
+          "type": "integer"
+        },
+        "affinity": {
+          "title": "Affinity",
+          "type": "number"
+        },
+        "rmsdLower": {
+          "title": "Rmsdlower",
+          "type": "number"
+        },
+        "rmsdUpper": {
+          "title": "Rmsdupper",
+          "type": "number"
+        },
+        "rmsdToReference": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rmsdtoreference"
+        },
+        "worstCheck": {
+          "anyOf": [
+            {
+              "enum": [
+                "error",
+                "warning"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Worstcheck"
+        },
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/FindingRecord"
+          },
+          "title": "Checks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "rank",
+        "affinity",
+        "rmsdLower",
+        "rmsdUpper"
+      ],
+      "title": "PoseRecord",
+      "type": "object"
+    },
+    "PreparationBlock": {
+      "properties": {
+        "receptor": {
+          "additionalProperties": true,
+          "title": "Receptor",
+          "type": "object"
+        },
+        "ligand": {
+          "additionalProperties": true,
+          "title": "Ligand",
+          "type": "object"
+        }
+      },
+      "required": [
+        "receptor",
+        "ligand"
+      ],
+      "title": "PreparationBlock",
+      "type": "object"
+    },
+    "ProjectChecks": {
+      "properties": {
+        "errors": {
+          "default": 0,
+          "title": "Errors",
+          "type": "integer"
+        },
+        "warnings": {
+          "default": 0,
+          "title": "Warnings",
+          "type": "integer"
+        },
+        "poses": {
+          "default": 0,
+          "title": "Poses",
+          "type": "integer"
+        }
+      },
+      "title": "ProjectChecks",
+      "type": "object"
+    },
+    "Provenance": {
+      "properties": {
+        "createdAt": {
+          "title": "Createdat",
+          "type": "string"
+        },
+        "host": {
+          "title": "Host",
+          "type": "string"
+        },
+        "cwd": {
+          "title": "Cwd",
+          "type": "string"
+        },
+        "command": {
+          "title": "Command",
+          "type": "string"
+        },
+        "environment": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Environment",
+          "type": "object"
+        },
+        "git": {
+          "additionalProperties": true,
+          "title": "Git",
+          "type": "object"
+        }
+      },
+      "required": [
+        "createdAt",
+        "host",
+        "cwd",
+        "command"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "ReferenceValidation": {
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "matched": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Matched"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "ReferenceValidation",
+      "type": "object"
+    },
+    "ResultParameters": {
+      "properties": {
+        "scoring": {
+          "title": "Scoring",
+          "type": "string"
+        },
+        "exhaustiveness": {
+          "title": "Exhaustiveness",
+          "type": "integer"
+        },
+        "nPoses": {
+          "title": "Nposes",
+          "type": "integer"
+        },
+        "energyRange": {
+          "title": "Energyrange",
+          "type": "number"
+        },
+        "minRmsd": {
+          "title": "Minrmsd",
+          "type": "number"
+        },
+        "maxEvals": {
+          "title": "Maxevals",
+          "type": "integer"
+        },
+        "cpu": {
+          "title": "Cpu",
+          "type": "integer"
+        },
+        "seed": {
+          "title": "Seed",
+          "type": "integer"
+        },
+        "noRefine": {
+          "title": "Norefine",
+          "type": "boolean"
+        },
+        "engine": {
+          "title": "Engine",
+          "type": "string"
+        },
+        "verbosity": {
+          "title": "Verbosity",
+          "type": "integer"
+        },
+        "flexReceptorPath": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Flexreceptorpath"
+        }
+      },
+      "required": [
+        "scoring",
+        "exhaustiveness",
+        "nPoses",
+        "energyRange",
+        "minRmsd",
+        "maxEvals",
+        "cpu",
+        "seed",
+        "noRefine",
+        "engine",
+        "verbosity"
+      ],
+      "title": "ResultParameters",
+      "type": "object"
+    },
+    "SearchSpace": {
+      "properties": {
+        "center": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Center",
+          "type": "array"
+        },
+        "size": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Size",
+          "type": "array"
+        },
+        "spacing": {
+          "title": "Spacing",
+          "type": "number"
+        },
+        "forceEvenVoxels": {
+          "title": "Forceevenvoxels",
+          "type": "boolean"
+        },
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "sourceDetail": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sourcedetail"
+        }
+      },
+      "required": [
+        "center",
+        "size",
+        "spacing",
+        "forceEvenVoxels",
+        "source"
+      ],
+      "title": "SearchSpace",
+      "type": "object"
+    },
+    "SoftwareInfo": {
+      "properties": {
+        "name": {
+          "default": "vinastudio",
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version"
+      ],
+      "title": "SoftwareInfo",
+      "type": "object"
+    },
+    "ValidationBlock": {
+      "properties": {
+        "reference": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReferenceValidation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "projectChecks": {
+          "$ref": "#/$defs/ProjectChecks"
+        },
+        "posebusters": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Posebusters"
+        }
+      },
+      "title": "ValidationBlock",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schemaversion",
+      "type": "string"
+    },
+    "software": {
+      "$ref": "#/$defs/SoftwareInfo"
+    },
+    "engine": {
+      "$ref": "#/$defs/EngineInfo"
+    },
+    "inputs": {
+      "$ref": "#/$defs/InputFiles"
+    },
+    "preparation": {
+      "$ref": "#/$defs/PreparationBlock"
+    },
+    "searchSpace": {
+      "$ref": "#/$defs/SearchSpace"
+    },
+    "parameters": {
+      "$ref": "#/$defs/ResultParameters"
+    },
+    "artifacts": {
+      "$ref": "#/$defs/Artifacts"
+    },
+    "poses": {
+      "items": {
+        "$ref": "#/$defs/PoseRecord"
+      },
+      "title": "Poses",
+      "type": "array"
+    },
+    "validation": {
+      "$ref": "#/$defs/ValidationBlock"
+    },
+    "analysis": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Analysis"
+    },
+    "provenance": {
+      "$ref": "#/$defs/Provenance"
+    }
+  },
+  "required": [
+    "software",
+    "engine",
+    "inputs",
+    "preparation",
+    "searchSpace",
+    "parameters",
+    "provenance"
+  ],
+  "title": "DockResult",
+  "type": "object"
+}

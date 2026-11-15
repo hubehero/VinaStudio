@@ -177,10 +177,10 @@ def batch_docking_worker(params: dict[str, Any], pipe: Connection) -> None:
     starts one of these per shard; each docks its own slice while keeping the
     original ligand index for events and on-disk names.  Every ligand writes
     into its own subdirectory of ``output_dir`` so the poses survive the run:
-    results on disk are what the job's artifacts point at.  The shared Vina
-    maps were pre-computed by the parent and arrive as ``map_prefix``;
-    without it (precompute failed / ad4 / external maps) every ligand
-    computes its own, as before.
+    results on disk are what the job's artifacts point at.  Batch docking
+    currently gives every ligand its own grid: shared/pre-computed Vina maps
+    were removed because the Python API's ``load_maps`` path was unsafe for
+    this workflow, so there is no ``map_prefix`` to pass.
 
     Progress is reported as per-ligand facts only — job-level counters and
     the completion event belong to the parent (TASK-14 §4.3).
@@ -198,9 +198,6 @@ def batch_docking_worker(params: dict[str, Any], pipe: Connection) -> None:
     _emit(pipe, "stage", {"stage": "initialising", "totalLigands": len(ligands)})
 
     scoring = params.get("scoring", "vina")
-    map_prefix: str = str(params.get("map_prefix") or "")
-    if map_prefix:
-        _emit(pipe, "stage", {"stage": "docking"})
 
     shard = list(enumerate(ligands))[shard_index::shard_count]
 
@@ -268,7 +265,6 @@ def batch_docking_worker(params: dict[str, Any], pipe: Connection) -> None:
                 seed=params.get("seed", 42),
                 no_refine=params.get("no_refine", False),
                 weights=params.get("weights"),
-                map_prefix=map_prefix or None,
                 engine=params.get("engine", "vina"),
             )
 
@@ -413,6 +409,8 @@ def screening_worker(params: dict[str, Any], pipe: Connection) -> None:
                 min_rmsd=params.get("min_rmsd", 1.0),
                 cpu=cpu,
                 seed=params.get("seed", 42),
+                spacing=params.get("spacing", 0.375),
+                force_even_voxels=params.get("force_even_voxels", False),
                 no_refine=params.get("no_refine", False),
                 weights=params.get("weights"),
                 engine=params.get("engine", "vina"),

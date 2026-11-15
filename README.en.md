@@ -18,7 +18,6 @@
 <p align="center">
   <a href="https://hubehero.github.io/VinaStudio/experience/">Interactive guide</a> ·
   <a href="docs/USER_GUIDE.md">User guide</a> ·
-  <a href="docs/ARCHITECTURE.md">Architecture</a> ·
   <a href="docs/ACADEMIC_VALIDATION.md">Validation</a> ·
   <a href="https://github.com/hubehero/VinaStudio/releases">Releases</a>
 </p>
@@ -163,6 +162,24 @@ uv run python -m vinastudio
 
 For interface-only work, run `pnpm -C web dev` and connect the Vite server to the local API.
 
+### Headless CLI
+
+The base package is core + CLI + local API server; the desktop shell is the
+`desktop` extra. `vinastudio-cli` shares the same `core` as the application and
+does not import Qt or FastAPI:
+
+```bash
+uv run vinastudio-cli version --json
+uv run vinastudio-cli prepare ligand -i ligand.sdf -o prep --json
+uv run vinastudio-cli dock --config job.json --out out/result.json --json
+uv run vinastudio-cli screen --config screen.json --out ranking.csv --json
+uv run vinastudio-cli validate --manifest validation/manifest.json --case 1iep --out report --json
+```
+
+See [the CLI guide](docs/CLI.md) for the `job.json`/`result.json` contracts,
+exit codes and 1IEP example. `vinastudio` with no subcommand still starts the
+desktop application.
+
 ## Run the 1IEP example
 
 [1IEP](https://www.rcsb.org/structure/1IEP) is the control used throughout the project: c-Abl kinase with imatinib. It exercises preparation, the box, docking, results and the report.
@@ -212,7 +229,6 @@ Three constraints shape the implementation:
 2. **Docking runs in a spawned child process.** Vina has no cancellation API, so terminating the process is the only reliable stop; the parent owns the Qt and asyncio loops and cannot safely `fork`.
 3. **PDBQT is never rendered directly.** 3Dmol cannot parse PDBQT and it has no bond orders; Meeko converts poses to SDF first.
 
-The full runtime, process boundaries and docking lifecycle are in [Architecture](docs/ARCHITECTURE.md) and the [structure map](https://hubehero.github.io/VinaStudio/structure.html).
 
 ## Repository layout
 
@@ -237,7 +253,7 @@ web/                  Vue 3 SPA
 ├── src/components/   panels, 3D viewport, dialogs, sketcher
 └── src/api/          HTTP, WebSocket, QWebChannel
 
-docs/                 user, architecture, Catalog, Windows docs and structure map
+docs/                 user, CLI, Catalog, Windows docs and validation records
 docs/experience/      interactive Pages field guide
 validation/           1IEP control, functional matrix, open benchmark and PoseBusters records
 scripts/              build, sample, validation and diagnostic tools
@@ -251,8 +267,6 @@ tests/                unit and integration tests
 | Topic | Document |
 |---|---|
 | Install, prepare, dock, analyse and export | [User guide](docs/USER_GUIDE.md) · [简体中文](docs/USER_GUIDE.zh-CN.md) |
-| Runtime, processes and docking lifecycle | [Structure map](https://hubehero.github.io/VinaStudio/structure.html) · [Text version](docs/STRUCTURE.md) |
-| Four layers and three constraints | [Architecture](docs/ARCHITECTURE.md) · [简体中文](docs/ARCHITECTURE.zh-CN.md) |
 | Molecules, files, Studies, collections and libraries | [Catalog](docs/MOLECULE_CATALOG.md) |
 | Methods, results, failures and references | [Academic validation](docs/ACADEMIC_VALIDATION.md) · [简体中文](docs/ACADEMIC_VALIDATION.zh-CN.md) |
 | Windows installation, limits and diagnostics | [Windows support](docs/WINDOWS.md) · [简体中文](docs/WINDOWS.zh-CN.md) |
@@ -268,7 +282,7 @@ PDBQT keeps heavy atoms and polar hydrogens; non-polar hydrogens are removed. Th
 
 ### Why can't AutoDock4 start immediately?
 
-AutoDock4 needs affinity maps generated in advance by AutoGrid4. The project does not bundle AutoGrid4 and will not invent maps in the background; use Vina or Vinardo without external maps. See [Windows support](docs/WINDOWS.md) and [Architecture](docs/ARCHITECTURE.md).
+AutoDock4 needs affinity maps generated in advance by AutoGrid4. The project does not bundle AutoGrid4 and will not invent maps in the background; use Vina or Vinardo without external maps. See [Windows support](docs/WINDOWS.md).
 
 ### Can I treat the docking score as a binding free energy?
 

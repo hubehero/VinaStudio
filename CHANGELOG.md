@@ -12,6 +12,58 @@ entries about the product — no internal task ids or workflow narration.
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-11-15
+
+
+### 变更
+
+- **按残基定盒**：结合位点页可从受体序列中选择残基来定盒；整受体定盒保留为单独按钮，不再静默使用整个受体。
+- **相互作用序列视图**：相互作用分析新增受体序列视图，接触残基高亮；没有可用序列时显示明确空态。
+- **盒子来源**：对接任务与 Methods 段落记录搜索盒来源（手动/配体/残基/候选位点/config）。
+- **AutoDock4 地图预检**：启动前检查地图前缀下是否存在 `.map` 文件；错误信息明确 AutoGrid4 地图需在 VinaStudio 外生成。
+- **官方 PoseBusters（可选）**：安装 `analysis` 额外依赖后，几何体检可同时运行官方套件；命令行使用 `--posebusters`。官方结果独立展示，不改变项目六项检查的通过判定；验证报告 schema 升到 2.2。
+- **配体状态枚举（可选）**：安装 `states` 额外依赖后可枚举质子化、互变异构与立体异构状态；每个状态单独准备，Catalog 中可查看并选择用于对接的状态；默认仍使用输入状态。
+- **受体缺失重原子报告**：受体准备报告逐残基列出缺失的标准重原子，并注明不重建；Catalog 详情与 Methods 段落均可读。
+- **交叉对接验证（manifest 1.2）**：支持多个预对齐受体的逐受体对接与结果表；坐标帧不一致的受体会在对接前被拒绝，并报告 `recovered/evaluable`。
+- **验证统计**：验证报告新增 `statistics`（成功率、Wilson 95%、均值/中位数 RMSD、bootstrap 95%），汇总脚本同时按受体与结构类型统计。
+- **筛选富集指标**：虚拟筛选完成后可加载 sidecar CSV/JSON 标签（`name` 或 `ligand_index` + `label`），报告 EF1、EF5、ROC-AUC、BEDROC 及其 bootstrap 95% 区间，并单独计数失败/未标记分子；标签也可直接粘贴。
+- **标签 sidecar 工具**：`scripts/build_screening_labels.py` 把本地 active/inactive 的 `.smi`/`.sdf` 转成 `name,label` CSV，不下载或再分发任何数据集。
+- **无界面 CLI**：新增 `vinastudio-cli`，复用 `core` 做 `prepare`/`dock`/`validate`/`export`；`job.json` 与 `result.json` 1.0 契约及 JSON Schema；`--json` 时 stdout 只放 JSON，退出码固定。
+- **桌面依赖可选**：基础包改为 core + CLI + 本地 API，`[desktop]` 额外提供 PySide6；`vinastudio` 无子命令仍启动桌面，`vinastudio-cli` 永远无界面。
+- **无界面筛选**：`vinastudio-cli screen` 复用 `screening_worker` 做单进程顺序筛选，输出 `ranking.csv`/`ranking.json`、逐条工件；提供标签时同时输出 `enrichment.json`/`.csv`。
+- **打包与无界面服务**：wheel 包含 JSON Schema 契约与 SPA 静态资源；新增 `vinastudio-cli server`（无 Qt 的本地 FastAPI）和 `docker/Dockerfile`；基础包不再包含 PySide6。
+- **互操作导出**：`vinastudio-cli export` 可写复合物 PDB、PyMOL `.pml`、ChimeraX `.cxc`，以及带映射说明的 PLIP 形状 JSON；不声称与 PLIP 等价。
+- **外部引擎 Adapter SDK**：manifest 描述能力/命令/输出/超时，外部二进制由用户提供；`engines list/doctor` 探测，`ExternalEngine.dock()` 可运行并保留独立分数命名空间；不捆绑 GPL 引擎。
+
+### Changed
+
+- **Residue-based box**: the binding-site page can derive the box from residues selected in the receptor sequence; whole-receptor boxing is a separate, explicitly named action instead of a silent fallback.
+- **Interaction sequence view**: interaction analysis can show the receptor sequence with contact residues highlighted, with an explicit empty state when no sequence is available.
+- **Box provenance**: docking jobs and the Methods paragraph record how the search box was chosen (manual/ligand/residue/candidate site/config).
+- **AutoDock4 map preflight**: the map prefix is checked for `.map` files before a job starts, and the error states that AutoGrid4 maps must be generated outside VinaStudio.
+- **Official PoseBusters (optional)**: with the `analysis` extra installed, the geometry check can also run the official suite; the command line uses `--posebusters`. Official results are shown separately and never change the six-check verdict; the validation report schema moves to 2.2.
+- **Ligand-state enumeration (optional)**: with the `states` extra installed, protonation, tautomer and stereoisomer states can be enumerated; each state is prepared separately, and the Catalog lets you inspect and choose the state used for docking. The input state remains the default.
+- **Receptor missing-atom report**: receptor preparation now lists standard residues with missing heavy atoms and states that they were not rebuilt; the Catalog detail and the Methods paragraph both show it.
+- **Cross-docking validation (manifest 1.2)**: multiple pre-aligned receptors are docked and reported per receptor; a receptor outside the reference frame is rejected before docking, and the report includes `recovered/evaluable`.
+- **Validation statistics**: the validation report now carries `statistics` (success rate, Wilson 95%, mean/median RMSD, bootstrap 95%); the summary script also aggregates by receptor and structure kind.
+- **Screening enrichment**: a finished virtual screen can load a sidecar CSV/JSON label set (`name` or `ligand_index` plus `label`) and reports EF1, EF5, ROC-AUC and BEDROC with bootstrap 95% intervals, plus separate failed/unlabelled counts; labels can also be pasted directly.
+- **Label sidecar builder**: `scripts/build_screening_labels.py` converts local active/inactive `.smi`/`.sdf` files into the `name,label` CSV; it downloads and redistributes no dataset.
+- **Headless CLI**: `vinastudio-cli` reuses `core` for `prepare`/`dock`/`validate`/`export`; `job.json` and `result.json` 1.0 contracts plus JSON Schemas; `--json` keeps stdout JSON-only and exit codes are fixed.
+- **Optional desktop dependency**: the base package is core + CLI + local API, and `[desktop]` adds PySide6; `vinastudio` with no subcommand still starts the desktop, while `vinastudio-cli` is always headless.
+- **Headless screening**: `vinastudio-cli screen` reuses the `screening_worker` for one sequential library pass, writing `ranking.csv`/`ranking.json` and per-entry artifacts; with labels it also writes `enrichment.json`/`.csv`.
+- **Packaging and headless server**: the wheel includes the JSON Schema contracts and SPA assets; `vinastudio-cli server` runs the local FastAPI app without Qt; `docker/Dockerfile` provides a headless image; PySide6 is no longer a base dependency.
+- **Interop exports**: `vinastudio-cli export` writes complex PDB, PyMOL `.pml`, ChimeraX `.cxc`, and a PLIP-shaped JSON with an explicit mapping/disclaimer; it does not claim PLIP equivalence.
+- **External engine Adapter SDK**: manifests describe capabilities/command/output/timeout, the binary stays user-supplied, `engines list/doctor` probes it, and `ExternalEngine.dock()` keeps a separate score namespace; no GPL engine is bundled.
+
+### 修复
+
+- **预计算地图残留**：移除未接通的批量预计算地图代码与文档表述；批量/筛选的每个配体独立计算地图。
+
+### Fixed
+
+- **Dead map-precompute path**: removed the unused batch map-precompute code and its documentation claims; batch/screening compute each ligand's maps independently.
+
+
 ## [0.7.1] - 2026-11-14
 
 ### 新增

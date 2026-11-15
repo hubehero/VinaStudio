@@ -28,7 +28,6 @@ computed by Vina itself; the application never invents a score.
 **Where to go next**
 
 - Windows installation and boundaries: [WINDOWS.md](WINDOWS.md)
-- How the application is put together: [ARCHITECTURE.md](ARCHITECTURE.md)
 - What changed in this version: [CHANGELOG.md](../CHANGELOG.md)
 
 ---
@@ -350,6 +349,17 @@ new search or filter resets to the first page.
 - **AutoDock4**: requires AutoGrid4 maps generated outside the application. The
   interface refuses `ad4` when no maps are supplied rather than silently running
   a different scoring function.
+
+### Enrichment metrics
+
+After a virtual-screening run finishes, the **Enrichment metrics** card accepts a
+sidecar CSV/JSON label file (`name` or `ligand_index` plus `label`:
+`active`/`decoy`/`inactive`). It reports EF1, EF5, ROC-AUC and BEDROC with
+bootstrap 95% intervals, plus counts of failed and unlabelled molecules. Labels
+are supplied by you, so the numbers describe that labelled set only — they are
+not a general accuracy claim. `scripts/build_screening_labels.py` converts
+local active/inactive `.smi`/`.sdf` files into the CSV. A label path must stay
+inside the workspace; pasting the labels into the card works anywhere.
 
 ### Project files
 

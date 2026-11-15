@@ -272,7 +272,15 @@ export const useMoleculeStore = defineStore('molecules', () => {
   /** The prepared rigid input, or the file itself when it already is one. */
   function rigidPdbqtPath(mol: MoleculeItem | null): string | null {
     if (!mol) return null
-    const artifact = mol.artifacts.find((a) => a.kind === 'pdbqt' && !a.name.endsWith('_flex.pdbqt'))
+    const selected = mol.selectedState ?? null
+    const artifact =
+      mol.artifacts.find(
+        (a) =>
+          a.kind === 'pdbqt' &&
+          !a.name.endsWith('_flex.pdbqt') &&
+          (!selected || a.name.startsWith(selected)),
+      ) ??
+      mol.artifacts.find((a) => a.kind === 'pdbqt' && !a.name.endsWith('_flex.pdbqt'))
     if (artifact) return artifact.path
     return mol.preview?.preparable === false ? mol.path : null
   }
@@ -452,6 +460,18 @@ export const useMoleculeStore = defineStore('molecules', () => {
         bytes: file.bytes,
       }
     })
+    const selected =
+      typeof detail.metadata?.['selectedState'] === 'string'
+        ? detail.metadata['selectedState']
+        : null
+    item.selectedState = selected
+    if (selected) {
+      // The first PDBQT/SDF is what the pipeline and the preview pick; put the
+      // selected state in front so the catalog choice is what docking uses.
+      item.artifacts.sort(
+        (a, b) => Number(!a.name.startsWith(selected)) - Number(!b.name.startsWith(selected)),
+      )
+    }
     item.preview = item.preview ?? null
     return item
   }

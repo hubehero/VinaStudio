@@ -4,7 +4,7 @@ $ vue-tsc --noEmit
 $ pnpm -C web test
 $ vitest run
 
-[1m[30m[46m RUN [49m[39m[22m [36mv5.0.5 [39m[90m/home/hubehero/SELF_PROJECT/AutoDock_Vina/web[39m
+[1m[30m[46m RUN [49m[39m[22m [36mv5.0.5 [39m[90m<repo>/web[39m
 
  [32m✓[39m src/components/docking/analysis/chart-utils.spec.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 8[2mms[22m[39m
  [32m✓[39m src/i18n/locales.spec.ts [2m([22m[2m1 test[22m[2m)[22m[32m 15[2mms[22m[39m

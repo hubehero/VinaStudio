@@ -11,7 +11,7 @@ Gemmi handles the complex mmCIF parsing including:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from vinastudio.core.chem.pdb_lines import WATER_RESIDUES
 
@@ -24,6 +24,7 @@ class _ResidueInfo:
     atoms: int
     is_water: bool
     is_hetero: bool
+    atom_names: set[str] = field(default_factory=set)
 
 
 def mmcif_to_pdb(text: str) -> str:
@@ -87,7 +88,10 @@ def _iter_mmcif_residues(text: str) -> dict[str, _ResidueInfo]:
                     is_hetero=str(residue.het_flag) == "H",
                 )
             # residue is iterable and yields Atom objects
-            residues[key].atoms += sum(1 for _ in residue)
+            info = residues[key]
+            for atom in residue:
+                info.atoms += 1
+                info.atom_names.add(atom.name.strip().upper())
 
     return residues
 

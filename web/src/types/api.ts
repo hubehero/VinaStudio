@@ -1,6 +1,7 @@
 /** Shapes mirroring the FastAPI response models. Keep in sync with `vinastudio/schemas`. */
 
 export type ScoringFunction = 'vina' | 'vinardo' | 'ad4'
+export type BoxSource = 'manual' | 'ligand' | 'residue' | 'pocket' | 'config' | 'unknown'
 
 export interface AppInfo {
   name: string
@@ -234,6 +235,16 @@ export interface LigandPreview {
   propertiesError?: string | null
 }
 
+export type LigandStateKind = 'input' | 'protonation' | 'tautomer' | 'stereo'
+
+export interface LigandStateReport {
+  stateId: string
+  kind: LigandStateKind
+  smiles: string
+  charge: number
+  description: string
+}
+
 export interface LigandOptions {
   optimiseGeometry: boolean
   embedSeed: number
@@ -241,6 +252,10 @@ export interface LigandOptions {
   flexibleAmides: boolean
   hydrate: boolean
   doubleBondPenalty: number
+  enumerateStates: boolean
+  stateKinds: Exclude<LigandStateKind, 'input'>[]
+  phRange: [number, number]
+  maxStates: number
 }
 
 export interface LigandReport {
@@ -258,6 +273,17 @@ export interface LigandReport {
   atomTypes: Record<string, number>
   smiles: string | null
   warnings: string[]
+  states: LigandStateReport[]
+  selectedState: string | null
+  statePolicy: string
+  stateTruncated: boolean
+}
+
+export interface LigandStatePreparation {
+  state: LigandStateReport
+  report: LigandReport
+  artifacts: Artifact[]
+  pdbqt: string
 }
 
 export interface LigandPreparation {
@@ -265,6 +291,7 @@ export interface LigandPreparation {
   report: LigandReport
   artifacts: Artifact[]
   pdbqt: string
+  states?: LigandStatePreparation[] | null
 }
 
 /** Body of POST /api/ligand/from-smiles — single paste or one-per-line batch. */
@@ -327,6 +354,14 @@ export interface ReceptorOptions {
   keepResidues: string[]
 }
 
+export interface MissingAtom {
+  chain: string
+  resSeq: string
+  resName: string
+  missing: string[]
+  present: string[]
+}
+
 export interface ReceptorReport {
   source: string
   inputFormat: string
@@ -349,6 +384,10 @@ export interface ReceptorReport {
   removedAltlocResidues: string[]
   histidineStates: string[]
   assumptions: string[]
+  missingAtoms: MissingAtom[]
+  incompleteResidues: number
+  notAssessedResidues: string[]
+  completenessPolicy: string
 }
 
 export interface ReceptorPreparation {
@@ -522,20 +561,6 @@ export interface ConfigText {
   text: string
 }
 
-export interface WriteMapsRequest {
-  receptorPath: string
-  center: [number, number, number]
-  size: [number, number, number]
-  spacing: number
-  forceEvenVoxels: boolean
-  outputPrefix: string
-}
-
-export interface WriteMapsResponse {
-  maps: string[]
-  gpf: string | null
-}
-
 // --------------------------------------------------------------------------
 // docking
 // --------------------------------------------------------------------------
@@ -567,6 +592,7 @@ export interface EnsembleDockingRequest {
   verbosity: number
   spacing: number
   forceEvenVoxels: boolean
+  boxSource?: BoxSource
   weights: number[] | null
   mapPaths: string[] | null
   engine?: 'vina' | 'vina-cli'
@@ -603,6 +629,7 @@ export interface DockingRequest {
   verbosity: number
   spacing: number
   forceEvenVoxels: boolean
+  boxSource?: BoxSource
   weights: number[] | null
   mapPaths: string[] | null
 }
@@ -887,12 +914,38 @@ export interface PoseValidationItem {
   worstSeverity: PoseFindingSeverity | null
 }
 
+export interface OfficialPoseResult {
+  pose: number
+  passed: boolean
+  failedChecks: string[]
+}
+
+export type OfficialPoseBustersStatus = 'run' | 'not-run' | 'partial'
+
+export interface OfficialPoseBusters {
+  status: OfficialPoseBustersStatus
+  config: string
+  version: string | null
+  checks: string[]
+  poses: OfficialPoseResult[]
+  summary: {
+    poseCount?: number
+    topPassed?: boolean | null
+    allPosesPassed?: boolean | null
+  }
+  error: string | null
+}
+
 export interface ValidatePosesRequest {
   poseIndex?: number | null
   center?: [number, number, number] | null
   size?: [number, number, number] | null
   referenceSdfPath?: string | null
   enabled?: string[] | null
+  /** Also run the optional official PoseBusters suite. */
+  official?: boolean
+  /** Receptor PDB for official checks; omitted = prepared PDB beside the job. */
+  receptorPdbPath?: string | null
 }
 
 export interface ValidatePosesResponse {
@@ -900,6 +953,7 @@ export interface ValidatePosesResponse {
   poses: PoseValidationItem[]
   thresholds: Record<string, number>
   checksRun: string[]
+  official: OfficialPoseBusters | null
 }
 
 // ── redocking RMSD vs a co-crystal reference (TASK-03, migrated from http.ts) ──
@@ -960,6 +1014,7 @@ export interface BatchDockingRequest {
   flexReceptorPath: string | null
   center: [number, number, number]
   size: [number, number, number]
+  boxSource?: BoxSource
   ligands?: BatchLigandItem[]
   selectionId?: string
   scoring: ScoringFunction
@@ -1480,6 +1535,7 @@ export interface ScreeningStartRequest {
   flexReceptorPath?: string | null
   center: [number, number, number]
   size: [number, number, number]
+  boxSource?: BoxSource
   scoring: ScoringFunction
   exhaustiveness: number
   nPoses: number
@@ -1572,6 +1628,54 @@ export interface RankingRow {
 export interface RankingResponse {
   total: number
   rows: RankingRow[]
+}
+
+export type EnrichmentLabel = 'active' | 'decoy' | 'inactive' | 'unknown'
+
+export interface EnrichmentLabelItem {
+  ligandIndex?: number | null
+  name?: string | null
+  label: EnrichmentLabel
+}
+
+export interface EnrichmentRequest {
+  labelsPath?: string | null
+  labels?: EnrichmentLabelItem[] | null
+  labelsText?: string | null
+  alpha?: number
+}
+
+export interface EnrichmentMetric {
+  value: number | null
+  ciLow: number | null
+  ciHigh: number | null
+}
+
+export interface EnrichmentPoint {
+  x: number
+  y: number
+}
+
+export interface EnrichmentResponse {
+  nTotal: number
+  nScored: number
+  nFailed: number
+  nLabeled: number
+  nActives: number
+  nDecoys: number
+  nUnlabeled: number
+  ef1: EnrichmentMetric
+  ef5: EnrichmentMetric
+  rocAuc: EnrichmentMetric
+  bedroc: EnrichmentMetric
+  alpha: number
+  roc: EnrichmentPoint[]
+  enrichment: EnrichmentPoint[]
+}
+
+export interface EnrichmentExport {
+  csv: string
+  filename: string
 }
 
 // interaction fingerprints (TASK-16)

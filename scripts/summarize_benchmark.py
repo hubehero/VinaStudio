@@ -10,21 +10,15 @@ from __future__ import annotations
 
 import argparse
 import json
-import random
 import statistics
 from pathlib import Path
 
+from vinastudio.core.stats import bootstrap_ci, wilson_interval
 
-def _bootstrap_ci(values: list[float], *, n: int = 2000) -> tuple[float, float] | None:
-    if len(values) < 2:
-        return None
-    rng = random.Random(42)
-    means = [
-        statistics.fmean(rng.choice(values) for _ in values)
-        for _ in range(n)
-    ]
-    means.sort()
-    return (means[int(0.025 * n)], means[int(0.975 * n)])
+
+def _wilson(passed: int, total: int) -> list[float] | None:
+    interval = wilson_interval(passed, total)
+    return [round(value, 4) for value in interval] if interval is not None else None
 
 
 def summarize(report: Path, out_dir: Path) -> dict:
@@ -65,6 +59,7 @@ def summarize(report: Path, out_dir: Path) -> dict:
                 "successRate": round(passed / (passed + failed), 4)
                 if passed + failed
                 else None,
+                "successRateWilson95": _wilson(passed, passed + failed),
                 "meanRmsd": round(statistics.fmean(rmsds), 4) if rmsds else None,
                 "medianRmsd": round(statistics.median(rmsds), 4) if rmsds else None,
                 "seeds": [
@@ -80,6 +75,42 @@ def summarize(report: Path, out_dir: Path) -> dict:
             }
         )
 
+    cross_runs: dict[str, list[dict]] = {}
+    kind_runs: dict[str, list[dict]] = {}
+    for case in cases:
+        cross = case.get("crossDocking")
+        if isinstance(cross, dict):
+            for row in cross.get("receptors", []):
+                if not isinstance(row, dict):
+                    continue
+                cross_runs.setdefault(str(row.get("name") or "receptor"), []).append(row)
+                kind_runs.setdefault(str(row.get("structureKind") or "holo"), []).append(row)
+        elif case.get("status") in {"passed", "failed"}:
+            kinds = case.get("structureKinds") or ["holo"]
+            kind_runs.setdefault(str(kinds[0]), []).append(
+                {"status": case.get("status"), "bestRmsd": case.get("bestRmsd")}
+            )
+
+    def _aggregate(runs: list[dict]) -> dict:
+        passed = sum(1 for run in runs if run.get("status") == "passed")
+        failed = sum(1 for run in runs if run.get("status") == "failed")
+        rmsds = [
+            float(run["bestRmsd"])
+            for run in runs
+            if run.get("status") == "passed"
+            and isinstance(run.get("bestRmsd"), (int, float))
+        ]
+        return {
+            "runs": len(runs),
+            "passed": passed,
+            "failed": failed,
+            "successRate": round(passed / (passed + failed), 4)
+            if passed + failed
+            else None,
+            "successRateWilson95": _wilson(passed, passed + failed),
+            "meanRmsd": round(statistics.fmean(rmsds), 4) if rmsds else None,
+        }
+
     summary = {
         "dataset": payload.get("dataset", {}),
         "targets": targets,
@@ -88,9 +119,16 @@ def summarize(report: Path, out_dir: Path) -> dict:
             "evaluableRuns": evaluable,
             "passedRuns": successes,
             "successRate": round(successes / evaluable, 4) if evaluable else None,
+            "successRateWilson95": _wilson(successes, evaluable),
             "meanRmsd": round(statistics.fmean(all_rmsd), 4) if all_rmsd else None,
             "medianRmsd": round(statistics.median(all_rmsd), 4) if all_rmsd else None,
-            "bootstrap95": _bootstrap_ci(all_rmsd),
+            "bootstrap95": bootstrap_ci(all_rmsd),
+        },
+        "crossDocking": {
+            name: _aggregate(runs) for name, runs in sorted(cross_runs.items())
+        },
+        "byStructureKind": {
+            kind: _aggregate(runs) for kind, runs in sorted(kind_runs.items())
         },
     }
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -105,6 +143,7 @@ def summarize(report: Path, out_dir: Path) -> dict:
         f"Evaluable runs: {evaluable}",
         f"Passed runs: {successes}",
         f"Success rate: {summary['overall']['successRate']}",
+        f"Success rate Wilson 95%: {summary['overall']['successRateWilson95']}",
         "",
         "| Target | Runs | Passed | Failed | Skipped | Success rate | Mean RMSD | Median RMSD |",
         "|---|---:|---:|---:|---:|---:|---:|---:|",
@@ -115,9 +154,38 @@ def summarize(report: Path, out_dir: Path) -> dict:
             f"{target['failed']} | {target['skipped']} | {target['successRate']} | "
             f"{target['meanRmsd']} | {target['medianRmsd']} |"
         )
+    if summary["crossDocking"]:
+        lines += [
+            "",
+            "## Cross-docking receptors",
+            "",
+            "| Receptor | Runs | Passed | Failed | Success rate | Wilson 95% | Mean RMSD |",
+            "|---|---:|---:|---:|---:|---|---:|",
+        ]
+        for name, stats in summary["crossDocking"].items():
+            lines.append(
+                f"| {name} | {stats['runs']} | {stats['passed']} | {stats['failed']} | "
+                f"{stats['successRate']} | {stats['successRateWilson95']} | "
+                f"{stats['meanRmsd']} |"
+            )
+    if summary["byStructureKind"]:
+        lines += [
+            "",
+            "## By structure kind",
+            "",
+            "| Kind | Runs | Passed | Failed | Success rate | Wilson 95% | Mean RMSD |",
+            "|---|---:|---:|---:|---:|---|---:|",
+        ]
+        for kind, stats in summary["byStructureKind"].items():
+            lines.append(
+                f"| {kind} | {stats['runs']} | {stats['passed']} | {stats['failed']} | "
+                f"{stats['successRate']} | {stats['successRateWilson95']} | "
+                f"{stats['meanRmsd']} |"
+            )
     lines += [
         "",
         "Skipped runs are not counted as successes. Failed targets are retained.",
+        "Wilson intervals describe this dataset; they are not a universal accuracy claim.",
         "",
     ]
     (out_dir / "summary.md").write_text("\n".join(lines), encoding="utf-8")

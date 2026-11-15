@@ -670,6 +670,15 @@ AutoDock4 需要预先用 AutoGrid4 生成亲和力地图：
 回收超过 30 天、且未被分子清单、项目、Catalog 或库索引引用的准备/渲染目录；
 被引用的产物和带 `job.json` 的历史任务会保留。
 
+### 11.9 富集指标
+
+虚拟筛选完成后，「富集指标」卡片接受 sidecar CSV/JSON 标签文件
+（`name` 或 `ligand_index` 加 `label`：`active`/`decoy`/`inactive`），
+报告 EF1、EF5、ROC-AUC 与 BEDROC（含 bootstrap 95% 区间），并单独显示失败、
+未标记分子数。标签由用户提供，指标只描述该标签集，不是通用准确率声明。
+`scripts/build_screening_labels.py` 可把本地 active/inactive 的 `.smi`/`.sdf`
+转成该 CSV。标签文件路径需在工作区内；也可以直接粘贴文本。
+
 ---
 
 ## 12. 常见问题 (FAQ)

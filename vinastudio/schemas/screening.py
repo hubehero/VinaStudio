@@ -11,6 +11,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from vinastudio.config import ScoringFunction
+from vinastudio.schemas.docking import BoxSource
 
 RankingSortBy = Literal["affinity", "qed", "lipinski"]
 PrepareState = Literal["none", "done", "failed"]
@@ -74,6 +75,7 @@ class ScreeningStartRequest(BaseModel):
     flexReceptorPath: str | None = None
     center: tuple[float, float, float]
     size: tuple[float, float, float]
+    boxSource: BoxSource = "unknown"
     scoring: ScoringFunction = "vina"
     exhaustiveness: int = Field(default=8, ge=1, le=512)
     nPoses: int = Field(default=20, ge=1, le=100)
@@ -140,3 +142,71 @@ class RankingRow(BaseModel):
 class RankingResponse(BaseModel):
     total: int
     rows: list[RankingRow]
+
+
+EnrichmentLabel = Literal["active", "decoy", "inactive", "unknown"]
+
+
+class EnrichmentLabelItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ligandIndex: int | None = None
+    name: str | None = None
+    label: EnrichmentLabel
+
+    @model_validator(mode="after")
+    def _one_key(self) -> EnrichmentLabelItem:
+        if (self.ligandIndex is None) == (self.name is None):
+            raise ValueError("a label item needs exactly one of ligandIndex or name")
+        return self
+
+
+class EnrichmentRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    labelsPath: str | None = None
+    labels: list[EnrichmentLabelItem] | None = None
+    labelsText: str | None = None
+    alpha: float = Field(default=20.0, gt=0)
+
+    @model_validator(mode="after")
+    def _one_source(self) -> EnrichmentRequest:
+        supplied = [bool(self.labelsPath), bool(self.labels), bool(self.labelsText)]
+        if sum(supplied) != 1:
+            raise ValueError(
+                "give exactly one of labelsPath, labels or labelsText"
+            )
+        return self
+
+
+class EnrichmentMetricModel(BaseModel):
+    value: float | None = None
+    ciLow: float | None = None
+    ciHigh: float | None = None
+
+
+class EnrichmentPoint(BaseModel):
+    x: float
+    y: float
+
+
+class EnrichmentResponse(BaseModel):
+    nTotal: int
+    nScored: int
+    nFailed: int
+    nLabeled: int
+    nActives: int
+    nDecoys: int
+    nUnlabeled: int
+    ef1: EnrichmentMetricModel
+    ef5: EnrichmentMetricModel
+    rocAuc: EnrichmentMetricModel
+    bedroc: EnrichmentMetricModel
+    alpha: float
+    roc: list[EnrichmentPoint] = Field(default_factory=list)
+    enrichment: list[EnrichmentPoint] = Field(default_factory=list)
+
+
+class EnrichmentExportResponse(BaseModel):
+    csv: str
+    filename: str

@@ -90,6 +90,9 @@ import type {
   PubChemFetchResponse,
   RandomizeRequest,
   RandomizeResponse,
+  EnrichmentExport,
+  EnrichmentRequest,
+  EnrichmentResponse,
   RankingResponse,
   RankingSortBy,
   RmsdRequestBody,
@@ -121,8 +124,6 @@ import type {
   ValidatePosesResponse,
   VinaInfoResponse,
   WorkspaceInfo,
-  WriteMapsRequest,
-  WriteMapsResponse,
 } from '@/types/api'
 
 import { authHeaders } from './auth'
@@ -344,11 +345,6 @@ export const api = {
     request<BoxMetrics>('/api/box/from-config', {
       method: 'POST',
       body: JSON.stringify({ text }),
-    }),
-  writeMaps: (options: WriteMapsRequest) =>
-    request<WriteMapsResponse>('/api/box/write-maps', {
-      method: 'POST',
-      body: JSON.stringify(options),
     }),
 
   // -- docking --------------------------------------------------------------
@@ -657,6 +653,16 @@ export const api = {
   screeningExportRanking: (id: string, sortBy: RankingSortBy, top: number) =>
     request<{ csv: string; filename: string }>(
       `/api/screening/runs/${encodeURIComponent(id)}/ranking/export?sortBy=${sortBy}&top=${top}`,
+    ),
+  screeningMetrics: (id: string, body: EnrichmentRequest) =>
+    request<EnrichmentResponse>(`/api/screening/runs/${encodeURIComponent(id)}/metrics`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  screeningExportMetrics: (id: string, body: EnrichmentRequest) =>
+    request<EnrichmentExport>(
+      `/api/screening/runs/${encodeURIComponent(id)}/metrics/export`,
+      { method: 'POST', body: JSON.stringify(body) },
     ),
 
 

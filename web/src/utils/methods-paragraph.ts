@@ -67,6 +67,8 @@ interface PreparationSummary {
   histidineStates: string[]
   altlocPolicy: string
   removedAltlocResidues: number
+  incompleteResidues: number
+  completenessPolicy: string
 }
 
 function readPreparation(params: Record<string, unknown>): PreparationSummary | null {
@@ -92,6 +94,11 @@ function readPreparation(params: Record<string, unknown>): PreparationSummary | 
         ? source['altlocPolicy']
         : 'blank/default',
     removedAltlocResidues: count('removedAltlocResidues'),
+    incompleteResidues: count('incompleteResidues'),
+    completenessPolicy:
+      typeof source['completenessPolicy'] === 'string' && source['completenessPolicy'].length > 0
+        ? source['completenessPolicy']
+        : 'report-only',
   }
 }
 
@@ -118,6 +125,25 @@ function scoringLabel(scoring: string | null): string {
   if (scoring === 'vinardo') return 'Vinardo'
   if (scoring === 'ad4') return 'AutoDock4'
   return 'Vina'
+}
+
+function boxSourceLabel(source: string | null, zh: boolean): string | null {
+  switch (source) {
+    case 'manual':
+      return zh ? '手动设置' : 'set manually'
+    case 'ligand':
+      return zh ? '按配体自动定盒' : 'autoboxed from the ligand'
+    case 'residue':
+      return zh ? '按所选残基自动定盒' : 'autoboxed from the selected residues'
+    case 'pocket':
+      return zh ? '由候选位点确定' : 'chosen from a candidate site'
+    case 'config':
+      return zh ? '从 Vina config 导入' : 'imported from a Vina config'
+    case 'manifest':
+      return zh ? '由验证清单指定' : 'specified by the validation manifest'
+    default:
+      return null
+  }
 }
 
 // -- builder -----------------------------------------------------------------
@@ -193,20 +219,33 @@ export function buildMethodsText(input: MethodsInput, lang: MethodsLang): Method
         ? `受体准备删除 ${preparation.deletedWaters} 个水分子、${preparation.deletedHetero} 个非水 HETATM 基团；保留 ${preparation.keptWaters} 个水、${preparation.keptHetero} 个非水基团；${preparation.ignoredResidues} 个残基因模板不匹配被排除；组氨酸状态：${states}；altloc 策略：${preparation.altlocPolicy}，因 altloc 移除 ${preparation.removedAltlocResidues} 个残基。`
         : `Receptor preparation removed ${preparation.deletedWaters} water molecule(s) and ${preparation.deletedHetero} non-water HETATM group(s); kept ${preparation.keptWaters} water(s) and ${preparation.keptHetero} non-water group(s); ${preparation.ignoredResidues} residue(s) were excluded by template matching; histidine states: ${states}; altloc policy: ${preparation.altlocPolicy}, removing ${preparation.removedAltlocResidues} residue(s) for altloc.`,
     )
+    const missingClause =
+      preparation.incompleteResidues > 0
+        ? zh
+          ? `${preparation.incompleteResidues} 个标准残基存在缺失重原子（已报告，未重建）`
+          : `${preparation.incompleteResidues} standard residue(s) have missing heavy atoms (reported, not rebuilt)`
+        : null
     sentences.push(
       zh
-        ? '质子化与形式电荷继承输入结构和 Meeko 模板，缺失原子/loop 未重建；这些是本次方法学的已知边界。'
-        : 'Protonation and formal charges follow the input structure and Meeko templates; missing atoms/loops were not rebuilt. These are known boundaries of this protocol.',
+        ? `质子化与形式电荷继承输入结构和 Meeko 模板${missingClause ? `；${missingClause}` : ''}；这些是本次方法学的已知边界。`
+        : `Protonation and formal charges follow the input structure and Meeko templates${missingClause ? `; ${missingClause}` : ''}. These are known boundaries of this protocol.`,
     )
   }
 
   // ③ search box
   if (center && size) {
     const spacingClause = spacing !== null ? (zh ? `，网格间距 ${spacing} Å` : `, grid spacing ${spacing} Å`) : ''
+    const sourceLabel = boxSourceLabel(readString(params, 'box_source'), zh)
+    const sourceClause =
+      sourceLabel !== null
+        ? zh
+          ? `；盒子来源：${sourceLabel}`
+          : `; the box was ${sourceLabel}`
+        : ''
     sentences.push(
       zh
-        ? `对接盒中心为 (${center.map((v) => v.toFixed(3)).join(', ')}) Å，边长 ${size.map((v) => v.toFixed(1)).join(' × ')} Å${spacingClause}。`
-        : `The search box was centred at (${center.map((v) => v.toFixed(3)).join(', ')}) Å with edge lengths ${size.map((v) => v.toFixed(1)).join(' × ')} Å${spacingClause}.`,
+        ? `对接盒中心为 (${center.map((v) => v.toFixed(3)).join(', ')}) Å，边长 ${size.map((v) => v.toFixed(1)).join(' × ')} Å${spacingClause}${sourceClause}。`
+        : `The search box was centred at (${center.map((v) => v.toFixed(3)).join(', ')}) Å with edge lengths ${size.map((v) => v.toFixed(1)).join(' × ')} Å${spacingClause}${sourceClause}.`,
     )
   }
 

@@ -76,8 +76,10 @@ def _manifest_errors(path: Path, registry: dict[str, dict[str, Any]]) -> list[st
     if not isinstance(payload, dict):
         return [f"{path}: manifest must be an object"]
     version = payload.get("formatVersion")
-    if version != "1.1":
-        errors.append(f"{path}: benchmark manifest must use formatVersion 1.1")
+    if version not in {"1.1", "1.2"}:
+        errors.append(
+            f"{path}: benchmark manifest must use formatVersion 1.1 or 1.2"
+        )
         return errors
     dataset = payload.get("dataset")
     if not isinstance(dataset, dict):
@@ -149,6 +151,36 @@ def _manifest_errors(path: Path, registry: dict[str, dict[str, Any]]) -> list[st
             ch not in "0123456789abcdefABCDEF" for ch in digest
         ):
             errors.append(f"{label} needs a 64-character sourceSha256")
+
+        if version == "1.2":
+            mode = str(case.get("mode", "self"))
+            if mode not in {"self", "cross"}:
+                errors.append(f"{label} mode must be self or cross")
+            if mode == "cross":
+                receptors = case.get("receptors")
+                if not isinstance(receptors, list) or len(receptors) < 2:
+                    errors.append(f"{label} cross mode needs at least two receptors")
+                else:
+                    for r_index, receptor in enumerate(receptors, start=1):
+                        r_label = f"{label} receptor #{r_index}"
+                        if not isinstance(receptor, dict):
+                            errors.append(f"{r_label} is not an object")
+                            continue
+                        relative = receptor.get("path")
+                        if (
+                            not isinstance(relative, str)
+                            or not relative.strip()
+                            or Path(relative).is_absolute()
+                        ):
+                            errors.append(f"{r_label} needs a relative path")
+                        elif ".." in Path(relative).parts:
+                            errors.append(f"{r_label} path must not contain '..'")
+                        if receptor.get("structureKind", "holo") not in {
+                            "holo",
+                            "apo",
+                            "predicted",
+                        }:
+                            errors.append(f"{r_label} has an unknown structureKind")
 
     resources = payload.get("resources", [])
     if not isinstance(resources, list):

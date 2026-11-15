@@ -9,7 +9,7 @@ having to be imported across modules.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Final
 
 from vinastudio.core.chem.autodock_types import canonical_element
@@ -37,6 +37,8 @@ class ResidueSummary:
     name: str
     atoms: int
     hetero: bool
+    #: Atom names seen in this residue, uppercased; used for completeness checks.
+    atom_names: set[str] = field(default_factory=set)
 
     @property
     def is_water(self) -> bool:
@@ -147,6 +149,7 @@ def scan_residues(text: str) -> dict[str, ResidueSummary]:
             )
             collected[key] = summary
         summary.atoms += 1
+        summary.atom_names.add(line[12:16].strip().upper())
         if line.startswith("ATOM"):
             # A residue with any polymer record is not a hetero group.
             summary.hetero = False

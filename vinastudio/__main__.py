@@ -1,107 +1,51 @@
-"""Application entry point: start the local API server, then the Qt window."""
+"""Dispatch ``vinastudio`` between the headless CLI and the desktop shell.
+
+Top-level imports stay minimal so ``vinastudio --help`` and
+``import vinastudio.__main__`` do not pull in Qt or FastAPI.
+"""
 
 from __future__ import annotations
 
-import argparse
-import logging
-import multiprocessing
-import os
 import sys
 
-from vinastudio import __version__
-from vinastudio.config import APP_NAME, dev_server_url
-from vinastudio.desktop.server_thread import LocalServer
-from vinastudio.logging_setup import setup_logging
-from vinastudio.server.auth import generate_token
+CLI_COMMANDS = (
+    "prepare",
+    "dock",
+    "screen",
+    "validate",
+    "export",
+    "engines",
+    "server",
+    "version",
+)
 
-log = logging.getLogger(__name__)
 
+def _desktop(argv: list[str]) -> int:
+    try:
+        from vinastudio.desktop.launcher import main as desktop_main
 
-def _parse_args(argv: list[str] | None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(prog="vinastudio", description=__doc__)
-    parser.add_argument("--version", action="version", version=f"{APP_NAME} {__version__}")
-    parser.add_argument(
-        "--ui-url",
-        default=None,
-        help="Load the interface from this URL instead of the bundled build.",
-    )
-    parser.add_argument(
-        "--api-port",
-        type=int,
-        default=0,
-        help="Port for the loopback API server (0 picks a free port).",
-    )
-    parser.add_argument("--verbose", "-v", action="store_true", help="Enable debug logging.")
-    return parser.parse_args(argv)
+        return desktop_main(argv)
+    except ModuleNotFoundError as exc:
+        if (exc.name or "").split(".")[0] == "PySide6" or "PySide6" in str(exc):
+            print(
+                "The desktop interface is not installed; use "
+                "`pip install vinastudio[desktop]` or `vinastudio-cli --help`.",
+                file=sys.stderr,
+            )
+            return 2
+        raise
 
 
 def main(argv: list[str] | None = None) -> int:
-    # Frozen builds re-execute this entry point for every spawned worker; the
-    # child's argv starts with ``--multiprocessing-fork``. PyInstaller's runtime
-    # hook only *replaces* ``freeze_support`` — it never calls it — so without
-    # this line the child parses the GUI's arguments and dies (or, in a windowed
-    # build, blocks on the bootloader's traceback dialog) instead of running the
-    # docking worker: the job stays at 0% with no CPU use. It must run before
-    # ``_parse_args``, and it is a no-op in a normal Python process.
-    multiprocessing.freeze_support()
+    args = list(sys.argv[1:] if argv is None else argv)
+    first = args[0] if args else None
+    if first in CLI_COMMANDS or first in {"--help", "-h", "--version"}:
+        from vinastudio.cli.main import main as cli_main
 
-    args = _parse_args(argv)
-
-    # PyInstaller's windowed mode leaves sys.stdout/sys.stderr as None, because a
-    # GUI process has no console. Nothing here may touch them — but a build
-    # machine hands the child valid handles, so the packaging check asks for the
-    # condition instead of hoping to inherit it. This is a CI seam, like
-    # VINASTUDIO_CONSOLE_BUILD, not a user option.
-    if os.environ.get("VINASTUDIO_SIMULATE_NO_CONSOLE"):
-        sys.stdout = None
-        sys.stderr = None
-
-    setup_logging(logging.DEBUG if args.verbose else logging.INFO)
-
-    # Order matters: the Chromium environment must be configured before any
-    # QtWebEngine module is imported.
-    from vinastudio.desktop.env import prepare_qt_environment
-
-    prepare_qt_environment()
-
-    from PySide6.QtCore import QCoreApplication, Qt
-    from PySide6.QtWidgets import QApplication
-
-    # QtWebEngine requires shared OpenGL contexts; this must precede QApplication.
-    QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
-    application = QApplication(sys.argv[:1])
-    application.setApplicationName(APP_NAME)
-    application.setApplicationVersion(__version__)
-    application.setOrganizationName(APP_NAME)
-
-    from vinastudio.desktop.theme import app_icon
-    from vinastudio.server.app import create_app
-
-    application.setWindowIcon(app_icon())
-
-    # One token per process: it never touches disk, and a restarted session
-    # invalidates any token an old page still holds. The CI name is a test seam
-    # for the frozen-build check; a normal launch never sets it.
-    api_token = os.environ.get("VINASTUDIO_CI_API_TOKEN") or generate_token()
-    server = LocalServer(create_app(token=api_token), port=args.api_port)
-    try:
-        server.start()
-    except Exception:
-        log.exception("Unable to start the local API server")
-        return 1
-
-    url = args.ui_url or dev_server_url() or server.base_url
-    log.info("Loading interface from %s", url)
-
-    from vinastudio.desktop.main_window import MainWindow
-
-    window = MainWindow(url, api_token=api_token)
-    window.show()
-
-    try:
-        return application.exec()
-    finally:
-        server.stop()
+        return cli_main(args)
+    if first == "desktop":
+        return _desktop(args[1:])
+    return _desktop(args)
 
 
 if __name__ == "__main__":

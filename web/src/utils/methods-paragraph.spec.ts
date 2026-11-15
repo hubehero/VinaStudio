@@ -39,6 +39,8 @@ describe('Methods preparation summary', () => {
         histidineStates: ['A:246 HIP', 'A:295 HIE'],
         altlocPolicy: 'A',
         removedAltlocResidues: 2,
+        incompleteResidues: 1,
+        completenessPolicy: 'report-only',
       }),
       'en',
     )
@@ -46,12 +48,27 @@ describe('Methods preparation summary', () => {
     expect(body).toContain('kept 1 water(s)')
     expect(body).toContain('A:246 HIP')
     expect(body).toContain('altloc policy: A')
-    expect(body).toContain('missing atoms/loops were not rebuilt')
+    expect(body).toContain('1 standard residue(s) have missing heavy atoms')
   })
 
   it('does not invent a preparation paragraph when none was recorded', () => {
     const { body } = buildMethodsText(input(), 'en')
     expect(body).not.toContain('Receptor preparation removed')
+  })
+
+  it('records how the search box was chosen', () => {
+    const base = input()
+    const en = buildMethodsText(
+      { ...base, params: { ...base.params, box_source: 'ligand' } },
+      'en',
+    )
+    expect(en.body).toContain('autoboxed from the ligand')
+
+    const zh = buildMethodsText(
+      { ...base, params: { ...base.params, box_source: 'pocket' } },
+      'zh',
+    )
+    expect(zh.body).toContain('盒子来源：由候选位点确定')
   })
 
   it('renders the Chinese boundary sentence', () => {
@@ -65,10 +82,12 @@ describe('Methods preparation summary', () => {
         histidineStates: [],
         altlocPolicy: 'blank/default',
         removedAltlocResidues: 0,
+        incompleteResidues: 1,
+        completenessPolicy: 'report-only',
       }),
       'zh',
     )
     expect(body).toContain('保留 2 个水')
-    expect(body).toContain('缺失原子/loop 未重建')
+    expect(body).toContain('缺失重原子')
   })
 })

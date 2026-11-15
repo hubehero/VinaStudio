@@ -51,8 +51,8 @@ JavaScript; it does not fetch fonts, models or remote data.
 Content is a guided explanation, not a second specification. Behaviour is
 defined by the code and by:
 
-- [`../STRUCTURE.zh-CN.md`](../STRUCTURE.zh-CN.md)
-- [`../ARCHITECTURE.zh-CN.md`](../ARCHITECTURE.zh-CN.md)
+- [`../USER_GUIDE.zh-CN.md`](../USER_GUIDE.zh-CN.md)
+- [`../CLI.zh-CN.md`](../CLI.zh-CN.md)
 - [`../ACADEMIC_VALIDATION.zh-CN.md`](../ACADEMIC_VALIDATION.zh-CN.md)
 - [`../MOLECULE_CATALOG.zh-CN.md`](../MOLECULE_CATALOG.zh-CN.md)
 

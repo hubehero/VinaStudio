@@ -257,7 +257,10 @@ export const useCatalogStore = defineStore('catalog', () => {
     await loadContext()
   }
 
-  async function prepareMolecule(id: string, options?: CatalogPrepareOptions): Promise<void> {
+  async function prepareMolecule(
+    id: string,
+    options?: CatalogPrepareOptions,
+  ): Promise<CatalogMolecule> {
     const updated = await api.catalogPrepareMolecule(id, options)
     const index = molecules.value.findIndex((item) => item.id === id)
     if (index >= 0) molecules.value[index] = updated
@@ -266,6 +269,17 @@ export const useCatalogStore = defineStore('catalog', () => {
     }
     await loadContext()
     if (scope.value.kind === 'prepared') await search()
+    return updated
+  }
+
+  /** Select which enumerated ligand state the docking pipeline should use. */
+  async function selectLigandState(id: string, stateId: string): Promise<void> {
+    const updated = await api.catalogPatchMolecule(id, {
+      metadata: { selectedState: stateId },
+    })
+    const index = molecules.value.findIndex((item) => item.id === id)
+    if (index >= 0) molecules.value[index] = updated
+    useMoleculeStore().adoptCatalogMolecule(updated)
   }
 
   /** Bridge every prepared Catalog molecule into the legacy docking pipeline.
@@ -542,6 +556,7 @@ export const useCatalogStore = defineStore('catalog', () => {
     selectMolecule,
     patchMolecule,
     prepareMolecule,
+    selectLigandState,
     unprepareMolecule,
     verifyPrepared,
     adoptPreparedForPipeline,
