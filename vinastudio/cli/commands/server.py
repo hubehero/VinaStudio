@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import argparse
 import os
-import sys
 from typing import Any
+
+from vinastudio.cli.errors import InputError
 
 
 def add_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -24,12 +25,13 @@ def add_parser(subparsers: argparse._SubParsersAction) -> None:
 
 def run(args: argparse.Namespace) -> tuple[dict[str, Any], str]:
     from vinastudio.server.app import create_app
-    from vinastudio.server.auth import generate_token
 
-    supplied = args.token or os.environ.get("VINASTUDIO_API_TOKEN")
-    token = supplied or generate_token()
-    if supplied is None:
-        print(f"API token: {token}", file=sys.stderr)
+    token = args.token or os.environ.get("VINASTUDIO_API_TOKEN")
+    if not token:
+        raise InputError(
+            "server needs an explicit --token or VINASTUDIO_API_TOKEN; "
+            "do not expose an unauthenticated API"
+        )
     import uvicorn
 
     uvicorn.run(
