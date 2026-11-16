@@ -583,8 +583,8 @@
   },
   "properties": {
     "schemaVersion": {
-      "const": "1.0",
       "default": "1.0",
+      "pattern": "^1\\.\\d+$",
       "title": "Schemaversion",
       "type": "string"
     },

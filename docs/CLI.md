@@ -45,6 +45,20 @@ One-shot commands accept `--json`; stdout then contains one JSON envelope and
 nothing else. Engine progress is written to stderr. `server` is long-running and
 does not use the envelope.
 
+## Schema versions
+
+The three headless contracts are versioned independently:
+
+- **Inputs — `job.json` and `screen.json`:** the supported version is exactly
+  `1.0`. Unknown fields are rejected so a typo is an input error (exit code 2),
+  and a newer `1.x` input is rejected explicitly rather than silently ignored.
+- **Output — `result.json`:** a `1.x` reader accepts a newer minor version and
+  ignores unknown fields, so additive data does not break consumers. A `2.0`
+  result requires a new reader; there is no automatic migration.
+- Schemas are generated from the Pydantic models under `schemas/`
+  (`job-1.0`, `result-1.0`, `screen-1.0`). A version change is a contract change,
+  not a documentation-only edit.
+
 ## `job.json`
 
 Paths are resolved relative to the job file (absolute paths are kept). The
@@ -85,7 +99,7 @@ result is written atomically.
 
 ## `screen.json`
 
-Screening is currently one sequential worker (`--parallelism 1` only); it reuses
+Screening is one sequential worker (`--parallelism 1` only); it reuses
 the GUI's `screening_worker`, including lazy ligand preparation and per-entry
 artifacts. The box must be manual because a library has no single ligand.
 

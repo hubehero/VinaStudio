@@ -2,10 +2,11 @@
 
 **English** · [简体中文](WINDOWS.zh-CN.md) · [Home](../README.en.md)
 
-> **Status (2026-11-14).** Windows is supported from **0.4.0**. The current
-> **0.7.1** release is built by CI; the 2026-10-20 real-machine walkthrough
+> **Status (2026-11-16).** Windows is supported from **0.4.0**. The current
+> **0.7.3** release is built by CI; the 2026-10-20 real-machine walkthrough
 > validated the 0.3.0 development build. No new manual walkthrough was done for
-> 0.7.1, so this page separates the hardware walkthrough from the CI build.
+> 0.7.1, 0.7.2 or 0.7.3, so this page separates the hardware walkthrough from the
+> CI build.
 >
 > This page covers what is supported, what works, where the boundaries are, and
 > how to diagnose a problem. The scientific conventions (energies are not
@@ -24,7 +25,7 @@
 | Installer size | about 230 MB |
 | Graphics | A Direct3D 11 GPU (Intel, NVIDIA or AMD); WebGL goes through ANGLE onto D3D11 |
 | Docking engine | The bundled **AutoDock Vina 1.2.7 command-line binary** (Apache-2.0) |
-| Availability | **0.4.0+**; 0.7.1 is the current release, CI-built. The real-machine walkthrough covered the 0.3.0 development build |
+| Availability | **0.4.0+**; 0.7.3 is the current release, CI-built. The real-machine walkthrough covered the 0.3.0 development build |
 | Code signing | **Unsigned by default**, so SmartScreen asks for confirmation on first run; CI can sign when certificate secrets are configured (see §4.3) |
 
 The installer carries the Python runtime, the scientific stack and the Vina
@@ -205,8 +206,13 @@ administrator rights.
   tag `v0.6.9`; its asset sizes and SHA-256 values are recorded on the release page.
 - **0.7.0 release build (historical)**: produced by the same CI pipeline from
   tag `v0.7.0`; its asset sizes and SHA-256 values are recorded on the release page.
-- **0.7.1 release build**: produced by the same CI pipeline from tag `v0.7.1`;
-  its asset sizes and SHA-256 values are recorded on the release page.
+- **0.7.3 release build**: produced by the same CI pipeline from tag `v0.7.3`;
+  asset sizes and SHA-256 values are recorded on the release page.
+- **0.7.2 release build (historical)**: produced by the same CI pipeline from
+  tag `v0.7.2`; `vinastudio-0.7.2-setup.exe` is 232,488,219 bytes.
+- **0.7.1 release build (historical)**: produced by the same CI pipeline from
+  tag `v0.7.1`; its asset sizes and SHA-256 values are recorded on the release
+  page.
 - **0.6.2 historical installer**: `vinastudio-0.6.2-setup.exe`,
   232,152,460 bytes, SHA-256
   `1147bdaae7e5bf8f6a6dafd2702e424e70dc3127184f3aaa2292d197f764938b`,

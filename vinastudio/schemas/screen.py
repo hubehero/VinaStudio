@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Literal
-
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from vinastudio.schemas.job import BoxConfig, DockingParameters, ReceptorInput
+from vinastudio.schemas.version import INPUT_VERSION_PATTERN, validate_input_version
+
+SCREEN_SCHEMA_VERSION = "1.0"
 
 
 class ScreenEntry(BaseModel):
@@ -21,7 +22,9 @@ class ScreenEntry(BaseModel):
 class ScreenConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    schemaVersion: Literal["1.0"] = "1.0"
+    schemaVersion: str = Field(
+        default=SCREEN_SCHEMA_VERSION, pattern=INPUT_VERSION_PATTERN
+    )
     receptor: ReceptorInput
     libraryPath: str = Field(min_length=1)
     entries: list[ScreenEntry] | None = None
@@ -29,6 +32,11 @@ class ScreenConfig(BaseModel):
     parameters: DockingParameters = Field(default_factory=DockingParameters)
     labelsPath: str | None = None
     enrichmentAlpha: float = Field(default=20.0, gt=0)
+
+    @field_validator("schemaVersion", mode="before")
+    @classmethod
+    def _schema_version(cls, value: object) -> str:
+        return validate_input_version(value, "screen.json")
 
     @model_validator(mode="after")
     def _screening_rules(self) -> ScreenConfig:

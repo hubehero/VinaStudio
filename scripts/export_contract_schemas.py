@@ -8,6 +8,7 @@ from pathlib import Path
 
 from vinastudio.schemas.job import JOB_SCHEMA_VERSION, JobConfig
 from vinastudio.schemas.result import RESULT_SCHEMA_VERSION, DockResult
+from vinastudio.schemas.screen import SCREEN_SCHEMA_VERSION, ScreenConfig
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMAS = ROOT / "schemas"
@@ -30,6 +31,9 @@ def main() -> int:
         ),
         f"result-{RESULT_SCHEMA_VERSION}.schema.json": _schema(
             DockResult, f"urn:vinastudio:result:{RESULT_SCHEMA_VERSION}"
+        ),
+        f"screen-{SCREEN_SCHEMA_VERSION}.schema.json": _schema(
+            ScreenConfig, f"urn:vinastudio:screen:{SCREEN_SCHEMA_VERSION}"
         ),
     }
     for name, payload in files.items():

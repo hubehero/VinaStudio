@@ -43,6 +43,18 @@ uv run vinastudio-cli version --json
 一次性命令支持 `--json`；此时 stdout 只有 JSON envelope，引擎进度写到 stderr。
 `server` 是长驻服务，不使用该 envelope。
 
+## Schema 版本
+
+三个无界面契约分别管理版本：
+
+- **输入 — `job.json` 与 `screen.json`：** 支持的版本严格为 `1.0`。未知字段会被
+  拒绝，以便把拼写错误当作输入错误（退出码 2）；更新的 `1.x` 输入会明确报错，
+  不会静默忽略。
+- **输出 — `result.json`：** `1.x` reader 接受更新的 minor 版本并忽略未知字段，
+  因此增量数据不会破坏读取端。`2.0` 结果需要新 reader；没有自动迁移。
+- Schema 由 `schemas/` 下的 Pydantic 模型生成
+  （`job-1.0`、`result-1.0`、`screen-1.0`）。版本变化属于契约变化，不是只改文档。
+
 ## `job.json`
 
 路径相对 job 文件解析（绝对路径保留）。严格 schema 见
@@ -81,7 +93,7 @@ uv run vinastudio-cli version --json
 
 ## `screen.json`
 
-筛选目前是单进程顺序执行（`--parallelism 1`），复用界面的
+筛选是单进程顺序执行（`--parallelism 1`），复用界面的
 `screening_worker`，包括按需准备配体和逐条工件。盒子必须是 manual：
 一个库没有“单个配体”可用来推导盒子。
 

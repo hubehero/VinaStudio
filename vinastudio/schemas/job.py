@@ -10,9 +10,10 @@ from __future__ import annotations
 import math
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from vinastudio.config import ScoringFunction
+from vinastudio.schemas.version import INPUT_VERSION_PATTERN, validate_input_version
 
 JOB_SCHEMA_VERSION = "1.0"
 BoxSource = Literal["ligand", "manual"]
@@ -114,9 +115,16 @@ class JobConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schemaVersion: Literal["1.0"] = JOB_SCHEMA_VERSION
+    schemaVersion: str = Field(
+        default=JOB_SCHEMA_VERSION, pattern=INPUT_VERSION_PATTERN
+    )
     receptor: ReceptorInput
     ligand: LigandInput
     box: BoxConfig = Field(default_factory=BoxConfig)
     parameters: DockingParameters = Field(default_factory=DockingParameters)
     reference: ReferenceConfig | None = None
+
+    @field_validator("schemaVersion", mode="before")
+    @classmethod
+    def _schema_version(cls, value: object) -> str:
+        return validate_input_version(value, "job.json")

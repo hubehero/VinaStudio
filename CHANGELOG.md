@@ -12,6 +12,24 @@ entries about the product — no internal task ids or workflow narration.
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-11-16
+
+### 变更
+
+- **接口契约版本规则**：`result.json` 的 `1.x` reader 接受新增字段；`job.json` / `screen.json` 保持严格 `1.0`，未知字段仍是输入错误；三者明确拒绝 `2.0`。新增 `screen-1.0.schema.json` 与 1.0 契约示例。
+- **依赖更新**：更新前端（Vue、Element Plus、Vue I18n、Vue Router、Playwright、Vite、Vitest 等）与 Python 运行时/工具（FastAPI、Pydantic、pytest-asyncio、Ruff）；不改变对接引擎。
+- **文档**：CLI 文档补充 schema 版本兼容规则；当前发布文档更新到 0.7.3。
+
+### Changed
+
+- **Contract version rules**: `result.json` readers accept additive `1.x` data; `job.json` and `screen.json` stay strict at `1.0` and still reject unknown fields; all three reject `2.0`. Added `screen-1.0.schema.json` and 1.0 contract examples.
+- **Dependency updates**: refreshed the frontend (Vue, Element Plus, Vue I18n, Vue Router, Playwright, Vite, Vitest and related tools) and Python runtime/tooling (FastAPI, Pydantic, pytest-asyncio, Ruff); the docking engine is unchanged.
+- **Documentation**: the CLI documentation now states the schema compatibility rules, and the current-release pages point at 0.7.3.
+
+### Out of scope
+
+- No PoseBusters, cross-docking, or enrichment benchmark was rerun for this release; no new accuracy or enrichment claim is made.
+
 ## [0.7.2] - 2026-11-15
 
 

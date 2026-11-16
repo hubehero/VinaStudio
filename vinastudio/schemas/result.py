@@ -9,7 +9,9 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from vinastudio.schemas.version import OUTPUT_VERSION_PATTERN, validate_output_version
 
 RESULT_SCHEMA_VERSION = "1.0"
 Severity = Literal["error", "warning"]
@@ -153,7 +155,9 @@ class Provenance(BaseModel):
 class DockResult(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
-    schemaVersion: Literal["1.0"] = RESULT_SCHEMA_VERSION
+    schemaVersion: str = Field(
+        default=RESULT_SCHEMA_VERSION, pattern=OUTPUT_VERSION_PATTERN
+    )
     software: SoftwareInfo
     engine: EngineInfo
     inputs: InputFiles
@@ -165,3 +169,8 @@ class DockResult(BaseModel):
     validation: ValidationBlock = Field(default_factory=ValidationBlock)
     analysis: dict[str, Any] | None = None
     provenance: Provenance
+
+    @field_validator("schemaVersion", mode="before")
+    @classmethod
+    def _schema_version(cls, value: object) -> str:
+        return validate_output_version(value, "result.json")

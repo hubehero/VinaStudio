@@ -324,8 +324,8 @@
   "description": "One headless docking job; the ``--config`` file in the CLI.",
   "properties": {
     "schemaVersion": {
-      "const": "1.0",
       "default": "1.0",
+      "pattern": "^1\\.0$",
       "title": "Schemaversion",
       "type": "string"
     },
