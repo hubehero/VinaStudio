@@ -528,7 +528,7 @@ async function copySmiles(): Promise<void> {
     await navigator.clipboard.writeText(value)
     ElMessage.success(t('catalog.smilesCopied'))
   } catch {
-    ElMessage.error(t('common.copyFailed'))
+    ElMessage.error(t('common.copiedFailed'))
   }
 }
 

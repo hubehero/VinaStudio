@@ -12,6 +12,28 @@ entries about the product — no internal task ids or workflow narration.
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-11-16
+
+### 修复
+
+- **源码/容器安装路径**：前端未构建或 static 为空时，wheel 构建会明确失败，不再产出没有界面的空壳；Docker 构建会先生成前端资源。
+- **许可文件随包分发**：wheel、deb 与 Windows 安装目录现在包含 `LICENSE`、`THIRD_PARTY_LICENSES.md` 和 `licenses/`；deb 同时安装 `copyright`。
+- **本地 API 的 Host 校验**：即使开发服务器未启用 token，也会拒绝非环回 Host，避免 DNS rebinding 读取本地 API。
+- **Catalog 复制提示**：修复不存在的 `common.copyFailed` key。
+- **Debian 包元数据**：补齐 Maintainer 邮箱、Homepage 与 copyright，deb 以 root-owned 文件构建。
+
+### Fixed
+
+- **Source and container installs**: wheel builds fail clearly when the frontend is missing or empty instead of shipping a UI-less wheel; Docker builds the frontend first.
+- **Licence inventory**: wheel, deb and Windows installs now include `LICENSE`, `THIRD_PARTY_LICENSES.md` and `licenses/`; the deb also installs `copyright`.
+- **Local API Host check**: the development server rejects non-loopback Host headers even when no token is enabled, closing the DNS-rebinding path.
+- **Catalog copy message**: replaced the missing `common.copyFailed` key.
+- **Debian metadata**: added the Maintainer address, Homepage and copyright, and built the deb with root-owned files.
+
+### Out of scope
+
+- No PoseBusters, cross-docking or enrichment benchmark was rerun for this release; no new accuracy or enrichment claim is made.
+
 ## [0.7.3] - 2026-11-16
 
 ### 变更

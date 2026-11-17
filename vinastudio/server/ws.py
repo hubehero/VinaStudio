@@ -166,12 +166,14 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         await websocket.close(code=1008)  # policy violation, before accept()
         return
 
+    # Host validation is independent of the token; no-token development
+    # mode must still reject a rebinding host.
+    if not host_is_trusted(websocket.headers.get("host")):
+        await websocket.close(code=1008)
+        return
     expected = websocket.app.state.api_token
     chosen_protocol: str | None = None
     if expected is not None:
-        if not host_is_trusted(websocket.headers.get("host")):
-            await websocket.close(code=1008)
-            return
         # Parse the handshake header rather than ASGI's ``subprotocols`` list:
         # test clients and some servers only populate one of the two.
         offered = [

@@ -4,7 +4,7 @@
 
 **Report version:** 1.1
 **Report target:** 0.6.5 (historical control; see addenda below)
-**Current release:** 0.7.3
+**Current release:** 0.7.4
 
 **Report date:** 2026-11-02
 **Status:** reproducible software-validation report, not a peer-reviewed
@@ -17,8 +17,9 @@ benchmark paper.
 > caching and a read-only Prepared library; 0.7.1 adds verified in-app update
 > downloads; 0.7.2 adds the headless CLI, file contracts, screening, packaging
 > and interop exports; 0.7.3 adds contract compatibility rules and dependency
-> updates. None changes the docking engine. No new docking result is claimed for
-> 0.7.1, 0.7.2, or 0.7.3.
+> updates; 0.7.4 adds installation, licensing and local-API hardening fixes.
+> None changes the docking engine. No new docking result is claimed for 0.7.1,
+> 0.7.2, 0.7.3, or 0.7.4.
 
 > **Development addendum (2026-11-02, 0.6.6 worktree).** An open PoseBusters
 > 4-target pilot was run as a plumbing check: v1 1/4, v2 3/4 (5SIS remains a

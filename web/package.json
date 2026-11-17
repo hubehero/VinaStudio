@@ -1,7 +1,7 @@
 {
   "name": "vinastudio-web",
   "private": true,
-  "version": "0.7.3",
+  "version": "0.7.4",
   "type": "module",
   "description": "Vue 3 interface for the VinaStudio docking workbench",
   "scripts": {

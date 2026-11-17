@@ -151,14 +151,16 @@ def create_app(token: str | None = None) -> FastAPI:
     # browser-facing CSRF guard.
     @app.middleware("http")
     async def _require_local_token(request: Request, call_next: Any) -> Any:
-        expected = app.state.api_token
-        if expected is None:
-            return await call_next(request)
+        # The Host check does not depend on the token: even the no-token
+        # development mode must reject a DNS-rebinding host.
         if not host_is_trusted(request.headers.get("host")):
             return JSONResponse(
                 status_code=403,
                 content={"detail": "unexpected Host header"},
             )
+        expected = app.state.api_token
+        if expected is None:
+            return await call_next(request)
         path = request.url.path
         protected = path == "/api" or path.startswith(("/api/", "/artifacts/"))
         if protected and not token_matches(expected, request.headers.get(TOKEN_HEADER)):

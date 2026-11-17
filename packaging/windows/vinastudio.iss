@@ -7,7 +7,7 @@
 ; The /DVERSION flag overrides the default below.
 
 #ifndef VERSION
-  #define VERSION "0.7.3"
+  #define VERSION "0.7.4"
 #endif
 
 #define MyAppName "VinaStudio"
@@ -68,6 +68,10 @@ Name: "associatefiles"; Description: "Associate .pdb and .sdf files with VinaStu
 
 [Files]
 Source: "{#MyAppSource}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Keep licence texts installed beside the application, not only in the wizard.
+Source: "..\..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\THIRD_PARTY_LICENSES.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\licenses\*"; DestDir: "{app}\licenses"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

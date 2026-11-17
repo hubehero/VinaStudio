@@ -241,6 +241,9 @@ harness 本身支持任意数量的 case，但**没有在仓库里内置 10–20
 > 协议；本版没有重跑 PoseBusters、cross-docking 或富集基准，不新增准确率或
 > 富集声明。
 
+> **0.7.4 说明：** 0.7.4 修复源码/容器安装路径、产物许可、无 token 模式的
+> Host 校验和 Debian 元数据；没有改变对接引擎或科学协议，也没有重跑基准。
+
 ## 10. Open benchmark pilot（0.6.6 开发树）
 
 开放层已建立 `validation/benchmark/`：许可注册表、1.1 manifest、数据策略检查、

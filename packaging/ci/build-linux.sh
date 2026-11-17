@@ -132,7 +132,13 @@ cp packaging/linux/debian/postinst "${DEB_PKG_DIR}/DEBIAN/postinst"
 cp packaging/linux/debian/prerm "${DEB_PKG_DIR}/DEBIAN/prerm"
 chmod 755 "${DEB_PKG_DIR}/DEBIAN/postinst" "${DEB_PKG_DIR}/DEBIAN/prerm"
 
-dpkg-deb --build "${DEB_PKG_DIR}" "dist/vinastudio_${VERSION}_amd64.deb"
+# Licence texts must be installed, not just shown by the Windows wizard.
+mkdir -p "${DEB_PKG_DIR}/usr/share/doc/vinastudio"
+cp packaging/linux/debian/copyright "${DEB_PKG_DIR}/usr/share/doc/vinastudio/copyright"
+cp LICENSE THIRD_PARTY_LICENSES.md "${DEB_PKG_DIR}/usr/share/doc/vinastudio/"
+cp -a licenses "${DEB_PKG_DIR}/usr/share/doc/vinastudio/licenses"
+
+dpkg-deb --build --root-owner-group "${DEB_PKG_DIR}" "dist/vinastudio_${VERSION}_amd64.deb"
 
 # ---------------------------------------------------------------------------
 # 8. Create tarball

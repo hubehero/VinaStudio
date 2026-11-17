@@ -158,7 +158,9 @@ trap 'exit 130' INT TERM HUP
 
 # VINASTUDIO_DEV_SERVER_URL enables the dev CORS policy. The Vite proxy means
 # the browser never calls the API cross-origin, but keeping the flag matches the
-# desktop dev launcher and avoids surprising direct API requests.
+# desktop dev launcher and avoids surprising direct API requests. No token is
+# injected into this browser dev flow, but the server still rejects non-loopback
+# Host headers (DNS rebinding).
 setsid env VINASTUDIO_DEV_SERVER_URL="$WEB_URL" \
     uv run uvicorn vinastudio.server.app:create_app \
     --factory --host 127.0.0.1 --port "$API_PORT" --log-level info &

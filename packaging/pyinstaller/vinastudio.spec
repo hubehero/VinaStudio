@@ -34,6 +34,10 @@ datas = [
     (str(VINASTUDIO_PKG / "resources"), str(Path("vinastudio") / "resources")),
     # Desktop assets (icon.svg, etc.)
     (str(VINASTUDIO_PKG / "desktop" / "assets"), str(Path("vinastudio") / "desktop" / "assets")),
+    # Licence texts must travel with the redistributed Vina/Qt/Meeko binaries.
+    (str(REPO_ROOT / "LICENSE"), str(Path("vinastudio") / "LICENSE")),
+    (str(REPO_ROOT / "THIRD_PARTY_LICENSES.md"), str(Path("vinastudio") / "THIRD_PARTY_LICENSES.md")),
+    (str(REPO_ROOT / "licenses"), str(Path("vinastudio") / "licenses")),
 ]
 
 # ---------------------------------------------------------------------------
