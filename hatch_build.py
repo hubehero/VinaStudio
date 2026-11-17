@@ -32,4 +32,8 @@ class FrontendAssetsRequired(BuildHookInterface):
     PLUGIN_NAME = "custom"
 
     def initialize(self, version: str, build_data: dict[str, object]) -> None:
+        # Editable installs are development environments; the frontend is
+        # built later in the packaging scripts. The guard is for shipped wheels.
+        if version == "editable":
+            return
         require_frontend_assets(self.root)
